@@ -10,7 +10,6 @@
   <meta name="theme-color" content="#000000" />
   <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='120' fill='%23181b20'/><polygon points='210,160 360,256 210,352' fill='%233b82f6'/></svg>" />
   <link rel="manifest" href='data:application/manifest+json,{"name":"WatchLog","short_name":"WatchLog","start_url":".","display":"standalone","background_color":"%23000000","theme_color":"%23000000"}' />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root{--bg:#000;--card:#15181e;--inner:#1e222a;--blue:#2563eb;--blue2:#60a5fa;--text:#fff;--muted:#8e95a2;--border:#232730;--green:#34d399;--red:#ef4444;--amber:#fbbf24;--radius:20px}
     *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",sans-serif;-webkit-tap-highlight-color:transparent}
@@ -38,13 +37,8 @@
         <div class="form-group"><label for="auth-password">Password</label><input id="auth-password" type="password" autocomplete="current-password" required placeholder="••••••••" /></div>
         <button id="auth-submit" class="btn btn-primary btn-full" type="submit">Log In</button>
       </form>
-      <form id="recovery-form" class="hidden">
-        <div class="form-group"><label for="recovery-password">New Password</label><input id="recovery-password" type="password" autocomplete="new-password" required placeholder="••••••••" /></div>
-        <div class="form-group"><label for="recovery-password-confirm">Confirm New Password</label><input id="recovery-password-confirm" type="password" autocomplete="new-password" required placeholder="••••••••" /></div>
-        <button id="recovery-submit" class="btn btn-primary btn-full" type="submit">Save New Password</button>
-      </form>
       <div id="auth-toggle" class="auth-toggle">Don't have an account? Sign Up</div>
-      <button id="forgot-password" class="btn btn-secondary btn-full" type="button">Reset Password</button>
+      <div class="message info">Local-only mode: accounts and libraries stay in this browser on this device. No email is sent and there are no recovery links.</div>
     </div>
   </div>
 
@@ -58,7 +52,7 @@
 
   <main class="container">
     <div id="library-view"><div id="list-label" class="section-label">Titles</div><div id="media-list" class="titles-group"></div><div id="empty-state" class="hidden" style="text-align:center;margin-top:40px;color:var(--muted)">No titles found. Tap <strong>+</strong> to start.</div></div>
-    <div id="settings-view" class="hidden"><div class="section-label">Account & Sync</div><div class="profile-card"><div class="profile-header"><div id="avatar" class="avatar">U</div><div class="profile-info"><h3 id="profile-name">User</h3><p id="profile-email"></p></div></div><div class="sync-box"><div class="sync-title"><div id="sync-dot" class="sync-dot"></div>Cross-device account</div><div id="sync-status" class="sync-text">Checking cloud account…</div><button id="refresh-cloud" class="btn btn-secondary btn-full" type="button">Refresh from Cloud</button></div><button id="logout-btn" class="btn btn-danger btn-full">Log Out</button></div></div>
+    <div id="settings-view" class="hidden"><div class="section-label">Local Account</div><div class="profile-card"><div class="profile-header"><div id="avatar" class="avatar">U</div><div class="profile-info"><h3 id="profile-name">User</h3><p id="profile-email"></p></div></div><div class="sync-box"><div class="sync-title"><div id="sync-dot" class="sync-dot ok"></div>Stored on this device</div><div id="sync-status" class="sync-text">This account and its library are stored only in this browser. No cloud account, SMTP, email verification or password-reset service is used.</div><button id="reload-local" class="btn btn-secondary btn-full" type="button">Reload Local Data</button></div><button id="logout-btn" class="btn btn-danger btn-full">Log Out</button></div></div>
   </main>
 
   <nav class="bottom-tabs">
@@ -74,22 +68,26 @@
   "use strict";
 
   /* =========================================================
-     REQUIRED CLOUD CONFIGURATION
+     LOCAL-ONLY ACCOUNT STORAGE
      ---------------------------------------------------------
-     Every account uses Supabase Auth. Every media row is bound
-     to auth.uid() in Postgres and protected by RLS.
-     Do NOT put a service_role key in this file.
+     No Supabase, AWS SES, SMTP, email verification, recovery
+     links, CloudKit, or remote account service is used.
+
+     The local account registry stores:
+       - a SHA-256 email lookup hash
+       - a salted PBKDF2 password verifier
+       - a random local account id
+
+     Each account's readable profile and library are stored in a
+     separate IndexedDB database derived from that random account
+     id. The registry never stores the plaintext password.
      ========================================================= */
-  const SUPABASE_CONFIG = {
-    url: "https://okkwteywtgfsnlrjdyhv.supabase.co",
-    publishableKey: "sb_publishable_m_kQ30ayzPzNYm585knfpg_D5GXMuF-"
-  };
 
-  /* Optional server endpoint for an IMDb cross-check. Leave blank if unused. */
   const IMDB_VERIFY_ENDPOINT = "";
+  const LOCAL_ACCOUNTS_KEY = "watchlog_local_accounts_v1";
+  const LOCAL_SESSION_KEY = "watchlog_local_session_v1";
+  const PASSWORD_ITERATIONS = 150000;
 
-  let sb = null;
-  let session = null;
   let currentUser = null;
   let currentProfile = null;
   let mediaItems = [];
@@ -99,15 +97,13 @@
   let currentTab = "library";
   let searchQuery = "";
   let searchTimer = null;
-  let recoveryMode = false;
 
   const $ = id => document.getElementById(id);
-  const authScreen = $("auth-screen"), authForm = $("auth-form"), authTitle = $("auth-title"), authSub = $("auth-sub"), authNameGroup = $("auth-name-group"), authEmail = $("auth-email"), authPassword = $("auth-password"), authName = $("auth-name"), authSubmit = $("auth-submit"), authToggle = $("auth-toggle"), authMessage = $("auth-message"), forgotPassword = $("forgot-password"), recoveryForm = $("recovery-form"), recoveryPassword = $("recovery-password"), recoveryPasswordConfirm = $("recovery-password-confirm"), recoverySubmit = $("recovery-submit");
-  const navName = $("nav-name"), userPill = $("user-pill"), libraryView = $("library-view"), settingsView = $("settings-view"), profileName = $("profile-name"), profileEmail = $("profile-email"), avatar = $("avatar"), syncDot = $("sync-dot"), syncStatus = $("sync-status"), refreshCloud = $("refresh-cloud"), logoutBtn = $("logout-btn");
+  const authScreen = $("auth-screen"), authForm = $("auth-form"), authTitle = $("auth-title"), authSub = $("auth-sub"), authNameGroup = $("auth-name-group"), authEmail = $("auth-email"), authPassword = $("auth-password"), authName = $("auth-name"), authSubmit = $("auth-submit"), authToggle = $("auth-toggle"), authMessage = $("auth-message");
+  const navName = $("nav-name"), userPill = $("user-pill"), libraryView = $("library-view"), settingsView = $("settings-view"), profileName = $("profile-name"), profileEmail = $("profile-email"), avatar = $("avatar"), syncDot = $("sync-dot"), syncStatus = $("sync-status"), reloadLocal = $("reload-local"), logoutBtn = $("logout-btn");
   const mediaList = $("media-list"), emptyState = $("empty-state"), searchInput = $("search-input"), modal = $("modal"), addBtn = $("add-btn"), closeModal = $("close-modal"), mediaForm = $("media-form"), deleteBtn = $("delete-btn"), saveBtn = $("save-btn"), typeSelect = $("type"), seriesSection = $("series-section"), upcomingSection = $("upcoming-section"), titleInput = $("title"), suggestList = $("suggest-list");
   const pillBtns = document.querySelectorAll(".pill-btn"), tabBtns = document.querySelectorAll(".tab-btn");
 
-  function configured(){return Boolean(SUPABASE_CONFIG.url&&SUPABASE_CONFIG.publishableKey&&!SUPABASE_CONFIG.url.startsWith("REPLACE_")&&!SUPABASE_CONFIG.publishableKey.startsWith("REPLACE_"));}
   function nowISO(){return new Date().toISOString();}
   function esc(v){return String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));}
   function showMessage(text,type="error"){authMessage.textContent=text;authMessage.className=`message ${type}`;}
@@ -115,251 +111,329 @@
   function uuid(){return crypto.randomUUID?crypto.randomUUID():`item_${Date.now()}_${Math.random().toString(36).slice(2)}`;}
   function toMillis(v){const n=new Date(v||0).getTime();return Number.isFinite(n)?n:0;}
   function isEmail(v){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||"").trim());}
-  const WATCHLOG_APP_URL = "https://cryptic011.github.io/Watch-Log/";
-  const PASSWORD_RESET_COOLDOWN_MS = 60 * 1000;
-  const PASSWORD_RESET_COOLDOWN_KEY = "watchlog_password_reset_last_request";
-  let passwordResetCooldownTimer = null;
-  let passwordResetInFlight = false;
+  function normalizeEmail(v){return String(v||"").trim().toLowerCase();}
+  function safeReadJSON(key,fallback){try{const raw=localStorage.getItem(key);return raw===null?fallback:JSON.parse(raw);}catch(e){console.warn(`Could not read ${key}`,e);return fallback;}}
+  function safeWriteJSON(key,value){try{localStorage.setItem(key,JSON.stringify(value));return true;}catch(e){console.error(`Could not write ${key}`,e);return false;}}
 
-  function getAppBaseURL(){return WATCHLOG_APP_URL;}
-  function getRecoveryRedirectURL(){return `${WATCHLOG_APP_URL}?watchlog_recovery=1`;}
+  function bytesToBase64(bytes){let s="";for(const b of bytes)s+=String.fromCharCode(b);return btoa(s);}
+  function base64ToBytes(value){const s=atob(value);const out=new Uint8Array(s.length);for(let i=0;i<s.length;i++)out[i]=s.charCodeAt(i);return out;}
 
-  function getAuthURLState(){
-    const hash=new URLSearchParams(window.location.hash.replace(/^#/,""));
-    const query=new URLSearchParams(window.location.search);
-    return {
-      type:hash.get("type")||query.get("type")||"",
-      error:hash.get("error")||query.get("error")||"",
-      errorCode:hash.get("error_code")||query.get("error_code")||"",
-      errorDescription:hash.get("error_description")||query.get("error_description")||"",
-      recoveryHint:hash.get("type")==="recovery"||query.get("watchlog_recovery")==="1"
-    };
+  async function sha256(value){
+    const bytes=new TextEncoder().encode(String(value));
+    const digest=await crypto.subtle.digest("SHA-256",bytes);
+    return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");
   }
 
-  function hasRecoveryHint(){return getAuthURLState().recoveryHint;}
-
-  function clearRecoveryURL(){
-    try{history.replaceState({},document.title,WATCHLOG_APP_URL);}catch(_){}
+  async function createPasswordRecord(password,existingSalt=null){
+    const salt=existingSalt?base64ToBytes(existingSalt):crypto.getRandomValues(new Uint8Array(16));
+    const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),"PBKDF2",false,["deriveBits"]);
+    const bits=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:PASSWORD_ITERATIONS,hash:"SHA-256"},material,256);
+    return {passwordHash:bytesToBase64(new Uint8Array(bits)),passwordSalt:bytesToBase64(salt),passwordVersion:1};
   }
 
-  function handleAuthURLFailure(){
-    const state=getAuthURLState();
-    if(!state.error&&!state.errorCode)return false;
-    clearRecoveryURL();
-    recoveryMode=false;
-    authScreen.classList.remove("hidden");
-    authForm.classList.remove("hidden");
-    authToggle.classList.remove("hidden");
-    forgotPassword.classList.remove("hidden");
-    recoveryForm.classList.add("hidden");
-    if(state.errorCode==="otp_expired"||/expired|invalid/i.test(state.errorDescription)){
-      showMessage("That password-reset link is expired, invalid, or has already been used. Request one new reset email from the deployed WatchLog page and use only the newest email.","error");
-    }else{
-      showMessage(`Authentication link failed${state.errorDescription?`: ${state.errorDescription}`:"."}`,"error");
-    }
-    return true;
+  async function passwordMatches(account,password){
+    if(!account?.passwordHash||!account?.passwordSalt)return false;
+    const candidate=await createPasswordRecord(password,account.passwordSalt);
+    return candidate.passwordHash===account.passwordHash;
   }
 
-  function resetCooldownRemaining(){
-    const last=Number(localStorage.getItem(PASSWORD_RESET_COOLDOWN_KEY)||0);
-    return Math.max(0,PASSWORD_RESET_COOLDOWN_MS-(Date.now()-last));
-  }
+  async function emailLookupHash(email){return sha256(`watchlog-email:${normalizeEmail(email)}`);}
+  function readAccounts(){const accounts=safeReadJSON(LOCAL_ACCOUNTS_KEY,[]);return Array.isArray(accounts)?accounts:[];}
+  function writeAccounts(accounts){if(!safeWriteJSON(LOCAL_ACCOUNTS_KEY,accounts))throw new Error("This browser could not save the local account.");}
 
-  function updateResetButtonCooldown(){
-    clearInterval(passwordResetCooldownTimer);
-    const tick=()=>{
-      const remaining=resetCooldownRemaining();
-      if(remaining<=0){
-        forgotPassword.disabled=false;
-        forgotPassword.textContent="Reset Password";
-        clearInterval(passwordResetCooldownTimer);
-        passwordResetCooldownTimer=null;
-        return;
-      }
-      forgotPassword.disabled=true;
-      forgotPassword.textContent=`Reset available in ${Math.ceil(remaining/1000)}s`;
-    };
-    tick();
-    if(resetCooldownRemaining()>0)passwordResetCooldownTimer=setInterval(tick,1000);
+  function cacheName(userIdHash){return `WatchLogLocal_${userIdHash.slice(0,48)}`;}
+  async function openCache(userId){
+    if(cacheDB){try{cacheDB.close();}catch(_){}}
+    const h=await sha256(`watchlog-local:${userId}`);
+    return new Promise((resolve,reject)=>{
+      const r=indexedDB.open(cacheName(h),1);
+      r.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains("data"))db.createObjectStore("data",{keyPath:"key"});};
+      r.onsuccess=()=>{cacheDB=r.result;resolve(cacheDB);};
+      r.onerror=()=>reject(r.error);
+    });
   }
-
-  async function sha256(value){const bytes=new TextEncoder().encode(String(value));const digest=await crypto.subtle.digest("SHA-256",bytes);return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");}
-  function cacheName(userIdHash){return `WatchLogCache_${userIdHash.slice(0,48)}`;}
-  async function openCache(userId){if(cacheDB){try{cacheDB.close();}catch(_){}}const h=await sha256(`watchlog:${userId}`);return new Promise((resolve,reject)=>{const r=indexedDB.open(cacheName(h),1);r.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains("data"))db.createObjectStore("data",{keyPath:"key"});};r.onsuccess=()=>{cacheDB=r.result;resolve(cacheDB);};r.onerror=()=>reject(r.error);});}
   function cachePut(value){return new Promise((resolve,reject)=>{if(!cacheDB)return resolve(false);const tx=cacheDB.transaction("data","readwrite");tx.objectStore("data").put(value);tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);});}
   function cacheGet(key){return new Promise((resolve,reject)=>{if(!cacheDB)return resolve(null);const tx=cacheDB.transaction("data","readonly");const r=tx.objectStore("data").get(key);r.onsuccess=()=>resolve(r.result||null);r.onerror=()=>reject(r.error);});}
   async function saveCache(items){if(!currentUser)return;await cachePut({key:"library",userId:currentUser.id,items,updatedAt:nowISO()});}
   async function loadCache(){if(!currentUser)return[];const r=await cacheGet("library");return r?.userId===currentUser.id&&Array.isArray(r.items)?r.items:[];}
+  async function saveProfile(profile){if(!currentUser)return;await cachePut({key:"profile",userId:currentUser.id,profile,updatedAt:nowISO()});}
+  async function loadProfile(){if(!currentUser)return null;const r=await cacheGet("profile");return r?.userId===currentUser.id?r.profile||null:null;}
 
-  function setSync(text,state="warn"){syncStatus.textContent=text;syncDot.className=`sync-dot ${state==="ok"?"ok":state==="warn"?"warn":""}`;}
+  function setSync(text,state="ok"){syncStatus.textContent=text;syncDot.className=`sync-dot ${state==="ok"?"ok":state==="warn"?"warn":""}`;}
 
-  async function initSupabase(){
-    if(!configured()){
-      showMessage("Cross-device accounts are not configured. Add the Supabase project URL and publishable key to SUPABASE_CONFIG. Device-only account creation is disabled so users cannot accidentally create incompatible logins.","error");
-      authSubmit.disabled=true;forgotPassword.disabled=true;setSync("Cloud account backend is not configured.","warn");return false;
+  async function migrateLegacyForCurrentUser(){
+    if(!currentProfile?.email||!currentUser)return;
+    const marker=`watchlog_local_migrated_${currentUser.id}`;
+    if(localStorage.getItem(marker)==="1")return;
+
+    const email=normalizeEmail(currentProfile.email);
+    const collections=[];
+
+    try{
+      const direct=safeReadJSON(`watchlog_records_${email}`,[]);
+      if(Array.isArray(direct))collections.push(direct);
+    }catch(_){}
+
+    try{
+      const users=safeReadJSON("watchlog_auth_users",[]);
+      if(Array.isArray(users)){
+        for(const u of users){
+          if(normalizeEmail(u?.email)===email&&u?.id){
+            const records=safeReadJSON(`watchlog_records_user_${u.id}`,[]);
+            if(Array.isArray(records))collections.push(records);
+          }
+        }
+      }
+    }catch(_){}
+
+    /*
+     * One-time local migration from the previous remote-account
+     * build's on-device cache. This never contacts a server.
+     * It only imports a cache when its saved session email exactly
+     * matches the local account currently being opened.
+     */
+    try{
+      const oldSessions=[];
+      for(let i=0;i<localStorage.length;i++){
+        const key=localStorage.key(i);
+        if(!key||!key.startsWith("sb-")||!key.includes("auth-token"))continue;
+        const value=safeReadJSON(key,null);
+        const candidates=[value,value?.currentSession,value?.session,Array.isArray(value)?value[0]:null];
+        for(const candidate of candidates){
+          const user=candidate?.user;
+          if(user?.id&&normalizeEmail(user?.email)===email)oldSessions.push({id:String(user.id),email:normalizeEmail(user.email)});
+        }
+      }
+
+      for(const oldSession of oldSessions){
+        const oldHash=await sha256(`watchlog:${oldSession.id}`);
+        const oldDBName=`WatchLogCache_${oldHash.slice(0,48)}`;
+        const oldLibrary=await new Promise(resolve=>{
+          let request;
+          try{request=indexedDB.open(oldDBName);}catch(_){resolve(null);return;}
+          request.onerror=()=>resolve(null);
+          request.onupgradeneeded=()=>{try{request.transaction.abort();}catch(_){} resolve(null);};
+          request.onsuccess=()=>{
+            const db=request.result;
+            if(!db.objectStoreNames.contains("data")){db.close();resolve(null);return;}
+            const tx=db.transaction("data","readonly");
+            const get=tx.objectStore("data").get("library");
+            get.onsuccess=()=>{const record=get.result;db.close();resolve(record?.userId===oldSession.id&&Array.isArray(record?.items)?record.items:null);};
+            get.onerror=()=>{db.close();resolve(null);};
+          };
+        });
+        if(Array.isArray(oldLibrary))collections.push(oldLibrary);
+      }
+    }catch(e){console.warn("Previous local cache migration skipped",e);}
+
+    if(collections.length){
+      const merged=new Map(mediaItems.map(item=>[String(item.id),item]));
+      for(const list of collections){
+        for(const raw of list){
+          if(!raw?.title)continue;
+          const id=String(raw.id||uuid());
+          const previous=merged.get(id);
+          if(!previous||toMillis(raw.updatedAt||raw.date)>=toMillis(previous.updatedAt||previous.date)){
+            merged.set(id,{...raw,id,updatedAt:raw.updatedAt||nowISO()});
+          }
+        }
+      }
+      mediaItems=Array.from(merged.values()).sort((a,b)=>toMillis(b.updatedAt)-toMillis(a.updatedAt));
+      await saveCache(mediaItems);
     }
-    if(!window.supabase?.createClient){showMessage("The account service failed to load.","error");return false;}
-    sb=window.supabase.createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-    const {data,error}=await sb.auth.getSession();if(error)throw error;session=data.session;currentUser=session?.user||null;
-    sb.auth.onAuthStateChange(async(event,newSession)=>{
-      session=newSession;currentUser=newSession?.user||null;
-      if(event==="PASSWORD_RECOVERY"){showRecoveryMode();return;}
-      if(event==="SIGNED_OUT"){await clearUserState();if(!recoveryMode)showAuth();return;}
-      if(currentUser&&!recoveryMode){await enterAccount();}
+    localStorage.setItem(marker,"1");
+  }
+
+  async function findLegacyAccount(email,password){
+    const normalized=normalizeEmail(email);
+    const users=safeReadJSON("watchlog_auth_users",[]);
+    if(!Array.isArray(users))return null;
+    for(const user of users){
+      if(normalizeEmail(user?.email)!==normalized)continue;
+      if(typeof user.password==="string"&&user.password===password)return user;
+      if(user.passwordHash&&user.passwordSalt){
+        try{
+          const candidate=await createPasswordRecord(password,user.passwordSalt);
+          if(candidate.passwordHash===user.passwordHash)return user;
+        }catch(_){}
+      }
+    }
+    return null;
+  }
+
+  async function createLocalAccount(name,email,password,{fromLegacy=false}={}){
+    const normalized=normalizeEmail(email);
+    const lookup=await emailLookupHash(normalized);
+    const accounts=readAccounts();
+    if(accounts.some(a=>a.emailHash===lookup))throw new Error("A local account with that email already exists on this device.");
+
+    const id=uuid();
+    const verifier=await createPasswordRecord(password);
+    accounts.push({
+      id,
+      emailHash:lookup,
+      passwordHash:verifier.passwordHash,
+      passwordSalt:verifier.passwordSalt,
+      passwordVersion:verifier.passwordVersion,
+      createdAt:nowISO()
     });
-    if(handleAuthURLFailure())return true;
-    if(hasRecoveryHint()&&currentUser){showRecoveryMode();}
-    updateResetButtonCooldown();
+    writeAccounts(accounts);
+
+    currentUser={id,email:normalized};
+    currentProfile={display_name:String(name||"User").trim()||"User",email:normalized};
+    await openCache(id);
+    await saveProfile(currentProfile);
+    mediaItems=[];
+    await saveCache(mediaItems);
+    safeWriteJSON(LOCAL_SESSION_KEY,{userId:id});
+
+    if(fromLegacy)await migrateLegacyForCurrentUser();
+    await enterAccount();
+  }
+
+  async function loginLocalAccount(email,password){
+    const normalized=normalizeEmail(email);
+    const lookup=await emailLookupHash(normalized);
+    const accounts=readAccounts();
+    const account=accounts.find(a=>a.emailHash===lookup);
+
+    if(!account){
+      const legacy=await findLegacyAccount(normalized,password);
+      if(legacy){
+        await createLocalAccount(legacy.name||legacy.displayName||"User",normalized,password,{fromLegacy:true});
+        return true;
+      }
+      return false;
+    }
+
+    if(!await passwordMatches(account,password))return false;
+
+    currentUser={id:account.id,email:normalized};
+    await openCache(account.id);
+    currentProfile=await loadProfile();
+    if(!currentProfile){
+      currentProfile={display_name:"User",email:normalized};
+      await saveProfile(currentProfile);
+    }else if(!currentProfile.email){
+      currentProfile.email=normalized;
+      await saveProfile(currentProfile);
+    }
+    safeWriteJSON(LOCAL_SESSION_KEY,{userId:account.id});
+    await enterAccount();
     return true;
   }
 
-  async function ensureProfile(){
-    if(!currentUser)throw new Error("No authenticated user");
-    const desired={user_id:currentUser.id,email:(currentUser.email||"").toLowerCase(),display_name:String(currentUser.user_metadata?.display_name||currentUser.user_metadata?.name||"User").trim()||"User",updated_at:nowISO()};
-    const {data,error}=await sb.from("watchlog_profiles").upsert(desired,{onConflict:"user_id"}).select("user_id,email,display_name,updated_at").single();
-    if(error)throw error;currentProfile=data;return data;
-  }
+  async function restoreLocalSession(){
+    const saved=safeReadJSON(LOCAL_SESSION_KEY,null);
+    const id=saved?.userId;
+    if(!id)return false;
+    const account=readAccounts().find(a=>a.id===id);
+    if(!account){localStorage.removeItem(LOCAL_SESSION_KEY);return false;}
 
-  async function loadCloudLibrary({allowCache=true}={}){
-    if(!currentUser)return;
-    setSync(`Loading ${currentUser.email}'s private library…`,"warn");
-    mediaItems=[];render();
-    const {data,error}=await sb.from("watchlog_items").select("id,payload,updated_at").order("updated_at",{ascending:false});
-    if(error){
-      console.error("Cloud library load failed",error);
-      if(allowCache){mediaItems=await loadCache();render();setSync(`Offline/cache view for ${currentUser.email}. Cloud refresh failed.`,"warn");return;}
-      throw error;
+    currentUser={id,email:""};
+    await openCache(id);
+    currentProfile=await loadProfile();
+    if(!currentProfile){
+      localStorage.removeItem(LOCAL_SESSION_KEY);
+      currentUser=null;
+      return false;
     }
-    mediaItems=(data||[]).map(row=>({...row.payload,id:String(row.id),updatedAt:row.updated_at||row.payload?.updatedAt||""}));
-    await saveCache(mediaItems);render();setSync(`Synced as ${currentUser.email}. Only this account's rows are visible.`,"ok");
+    currentUser.email=currentProfile.email||"";
+    await enterAccount();
+    return true;
   }
 
-  async function saveCloudItem(item){
-    if(!currentUser)throw new Error("Not logged in");
-    const clean={...item};delete clean.ownerEmail;delete clean.ownerId;delete clean.user_id;
-    const row={user_id:currentUser.id,id:String(item.id),payload:clean,updated_at:item.updatedAt||nowISO()};
-    const {error}=await sb.from("watchlog_items").upsert(row,{onConflict:"user_id,id"});if(error)throw error;
-  }
-  async function deleteCloudItem(id){if(!currentUser)throw new Error("Not logged in");const {error}=await sb.from("watchlog_items").delete().eq("id",String(id));if(error)throw error;}
-
-  async function migrateLegacyForCurrentUser(){
-    if(!currentUser?.email)return;
-    const marker=`watchlog_cloud_migrated_${currentUser.id}`;if(localStorage.getItem(marker)==="1")return;
-    const email=currentUser.email.toLowerCase();const collections=[];
-    try{const a=JSON.parse(localStorage.getItem(`watchlog_records_${email}`)||"[]");if(Array.isArray(a))collections.push(a);}catch(_){ }
-    try{
-      const users=JSON.parse(localStorage.getItem("watchlog_auth_users")||"[]");
-      if(Array.isArray(users))for(const u of users){if(String(u?.email||"").toLowerCase()===email&&u?.id){const v=JSON.parse(localStorage.getItem(`watchlog_records_user_${u.id}`)||"[]");if(Array.isArray(v))collections.push(v);}}
-    }catch(_){ }
-    const merged=new Map();for(const list of collections)for(const raw of list){if(!raw?.title)continue;const id=String(raw.id||uuid());const prev=merged.get(id);if(!prev||toMillis(raw.updatedAt||raw.date)>=toMillis(prev.updatedAt||prev.date))merged.set(id,{...raw,id,updatedAt:raw.updatedAt||nowISO()});}
-    if(merged.size){for(const item of merged.values()){try{await saveCloudItem(item);}catch(e){console.warn("Legacy item migration failed",e);}}}
-    localStorage.setItem(marker,"1");
+  async function loadLocalLibrary(){
+    if(!currentUser)return;
+    mediaItems=await loadCache();
+    await migrateLegacyForCurrentUser();
+    render();
+    setSync("Stored only on this device/browser. Each local account has its own separate library.","ok");
   }
 
   async function enterAccount(){
     if(!currentUser)return showAuth();
-    hideMessage();await openCache(currentUser.id);await ensureProfile();await migrateLegacyForCurrentUser();
-    profileName.textContent=currentProfile.display_name||"User";profileEmail.textContent=currentUser.email||"";navName.textContent=currentProfile.display_name||currentUser.email||"User";avatar.textContent=String(currentProfile.display_name||currentUser.email||"U").charAt(0).toUpperCase();
-    authScreen.classList.add("hidden");await loadCloudLibrary();
-  }
-  async function clearUserState(){mediaItems=[];currentProfile=null;currentUser=null;session=null;if(cacheDB){try{cacheDB.close();}catch(_){}}cacheDB=null;render();}
-  function showAuth(){authScreen.classList.remove("hidden");}
-  function showRecoveryMode(){
-    recoveryMode=true;authScreen.classList.remove("hidden");authForm.classList.add("hidden");authToggle.classList.add("hidden");forgotPassword.classList.add("hidden");recoveryForm.classList.remove("hidden");
-    authTitle.textContent="Set New Password";authSub.textContent="Your recovery link is verified. Choose a new WatchLog password.";hideMessage();
-  }
-  function leaveRecoveryMode(){
-    recoveryMode=false;recoveryForm.classList.add("hidden");authForm.classList.remove("hidden");authToggle.classList.remove("hidden");forgotPassword.classList.remove("hidden");recoveryForm.reset();clearRecoveryURL();updateAuthMode();showAuth();
+    hideMessage();
+    if(!cacheDB)await openCache(currentUser.id);
+    if(!currentProfile)currentProfile=await loadProfile();
+    currentProfile=currentProfile||{display_name:"User",email:currentUser.email||""};
+
+    profileName.textContent=currentProfile.display_name||"User";
+    profileEmail.textContent=currentProfile.email||"";
+    navName.textContent=currentProfile.display_name||currentProfile.email||"User";
+    avatar.textContent=String(currentProfile.display_name||currentProfile.email||"U").charAt(0).toUpperCase();
+
+    authScreen.classList.add("hidden");
+    await loadLocalLibrary();
   }
 
-  function updateAuthMode(){if(recoveryMode)return;hideMessage();authNameGroup.classList.toggle("hidden",!isSignUp);authTitle.textContent=isSignUp?"Create Account":"Welcome Back";authSub.textContent=isSignUp?"This account will work on every device using the same email and password.":"Use the same email and password on every device.";authSubmit.textContent=isSignUp?"Create Account":"Log In";authToggle.textContent=isSignUp?"Already have an account? Log In":"Don't have an account? Sign Up";authPassword.setAttribute("autocomplete",isSignUp?"new-password":"current-password");}
+  async function clearUserState(){
+    mediaItems=[];
+    currentProfile=null;
+    currentUser=null;
+    if(cacheDB){try{cacheDB.close();}catch(_){}}
+    cacheDB=null;
+    render();
+  }
+
+  function showAuth(){authScreen.classList.remove("hidden");}
+
+  function updateAuthMode(){
+    hideMessage();
+    authNameGroup.classList.toggle("hidden",!isSignUp);
+    authTitle.textContent=isSignUp?"Create Local Account":"Welcome Back";
+    authSub.textContent=isSignUp
+      ?"Creates a separate account only in this browser. No verification email is sent."
+      :"Sign in to an account saved on this device. Nothing is checked online.";
+    authSubmit.textContent=isSignUp?"Create Local Account":"Log In";
+    authToggle.textContent=isSignUp?"Already have a local account? Log In":"Don't have a local account? Sign Up";
+    authPassword.setAttribute("autocomplete",isSignUp?"new-password":"current-password");
+  }
+
   authToggle.onclick=()=>{isSignUp=!isSignUp;authForm.reset();updateAuthMode();};
 
   authForm.onsubmit=async e=>{
-    e.preventDefault();hideMessage();if(!sb){showMessage("Cross-device account backend is not configured.");return;}
-    const email=authEmail.value.trim().toLowerCase(),password=authPassword.value;if(!isEmail(email)){showMessage("Enter a valid email address.");return;}if(password.length<6){showMessage("Password must be at least 6 characters.");return;}
-    authSubmit.disabled=true;authSubmit.textContent=isSignUp?"Creating…":"Logging In…";
+    e.preventDefault();
+    hideMessage();
+    const email=normalizeEmail(authEmail.value);
+    const password=authPassword.value;
+
+    if(!isEmail(email)){showMessage("Enter a valid email address. It is used only as the local login name and is not emailed.");return;}
+    if(password.length<6){showMessage("Password must be at least 6 characters.");return;}
+
+    authSubmit.disabled=true;
+    authSubmit.textContent=isSignUp?"Creating…":"Logging In…";
+
     try{
       if(isSignUp){
-        const name=authName.value.trim()||"User";
-        const {data,error}=await sb.auth.signUp({email,password,options:{data:{display_name:name},emailRedirectTo:getAppBaseURL()}});if(error)throw error;
-        if(!data.session){showMessage("Account created. Confirm the verification email, then use the same email and password on every device.","success");return;}
-        session=data.session;currentUser=data.user;await enterAccount();
+        await createLocalAccount(authName.value.trim()||"User",email,password);
       }else{
-        const {data,error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;session=data.session;currentUser=data.user;await enterAccount();
+        const ok=await loginLocalAccount(email,password);
+        if(!ok)showMessage("Email or password is incorrect for a local account on this device.","error");
       }
-    }catch(err){console.error(err);showMessage(isSignUp?`Account creation failed: ${err.message||"Unknown error"}`:"Email or password is incorrect for the cloud account. Use the exact same email/password that created the account, or reset the password.","error");}
-    finally{authSubmit.disabled=false;authSubmit.textContent=isSignUp?"Create Account":"Log In";}
-  };
-
-  forgotPassword.onclick=async()=>{
-    if(passwordResetInFlight)return;
-    if(!sb){showMessage("Cloud accounts are not configured.");return;}
-    const email=authEmail.value.trim().toLowerCase();
-    if(!isEmail(email)){showMessage("Enter the account email first.");return;}
-
-    if(location.origin!==new URL(WATCHLOG_APP_URL).origin||!location.pathname.startsWith("/Watch-Log/")){
-      showMessage(`Password resets must be requested from ${WATCHLOG_APP_URL}. Open the deployed WatchLog site, not localhost, then try again.`);
-      return;
-    }
-
-    const remaining=resetCooldownRemaining();
-    if(remaining>0){
-      showMessage(`A reset request has already been accepted recently. Check your inbox and use only the newest WatchLog email. You can request another in ${Math.ceil(remaining/1000)} seconds if it does not arrive.`,"info");
-      updateResetButtonCooldown();
-      return;
-    }
-
-    passwordResetInFlight=true;
-    forgotPassword.disabled=true;
-    forgotPassword.textContent="Sending…";
-    const redirectTo=getRecoveryRedirectURL();
-
-    try{
-      const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});
-      if(error)throw error;
-      localStorage.setItem(PASSWORD_RESET_COOLDOWN_KEY,String(Date.now()));
-      updateResetButtonCooldown();
-      showMessage(`Supabase accepted the password-reset request for ${email}. Check your inbox and use only the newest email. The link returns to ${WATCHLOG_APP_URL}.`,"success");
-    }catch(error){
-      console.error("Password reset failed:",error);
-      const message=String(error?.message||"");
-      const code=String(error?.code||"");
-      const shortCooldown=message.match(/only request this after\s+(\d+)\s+seconds?/i);
-
-      if(shortCooldown){
-        const seconds=Math.max(2,Number(shortCooldown[1])||2);
-        const shortStamp=Date.now()-(PASSWORD_RESET_COOLDOWN_MS-(seconds*1000));
-        localStorage.setItem(PASSWORD_RESET_COOLDOWN_KEY,String(shortStamp));
-        updateResetButtonCooldown();
-        showMessage(`Supabase blocked a duplicate reset request because it was made too quickly. This is a short security cooldown, not the old email-quota problem. A previous reset request was already accepted, so check your inbox and use the newest email. Retry in about ${seconds} seconds only if needed.`,"info");
-      }else if(code==="over_email_send_rate_limit"||/email rate limit exceeded/i.test(message)){
-        localStorage.setItem(PASSWORD_RESET_COOLDOWN_KEY,String(Date.now()));
-        updateResetButtonCooldown();
-        showMessage("The configured Supabase Auth email limit has been reached. Custom SMTP is already enabled, so this is not the old built-in 2-emails-per-hour sender limit. Wait for the configured Auth limit to clear, then request one new reset email.","error");
-      }else{
-        forgotPassword.disabled=false;
-        forgotPassword.textContent="Reset Password";
-        showMessage(`Password reset failed: ${message||"Unknown error"}`);
-      }
+    }catch(err){
+      console.error(err);
+      showMessage(err.message||"Local account operation failed.","error");
     }finally{
-      passwordResetInFlight=false;
-      if(resetCooldownRemaining()<=0){
-        forgotPassword.disabled=false;
-        forgotPassword.textContent="Reset Password";
-      }
+      authSubmit.disabled=false;
+      authSubmit.textContent=isSignUp?"Create Local Account":"Log In";
     }
   };
-  recoveryForm.onsubmit=async e=>{
-    e.preventDefault();if(!sb||!currentUser){showMessage("This recovery session is missing or expired. Request a new password reset.");return;}
-    const password=recoveryPassword.value,confirm=recoveryPasswordConfirm.value;if(password.length<6){showMessage("New password must be at least 6 characters.");return;}if(password!==confirm){showMessage("The two new passwords do not match.");return;}
-    recoverySubmit.disabled=true;recoverySubmit.textContent="Saving…";
-    try{const recoveryEmail=currentUser?.email||authEmail.value;const {error}=await sb.auth.updateUser({password});if(error)throw error;await sb.auth.signOut();leaveRecoveryMode();authEmail.value=recoveryEmail;showMessage("Password updated. Log in with the new password on any device.","success");}
-    catch(err){console.error(err);showMessage(`Password update failed: ${err.message||"Unknown error"}`);}
-    finally{recoverySubmit.disabled=false;recoverySubmit.textContent="Save New Password";}
+
+  logoutBtn.onclick=async()=>{
+    localStorage.removeItem(LOCAL_SESSION_KEY);
+    await clearUserState();
+    authForm.reset();
+    isSignUp=false;
+    updateAuthMode();
+    showAuth();
   };
-  logoutBtn.onclick=async()=>{if(sb)await sb.auth.signOut();await clearUserState();showAuth();};
-  refreshCloud.onclick=()=>loadCloudLibrary({allowCache:false}).catch(e=>{console.error(e);setSync("Could not refresh the cloud library.","warn");});
+
+  reloadLocal.onclick=()=>loadLocalLibrary().catch(e=>{
+    console.error(e);
+    setSync("Could not reload this account's local data.","warn");
+  });
+
   userPill.onclick=()=>switchTab("settings");
 
   function updateCounts(){$("count-saved").textContent=mediaItems.filter(x=>x.status==="Saved").length;$("count-watching").textContent=mediaItems.filter(x=>x.status==="Watching").length;$("count-watched").textContent=mediaItems.filter(x=>x.status==="Watched").length;}
@@ -403,18 +477,15 @@
       let total=$("total-seasons").value?Number($("total-seasons").value):null,nextNum=$("next-season-num").value?Number($("next-season-num").value):"",nextDate=$("next-season-date").value||"";
       if(type!=="Film"&&sid){const r=await verifiedSeasonData(sid,title);total=r.highest??null;if(r.upcoming){nextNum=r.upcoming.number;if(r.nextEpisode&&Number(r.nextEpisode.season)===r.upcoming.number&&r.nextEpisode.airstamp)nextDate=toLocalInput(r.nextEpisode.airstamp);else nextDate=r.upcoming.premiereDate?dateOnlyInput(r.upcoming.premiereDate):"";}else{nextNum="";nextDate="";}$("total-seasons").value=total??"";$("next-season-num").value=nextNum;$("next-season-date").value=nextDate;}
       const previous=mediaItems.find(x=>String(x.id)===String(id));const numOrNull=x=>$(x).value===""?null:Number.parseInt($(x).value,10);const item={id,title,type,status:$("status").value,tvmazeShowId:sid||"",totalSeasons:type==="Film"?null:total,watchedSeasons:type==="Film"?null:numOrNull("watched-seasons"),curSeason:type==="Film"?null:numOrNull("cur-season"),curEp:type==="Film"?null:numOrNull("cur-ep"),nextSeasonNum:type==="Film"?"":nextNum,nextSeasonDate:type==="Film"?"":nextDate,platform:$("platform").value.trim(),date:new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}),createdAt:previous?.createdAt||nowISO(),updatedAt:nowISO()};
-      await saveCloudItem(item);const idx=mediaItems.findIndex(x=>String(x.id)===String(id));if(idx>=0)mediaItems[idx]=item;else mediaItems.unshift(item);await saveCache(mediaItems);render();modal.classList.add("hidden");setSync(`Saved to ${currentUser.email}'s private cloud library.`,"ok");
+      const idx=mediaItems.findIndex(x=>String(x.id)===String(id));if(idx>=0)mediaItems[idx]=item;else mediaItems.unshift(item);await saveCache(mediaItems);render();modal.classList.add("hidden");setSync("Saved locally to this account on this device.","ok");
     }catch(err){console.error(err);alert(err.message||"Save failed.");}
     finally{saveBtn.disabled=false;saveBtn.textContent="Save to Log";}
   };
-  deleteBtn.onclick=async()=>{const id=$("item-id").value;if(!id)return;try{await deleteCloudItem(id);mediaItems=mediaItems.filter(x=>String(x.id)!==String(id));await saveCache(mediaItems);render();modal.classList.add("hidden");}catch(e){console.error(e);alert("Delete failed.");}};
+  deleteBtn.onclick=async()=>{const id=$("item-id").value;if(!id)return;try{mediaItems=mediaItems.filter(x=>String(x.id)!==String(id));await saveCache(mediaItems);render();modal.classList.add("hidden");}catch(e){console.error(e);alert("Delete failed.");}};
 
   async function start(){
     updateAuthMode();
-    updateResetButtonCooldown();
-    if(!await initSupabase())return;
-    if(recoveryMode)return;
-    if(currentUser)await enterAccount();else showAuth();
+    if(!await restoreLocalSession())showAuth();
   }
   start().catch(err=>{console.error(err);showMessage(`WatchLog could not start: ${err.message||err}`);});
   </script>
