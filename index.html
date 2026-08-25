@@ -16,7 +16,1338 @@
   <!-- Cross-device account/database support. The publishable key is safe for browser use; never put a service-role key here. -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <!-- Optional iCloud / CloudKit backup. The app still works without this. -->
+  <!-- Optional iCloud / CloudKit backup. The app st<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>WatchLog</title>
+
+  <!-- iOS / Standalone PWA Settings -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="WatchLog" />
+  <meta name="theme-color" content="#000000" />
+
+  <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='120' fill='%23181b20'/><polygon points='210,160 360,256 210,352' fill='%233b82f6'/></svg>" />
+  <link rel="manifest" href='data:application/manifest+json,{"name":"WatchLog","short_name":"WatchLog","start_url":".","display":"standalone","background_color":"%23000000","theme_color":"%23000000","icons":[{"src":"data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\"><rect width=\"512\" height=\"512\" rx=\"120\" fill=\"%23181b20\"/><polygon points=\"210,160 360,256 210,352\" fill=\"%233b82f6\"/></svg>","sizes":"512x512","type":"image/svg+xml"}]}' />
+
+  <style>
+    :root {
+      --bg: #000000;
+      --card-bg: #15181e;
+      --card-inner: #1e222a;
+      --accent: #2563eb;
+      --text: #ffffff;
+      --text-muted: #8e95a2;
+      --border: #232730;
+      --tag-watched-bg: #143026;
+      --tag-watched-text: #34d399;
+      --tag-watching-bg: #1e293b;
+      --tag-watching-text: #60a5fa;
+      --tag-reminder-bg: rgba(245, 158, 11, 0.12);
+      --tag-reminder-text: #fbbf24;
+      --tag-reminder-border: rgba(245, 158, 11, 0.3);
+      --danger: #ef4444;
+      --radius-card: 20px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      padding-bottom: 110px;
+      min-height: 100vh;
+    }
+
+    /* Auth Screen Modal */
+    .auth-overlay {
+      position: fixed;
+      inset: 0;
+      background: #000000;
+      z-index: 500;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+    }
+
+    .auth-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 24px;
+      width: 100%;
+      max-width: 380px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .auth-header {
+      text-align: center;
+    }
+
+    .auth-header h2 {
+      font-size: 1.8rem;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .auth-header p {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    .auth-toggle {
+      color: #60a5fa;
+      font-size: 0.85rem;
+      text-align: center;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    /* Top Navigation Bar */
+    .top-nav {
+      position: sticky;
+      top: 0;
+      background-color: rgba(0, 0, 0, 0.9);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: env(safe-area-inset-top, 16px) 16px 10px 16px;
+      z-index: 50;
+    }
+
+    .nav-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .user-pill {
+      background: #181c24;
+      border: 1px solid var(--border);
+      color: #ffffff;
+      padding: 6px 14px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .user-avatar-dot {
+      width: 8px;
+      height: 8px;
+      background: #34d399;
+      border-radius: 50%;
+    }
+
+    .circle-btn {
+      background: #181c24;
+      border: 1px solid var(--border);
+      color: #60a5fa;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      cursor: pointer;
+    }
+
+    h1 {
+      font-size: 2.1rem;
+      font-weight: 800;
+      letter-spacing: -0.6px;
+      margin-bottom: 12px;
+    }
+
+    .search-box {
+      background: #15181e;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      padding: 10px 14px;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .search-box svg {
+      width: 18px;
+      height: 18px;
+      fill: var(--text-muted);
+    }
+
+    .search-box input {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 1rem;
+      width: 100%;
+      outline: none;
+    }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .stat-card {
+      background: #15181e;
+      border-radius: 14px;
+      padding: 12px 6px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .stat-card .num {
+      font-size: 1.35rem;
+      font-weight: 800;
+    }
+
+    .stat-card .label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .filter-pills {
+      display: flex;
+      gap: 6px;
+      background: #15181e;
+      padding: 4px;
+      border-radius: 14px;
+      margin-bottom: 20px;
+    }
+
+    .pill-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 8px 0;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .pill-btn.active {
+      background: #3e4552;
+      color: #ffffff;
+    }
+
+    .container {
+      padding: 0 16px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #ffffff;
+    }
+
+    .titles-group {
+      background: var(--card-bg);
+      border-radius: var(--radius-card);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .title-item {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+    }
+    .title-item:last-child { border-bottom: none; }
+
+    .item-header-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .item-icon-box {
+      width: 48px;
+      height: 48px;
+      background: #202632;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .item-icon-box svg {
+      width: 24px;
+      height: 24px;
+      fill: #60a5fa;
+    }
+
+    .item-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .item-name {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-subline {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .platform-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #60a5fa;
+      font-size: 0.82rem;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .platform-row svg {
+      width: 14px;
+      height: 14px;
+      fill: #60a5fa;
+    }
+
+    .item-progress-bar {
+      height: 3px;
+      background: #2d3748;
+      border-radius: 2px;
+      margin-top: 6px;
+      overflow: hidden;
+      max-width: 140px;
+    }
+
+    .item-progress-fill {
+      height: 100%;
+      background: #3b82f6;
+    }
+
+    .item-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .status-badge.watched {
+      background: var(--tag-watched-bg);
+      color: var(--tag-watched-text);
+    }
+
+    .status-badge.watching {
+      background: var(--tag-watching-bg);
+      color: var(--tag-watching-text);
+    }
+
+    .status-badge.saved {
+      background: #252830;
+      color: var(--text-muted);
+    }
+
+    .item-date {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .chevron {
+      color: #4b5563;
+      font-size: 1.1rem;
+      font-weight: bold;
+    }
+
+    .reminder-pill-banner {
+      background: var(--tag-reminder-bg);
+      border: 1px solid var(--tag-reminder-border);
+      border-radius: 10px;
+      padding: 6px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      color: var(--tag-reminder-text);
+      font-weight: 600;
+    }
+
+    .reminder-pill-banner .tz-local {
+      font-size: 0.75rem;
+      opacity: 0.85;
+    }
+
+    .search-suggest-box {
+      position: relative;
+    }
+
+    .search-suggest-list {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 100%;
+      background: #181d26;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      max-height: 220px;
+      overflow-y: auto;
+      z-index: 150;
+      margin-top: 6px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+    }
+
+    .suggest-item {
+      padding: 12px 14px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .suggest-item:last-child { border-bottom: none; }
+    .suggest-item:active { background: #232d3f; }
+
+    .suggest-item-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .suggest-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .suggest-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .suggest-network {
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+
+    .bottom-tabs {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(10, 10, 10, 0.92);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0 calc(env(safe-area-inset-bottom, 12px) + 8px) 0;
+      z-index: 60;
+    }
+
+    .tab-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .tab-btn.active { color: #60a5fa; }
+    .tab-btn.active .tab-icon-wrap {
+      background: #232d3f;
+      border-radius: 16px;
+      padding: 4px 18px;
+    }
+    .tab-icon-wrap svg { width: 22px; height: 22px; fill: currentColor; }
+
+    .profile-card {
+      background: var(--card-bg);
+      border-radius: var(--radius-card);
+      border: 1px solid var(--border);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .profile-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .profile-avatar {
+      width: 56px;
+      height: 56px;
+      background: #2563eb;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: 800;
+    }
+
+    .profile-info h3 {
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .profile-info p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      display: flex;
+      align-items: flex-end;
+      z-index: 100;
+    }
+
+    .modal-content {
+      background: #15181e;
+      border-top: 1px solid var(--border);
+      width: 100%;
+      max-width: 600px;
+      margin: 0 auto;
+      border-radius: 24px 24px 0 0;
+      padding: 20px 20px calc(env(safe-area-inset-bottom, 20px) + 20px) 20px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .close-btn {
+      background: transparent;
+      border: none;
+      font-size: 1.8rem;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .section-box {
+      background: #101217;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .section-title {
+      font-size: 0.78rem;
+      color: #60a5fa;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 2px;
+      display: block;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .form-group {
+      flex: 1;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 14px;
+    }
+
+    .btn {
+      padding: 12px 20px;
+      border-radius: 10px;
+      border: none;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Auth Screen Modal -->
+  <div id="auth-screen" class="auth-overlay hidden">
+    <div class="auth-card">
+      <div class="auth-header">
+        <h2 id="auth-title">Welcome Back</h2>
+        <p id="auth-sub">Log in to sync your watch library</p>
+      </div>
+      <form id="auth-form">
+        <div id="auth-name-group" class="form-group hidden">
+          <label for="auth-name">Name</label>
+          <input type="text" id="auth-name" placeholder="Your Name" />
+        </div>
+        <div class="form-group">
+          <label for="auth-email">Email</label>
+          <input type="email" id="auth-email" required placeholder="user@example.com" />
+        </div>
+        <div class="form-group">
+          <label for="auth-password">Password</label>
+          <input type="password" id="auth-password" required placeholder="••••••••" />
+        </div>
+        <button type="submit" id="auth-submit-btn" class="btn btn-primary" style="width: 100%; margin-top: 6px;">Log In</button>
+      </form>
+      <div id="auth-toggle-mode" class="auth-toggle">Don't have an account? Sign Up</div>
+    </div>
+  </div>
+
+  <div class="top-nav">
+    <div class="nav-header">
+      <div id="user-profile-pill" class="user-pill">
+        <div class="user-avatar-dot"></div>
+        <span id="nav-user-name">Guest</span>
+      </div>
+      <button id="add-btn" class="circle-btn" aria-label="Add Media">+</button>
+    </div>
+
+    <h1>WatchLog</h1>
+
+    <div class="search-box">
+      <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <input type="text" id="search-input" placeholder="Search titles or platforms" />
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="num" id="count-saved">0</span>
+        <span class="label">Saved</span>
+      </div>
+      <div class="stat-card">
+        <span class="num" id="count-watching">0</span>
+        <span class="label">Watching</span>
+      </div>
+      <div class="stat-card">
+        <span class="num" id="count-watched">0</span>
+        <span class="label">Watched</span>
+      </div>
+    </div>
+
+    <div class="filter-pills">
+      <button class="pill-btn active" data-filter="All">All</button>
+      <button class="pill-btn" data-filter="Saved">Saved</button>
+      <button class="pill-btn" data-filter="Watching">Watching</button>
+      <button class="pill-btn" data-filter="Watched">Watched</button>
+    </div>
+  </div>
+
+  <main class="container">
+    <div id="main-content-view">
+      <div class="section-label" id="list-label">Titles</div>
+      <div id="media-list" class="titles-group"></div>
+      <div id="empty-state" class="hidden" style="text-align: center; margin-top: 40px; color: var(--text-muted);">
+        <p>No titles found. Tap <strong>+</strong> to start!</p>
+      </div>
+    </div>
+
+    <!-- Profile View (Settings Tab) -->
+    <div id="profile-content-view" class="hidden">
+      <div class="section-label">Account & Profile</div>
+      <div class="profile-card">
+        <div class="profile-header">
+          <div id="profile-avatar-icon" class="profile-avatar">U</div>
+          <div class="profile-info">
+            <h3 id="profile-display-name">User</h3>
+            <p id="profile-display-email">user@watchlog.app</p>
+          </div>
+        </div>
+        <button id="switch-account-btn" class="btn btn-primary" style="width:100%;">Switch Account</button>
+        <button id="logout-btn" class="btn btn-danger" style="width:100%;">Log Out</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- iOS Bottom Tab Bar -->
+  <nav class="bottom-tabs">
+    <button class="tab-btn active" data-tab="library">
+      <div class="tab-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
+      </div>
+      <span>Library</span>
+    </button>
+    <button class="tab-btn" data-tab="history">
+      <div class="tab-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
+      </div>
+      <span>History</span>
+    </button>
+    <button class="tab-btn" data-tab="watchlist">
+      <div class="tab-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+      </div>
+      <span>Watchlist</span>
+    </button>
+    <button class="tab-btn" data-tab="settings">
+      <div class="tab-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      </div>
+      <span>Settings</span>
+    </button>
+  </nav>
+
+  <!-- Add / Edit Modal Sheet -->
+  <div id="modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-title">Log Title</h2>
+        <button id="close-modal" class="close-btn">&times;</button>
+      </div>
+      <form id="media-form">
+        <input type="hidden" id="item-id" />
+
+        <div class="form-group search-suggest-box">
+          <label for="title">Title (Type freely or pick match)</label>
+          <input type="text" id="title" required placeholder="e.g. NCIS, Spider-Man, The Bear" autocomplete="off" />
+          <div id="suggest-list" class="search-suggest-list hidden"></div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="type">Format</label>
+            <select id="type">
+              <option value="Series">Series</option>
+              <option value="Film">Film</option>
+              <option value="Anime">Anime</option>
+              <option value="Game">Game</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="status">Status</label>
+            <select id="status">
+              <option value="Watched">Watched</option>
+              <option value="Watching">Watching</option>
+              <option value="Saved">Saved</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Seasons & Episodes Config -->
+        <div id="series-section" class="section-box">
+          <span class="section-title">Seasons & Current Progress</span>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="total-seasons">Total Seasons</label>
+              <input type="number" id="total-seasons" min="1" placeholder="e.g. 23" />
+            </div>
+            <div class="form-group">
+              <label for="watched-seasons">Watched Seasons</label>
+              <input type="number" id="watched-seasons" min="0" placeholder="e.g. 23" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="cur-season">Current Season #</label>
+              <input type="number" id="cur-season" min="1" placeholder="e.g. 23" />
+            </div>
+            <div class="form-group">
+              <label for="cur-ep">Episode in Season</label>
+              <input type="number" id="cur-ep" min="0" placeholder="e.g. 14" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Next Season Due & Converted Timezone Reminder Section -->
+        <div id="upcoming-section" class="section-box">
+          <span class="section-title">🔔 Next Season Reminder</span>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="next-season-num">Next Season #</label>
+              <input type="number" id="next-season-num" placeholder="e.g. 24" />
+            </div>
+            <div class="form-group">
+              <label for="next-season-date">Local Air / Release Date</label>
+              <input type="datetime-local" id="next-season-date" />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="platform">Streaming / Platform</label>
+          <input type="text" id="platform" placeholder="Paramount+, Netflix, Apple TV+, Film..." />
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" id="delete-btn" class="btn btn-danger hidden">Delete</button>
+          <button type="submit" class="btn btn-primary">Save to Log</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Constants & Storage Keys
+    const USERS_KEY = 'watchlog_auth_users';
+    const SESSION_KEY = 'watchlog_auth_session';
+
+    let users = JSON.parse(localStorage.getItem(USERS_KEY)) || [];
+    let currentUser = JSON.parse(localStorage.getItem(SESSION_KEY)) || null;
+    let mediaItems = [];
+
+    let isSignUpMode = false;
+    let activeFilter = 'All';
+    let currentTab = 'library';
+    let searchQuery = '';
+
+    // DOM Elements
+    const authScreen = document.getElementById('auth-screen');
+    const authForm = document.getElementById('auth-form');
+    const authTitle = document.getElementById('auth-title');
+    const authSub = document.getElementById('auth-sub');
+    const authNameGroup = document.getElementById('auth-name-group');
+    const authSubmitBtn = document.getElementById('auth-submit-btn');
+    const authToggleMode = document.getElementById('auth-toggle-mode');
+    const navUserName = document.getElementById('nav-user-name');
+    const mainContentView = document.getElementById('main-content-view');
+    const profileContentView = document.getElementById('profile-content-view');
+    const profileDisplayName = document.getElementById('profile-display-name');
+    const profileDisplayEmail = document.getElementById('profile-display-email');
+    const profileAvatarIcon = document.getElementById('profile-avatar-icon');
+    const logoutBtn = document.getElementById('logout-btn');
+    const switchAccountBtn = document.getElementById('switch-account-btn');
+    const userProfilePill = document.getElementById('user-profile-pill');
+
+    const mediaList = document.getElementById('media-list');
+    const emptyState = document.getElementById('empty-state');
+    const pillBtns = document.querySelectorAll('.pill-btn');
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const searchInput = document.getElementById('search-input');
+    const modal = document.getElementById('modal');
+    const addBtn = document.getElementById('add-btn');
+    const closeModal = document.getElementById('close-modal');
+    const mediaForm = document.getElementById('media-form');
+    const deleteBtn = document.getElementById('delete-btn');
+    const typeSelect = document.getElementById('type');
+    const seriesSection = document.getElementById('series-section');
+    const upcomingSection = document.getElementById('upcoming-section');
+    const titleInput = document.getElementById('title');
+    const suggestList = document.getElementById('suggest-list');
+
+    function getUserDataKey(email) {
+      return `watchlog_user_records_${email.toLowerCase()}`;
+    }
+
+    function checkAuth() {
+      if (!currentUser) {
+        authScreen.classList.remove('hidden');
+      } else {
+        authScreen.classList.add('hidden');
+        navUserName.innerText = currentUser.name || 'User';
+        profileDisplayName.innerText = currentUser.name || 'User';
+        profileDisplayEmail.innerText = currentUser.email;
+        profileAvatarIcon.innerText = (currentUser.name || currentUser.email).charAt(0).toUpperCase();
+
+        // Load isolated library strictly for this account
+        const userStorageKey = getUserDataKey(currentUser.email);
+        mediaItems = JSON.parse(localStorage.getItem(userStorageKey)) || [];
+        render();
+      }
+    }
+
+    authToggleMode.onclick = () => {
+      isSignUpMode = !isSignUpMode;
+      if (isSignUpMode) {
+        authTitle.innerText = "Create Account";
+        authSub.innerText = "Set up your private watch library";
+        authNameGroup.classList.remove('hidden');
+        authSubmitBtn.innerText = "Sign Up";
+        authToggleMode.innerText = "Already have an account? Log In";
+      } else {
+        authTitle.innerText = "Welcome Back";
+        authSub.innerText = "Log in to sync your watch library";
+        authNameGroup.classList.add('hidden');
+        authSubmitBtn.innerText = "Log In";
+        authToggleMode.innerText = "Don't have an account? Sign Up";
+      }
+    };
+
+    authForm.onsubmit = (e) => {
+      e.preventDefault();
+      const email = document.getElementById('auth-email').value.trim().toLowerCase();
+      const password = document.getElementById('auth-password').value;
+      const name = document.getElementById('auth-name').value.trim();
+
+      users = JSON.parse(localStorage.getItem(USERS_KEY)) || [];
+
+      if (isSignUpMode) {
+        if (users.find(u => u.email === email)) {
+          alert('An account with this email already exists.');
+          return;
+        }
+        const newUser = { name: name || 'User', email, password };
+        users.push(newUser);
+        localStorage.setItem(USERS_KEY, JSON.stringify(users));
+        currentUser = newUser;
+      } else {
+        const found = users.find(u => u.email === email && u.password === password);
+        if (!found) {
+          alert('Invalid email or password.');
+          return;
+        }
+        currentUser = found;
+      }
+
+      localStorage.setItem(SESSION_KEY, JSON.stringify(currentUser));
+      authForm.reset();
+      checkAuth();
+    };
+
+    logoutBtn.onclick = () => {
+      localStorage.removeItem(SESSION_KEY);
+      currentUser = null;
+      mediaItems = [];
+      render();
+      checkAuth();
+    };
+
+    switchAccountBtn.onclick = () => {
+      localStorage.removeItem(SESSION_KEY);
+      currentUser = null;
+      mediaItems = [];
+      render();
+      checkAuth();
+    };
+
+    userProfilePill.onclick = () => {
+      switchTab('settings');
+    };
+
+    function save() {
+      if (currentUser && currentUser.email) {
+        const userStorageKey = getUserDataKey(currentUser.email);
+        localStorage.setItem(userStorageKey, JSON.stringify(mediaItems));
+      }
+      updateCounts();
+    }
+
+    function updateCounts() {
+      document.getElementById('count-saved').innerText = mediaItems.filter(i => i.status === 'Saved').length;
+      document.getElementById('count-watching').innerText = mediaItems.filter(i => i.status === 'Watching').length;
+      document.getElementById('count-watched').innerText = mediaItems.filter(i => i.status === 'Watched').length;
+    }
+
+    function toLocalDatetimeInput(utcString) {
+      if (!utcString) return '';
+      const d = new Date(utcString);
+      if (isNaN(d.getTime())) return '';
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+
+    document.addEventListener('click', (e) => {
+      if (!titleInput.contains(e.target) && !suggestList.contains(e.target)) {
+        suggestList.classList.add('hidden');
+      }
+    });
+
+    let debounceTimeout = null;
+    titleInput.addEventListener('input', () => {
+      clearTimeout(debounceTimeout);
+      const query = titleInput.value.trim();
+      if (query.length < 2) {
+        suggestList.classList.add('hidden');
+        return;
+      }
+
+      debounceTimeout = setTimeout(async () => {
+        try {
+          const res = await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`);
+          const results = await res.json();
+
+          if (results && results.length > 0) {
+            suggestList.innerHTML = results.slice(0, 5).map(item => {
+              const show = item.show;
+              const network = show.network?.name || show.webChannel?.name || 'Streaming';
+              const year = show.premiered ? show.premiered.substring(0, 4) : '';
+              return `
+                <div class="suggest-item" data-id="${show.id}" data-title="${escapeHTML(show.name)}" data-platform="${escapeHTML(network)}">
+                  <div class="suggest-item-left">
+                    <span class="suggest-title">${escapeHTML(show.name)}</span>
+                    <span class="suggest-meta">${year ? `${year} • ` : ''}${show.type || 'Series'}</span>
+                  </div>
+                  <span class="suggest-network">${escapeHTML(network)}</span>
+                </div>
+              `;
+            }).join('');
+            suggestList.classList.remove('hidden');
+
+            document.querySelectorAll('.suggest-item').forEach(el => {
+              el.onclick = async () => {
+                const showId = el.dataset.id;
+                titleInput.value = el.dataset.title;
+                document.getElementById('platform').value = el.dataset.platform;
+                document.getElementById('type').value = 'Series';
+                suggestList.classList.add('hidden');
+
+                try {
+                  const sRes = await fetch(`https://api.tvmaze.com/shows/${showId}/seasons`);
+                  const seasons = await sRes.json();
+                  if (seasons && seasons.length > 0) {
+                    const totalSeasons = seasons.length;
+                    const latestSeason = seasons[seasons.length - 1];
+
+                    document.getElementById('total-seasons').value = totalSeasons;
+                    document.getElementById('cur-season').value = totalSeasons;
+                    document.getElementById('watched-seasons').value = totalSeasons;
+                    document.getElementById('cur-ep').value = latestSeason.episodeOrder || '';
+                    document.getElementById('next-season-num').value = totalSeasons + 1;
+                  }
+
+                  const epRes = await fetch(`https://api.tvmaze.com/shows/${showId}?embed=nextepisode`);
+                  const epData = await epRes.json();
+                  if (epData._embedded?.nextepisode?.airstamp) {
+                    const rawAirstamp = epData._embedded.nextepisode.airstamp;
+                    document.getElementById('next-season-date').value = toLocalDatetimeInput(rawAirstamp);
+                  }
+                } catch (err) {
+                  console.error('Auto-fetch info unavailable:', err);
+                }
+              };
+            });
+          } else {
+            suggestList.classList.add('hidden');
+          }
+        } catch (e) {
+          suggestList.classList.add('hidden');
+        }
+      }, 300);
+    });
+
+    typeSelect.addEventListener('change', () => {
+      const isFilm = typeSelect.value === 'Film';
+      seriesSection.style.display = isFilm ? 'none' : 'flex';
+      upcomingSection.style.display = isFilm ? 'none' : 'flex';
+    });
+
+    function render() {
+      mediaList.innerHTML = '';
+      updateCounts();
+
+      if (!currentUser) return;
+
+      const filtered = mediaItems.filter(item => {
+        let matchesTab = true;
+        if (currentTab === 'watchlist') {
+          matchesTab = Boolean(item.nextSeasonDate);
+        } else if (currentTab === 'history') {
+          matchesTab = item.status === 'Watched';
+        }
+
+        const matchesFilter = (activeFilter === 'All') || (item.status === activeFilter);
+        const matchesSearch = !searchQuery 
+          || item.title.toLowerCase().includes(searchQuery.toLowerCase())
+          || (item.platform && item.platform.toLowerCase().includes(searchQuery.toLowerCase()));
+
+        return matchesTab && matchesFilter && matchesSearch;
+      });
+
+      if (filtered.length === 0) {
+        emptyState.classList.remove('hidden');
+      } else {
+        emptyState.classList.add('hidden');
+        filtered.forEach(item => {
+          const row = document.createElement('div');
+          row.className = 'title-item';
+          row.onclick = () => openEditModal(item.id);
+
+          const isFilm = item.type === 'Film';
+          const iconSVG = isFilm 
+            ? `<svg viewBox="0 0 24 24"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></svg>`
+            : `<svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg>`;
+
+          const seasonText = isFilm 
+            ? '' 
+            : `• ${item.watchedSeasons || item.curSeason || 0} of ${item.totalSeasons || item.curSeason || 1} seasons`;
+
+          const progressPercent = isFilm 
+            ? 100 
+            : Math.min(100, (((item.watchedSeasons || 1) / (item.totalSeasons || 1)) * 100));
+
+          let reminderHTML = '';
+          if (item.nextSeasonDate) {
+            const dateObj = new Date(item.nextSeasonDate);
+            const formattedDate = dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            const formattedTime = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            reminderHTML = `
+              <div class="reminder-pill-banner">
+                <span>🔔 Season ${item.nextSeasonNum || 'Next'} Premiere</span>
+                <span class="tz-local">${formattedDate} at ${formattedTime} (Local)</span>
+              </div>
+            `;
+          }
+
+          row.innerHTML = `
+            <div class="item-header-row">
+              <div class="item-icon-box">${iconSVG}</div>
+              <div class="item-main">
+                <span class="item-name">${escapeHTML(item.title)}</span>
+                <div class="item-subline">
+                  <span>${item.type}</span>
+                  <span>${seasonText}</span>
+                </div>
+                <div class="platform-row">
+                  <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  <span>${escapeHTML(item.platform || item.type)}</span>
+                </div>
+                ${!isFilm ? `
+                  <div class="item-progress-bar">
+                    <div class="item-progress-fill" style="width: ${progressPercent}%;"></div>
+                  </div>
+                ` : ''}
+              </div>
+              <div class="item-right">
+                <div class="status-badge ${item.status.toLowerCase()}">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                  <span>${item.status}</span>
+                </div>
+                <span class="item-date">${item.date || ''}</span>
+              </div>
+              <span class="chevron">›</span>
+            </div>
+            ${reminderHTML}
+          `;
+          mediaList.appendChild(row);
+        });
+      }
+    }
+
+    function openAddModal() {
+      mediaForm.reset();
+      document.getElementById('item-id').value = '';
+      document.getElementById('modal-title').innerText = 'Log Title';
+      suggestList.classList.add('hidden');
+      seriesSection.style.display = 'flex';
+      upcomingSection.style.display = 'flex';
+      deleteBtn.classList.add('hidden');
+      modal.classList.remove('hidden');
+    }
+
+    function openEditModal(id) {
+      const item = mediaItems.find(i => i.id === id);
+      if (!item) return;
+
+      document.getElementById('item-id').value = item.id;
+      document.getElementById('title').value = item.title;
+      document.getElementById('type').value = item.type;
+      document.getElementById('status').value = item.status;
+      document.getElementById('total-seasons').value = item.totalSeasons || '';
+      document.getElementById('watched-seasons').value = item.watchedSeasons || '';
+      document.getElementById('cur-season').value = item.curSeason || '';
+      document.getElementById('cur-ep').value = item.curEp || '';
+      document.getElementById('next-season-num').value = item.nextSeasonNum || '';
+      document.getElementById('next-season-date').value = item.nextSeasonDate ? toLocalDatetimeInput(item.nextSeasonDate) : '';
+      document.getElementById('platform').value = item.platform || '';
+
+      const isFilm = item.type === 'Film';
+      seriesSection.style.display = isFilm ? 'none' : 'flex';
+      upcomingSection.style.display = isFilm ? 'none' : 'flex';
+
+      suggestList.classList.add('hidden');
+      document.getElementById('modal-title').innerText = 'Edit Title';
+      deleteBtn.classList.remove('hidden');
+      modal.classList.remove('hidden');
+    }
+
+    mediaForm.onsubmit = (e) => {
+      e.preventDefault();
+      const id = document.getElementById('item-id').value;
+      const type = document.getElementById('type').value;
+
+      const data = {
+        title: document.getElementById('title').value,
+        type: type,
+        status: document.getElementById('status').value,
+        totalSeasons: parseInt(document.getElementById('total-seasons').value) || null,
+        watchedSeasons: parseInt(document.getElementById('watched-seasons').value) || null,
+        curSeason: parseInt(document.getElementById('cur-season').value) || null,
+        curEp: parseInt(document.getElementById('cur-ep').value) || null,
+        nextSeasonNum: document.getElementById('next-season-num').value || '',
+        nextSeasonDate: document.getElementById('next-season-date').value || '',
+        platform: document.getElementById('platform').value,
+        date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+      };
+
+      if (id) {
+        const idx = mediaItems.findIndex(i => i.id === id);
+        if (idx !== -1) mediaItems[idx] = { id, ...data };
+      } else {
+        mediaItems.unshift({ id: Date.now().toString(), ...data });
+      }
+
+      save();
+      render();
+      modal.classList.add('hidden');
+    };
+
+    deleteBtn.onclick = () => {
+      const id = document.getElementById('item-id').value;
+      if (id) {
+        mediaItems = mediaItems.filter(i => i.id !== id);
+        save();
+        render();
+        modal.classList.add('hidden');
+      }
+    };
+
+    pillBtns.forEach(btn => {
+      btn.onclick = () => {
+        pillBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeFilter = btn.dataset.filter;
+        render();
+      };
+    });
+
+    function switchTab(tab) {
+      tabBtns.forEach(b => b.classList.remove('active'));
+      const activeBtn = document.querySelector(`.tab-btn[data-tab="${tab}"]`);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      currentTab = tab;
+      if (currentTab === 'settings') {
+        mainContentView.classList.add('hidden');
+        profileContentView.classList.remove('hidden');
+      } else {
+        mainContentView.classList.remove('hidden');
+        profileContentView.classList.add('hidden');
+        document.getElementById('list-label').innerText = 
+          currentTab === 'watchlist' ? 'Upcoming Premieres' : (currentTab === 'history' ? 'Watch History' : 'Titles');
+        render();
+      }
+    }
+
+    tabBtns.forEach(btn => {
+      btn.onclick = () => switchTab(btn.dataset.tab);
+    });
+
+    searchInput.oninput = (e) => {
+      searchQuery = e.target.value;
+      render();
+    };
+
+    addBtn.onclick = openAddModal;
+    closeModal.onclick = () => modal.classList.add('hidden');
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+    }
+
+    // Initialize Auth Session
+    checkAuth();
+  </script>
+</body>
+</html>ill works without this. -->
   <script src="https://cdn.apple-cloudkit.com/ck/2/cloudkit.js"></script>
 
   <style><!DOCTYPE html>
