@@ -1,15 +1,469 @@
-WATCHLOG — OPEN THIS PROJECT
-PROJECT BUILD: 1.8 — REMINDER NOTIFICATIONS FIXED
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>WatchLog</title>
 
-1. Open WatchLog.xcodeproj from this folder.
-2. Do not create a new iOS App project in Xcode.
-3. In Signing & Capabilities, select your development team and keep Automatically manage signing enabled.
-4. Run the WatchLog scheme.
+  <!-- iOS / Standalone PWA Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="WatchLog" />
+  <meta name="theme-color" content="#0b0e14" />
 
-The supplied target has NO iCloud capability and NO Push Notifications capability. WatchLog reminders are local notifications and do not require Push Notifications.
-Local reminders still appear as normal banners, sounds, and Lock Screen alerts. Open Settings in WatchLog to enable permission and send a three-second test reminder.
-The project deliberately has no entitlements file. Its bundle identifier is com.roberthinchliffe.watchlog.local.r202608251437.
+  <!-- Inline App Icon (Base64 SVG) -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%23151b26'/><polygon points='200,160 360,256 200,352' fill='%233b82f6'/></svg>" />
+  <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%23151b26'/><polygon points='200,160 360,256 200,352' fill='%233b82f6'/></svg>" />
 
-The correct first screen has four tabs: Library, History, Watchlist, and Settings.
-If you see an empty black list with only + and Edit, Xcode is running its default template project instead of WatchLog.
-If signing mentions iCloud or Push Notifications, Xcode is also using the wrong template target. Select the WatchLog scheme from this supplied project.
+  <!-- Inline Web Manifest -->
+  <link rel="manifest" href='data:application/manifest+json,{"name":"WatchLog","short_name":"WatchLog","start_url":".","display":"standalone","background_color":"%230b0e14","theme_color":"%230b0e14","icons":[{"src":"data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\"><rect width=\"512\" height=\"512\" rx=\"100\" fill=\"%23151b26\"/><polygon points=\"200,160 360,256 200,352\" fill=\"%233b82f6\"/></svg>","sizes":"512x512","type":"image/svg+xml"}]}' />
+
+  <style>
+    :root {
+      --bg-color: #0b0e14;
+      --card-bg: #151b26;
+      --accent-color: #3b82f6;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --danger: #ef4444;
+      --border: #1e293b;
+      --radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-primary);
+      padding-bottom: 60px;
+      min-height: 100vh;
+    }
+
+    .app-header {
+      position: sticky;
+      top: 0;
+      background-color: rgba(11, 14, 20, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      padding: env(safe-area-inset-top, 16px) 16px 8px 16px;
+      z-index: 50;
+    }
+
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .icon-btn {
+      background: var(--accent-color);
+      border: none;
+      color: white;
+      font-size: 1.4rem;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+    }
+
+    .filter-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .filter-btn.active {
+      background: var(--accent-color);
+      color: white;
+      border-color: var(--accent-color);
+    }
+
+    .container {
+      padding: 16px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .media-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .media-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+
+    .card-badge {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--accent-color);
+      font-weight: 600;
+    }
+
+    .card-details {
+      display: flex;
+      gap: 12px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .card-notes {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      line-height: 1.3;
+    }
+
+    .empty-state {
+      text-align: center;
+      margin-top: 80px;
+      color: var(--text-secondary);
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: flex-end;
+      z-index: 100;
+    }
+
+    .modal-content {
+      background: #19202e;
+      width: 100%;
+      max-width: 600px;
+      margin: 0 auto;
+      border-radius: 20px 20px 0 0;
+      padding: 20px 20px calc(env(safe-area-inset-bottom, 20px) + 20px) 20px;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .close-btn {
+      background: transparent;
+      border: none;
+      font-size: 1.8rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    label {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .form-group {
+      flex: 1;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .btn {
+      padding: 10px 18px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-primary { background: var(--accent-color); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-content">
+      <h1>WatchLog</h1>
+      <button id="add-btn" class="icon-btn" aria-label="Add Media">+</button>
+    </div>
+    <div class="filter-bar">
+      <button class="filter-btn active" data-filter="All">All</button>
+      <button class="filter-btn" data-filter="Watching">Watching</button>
+      <button class="filter-btn" data-filter="Plan to Watch">Plan</button>
+      <button class="filter-btn" data-filter="Completed">Done</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="media-list" class="media-grid"></div>
+    <div id="empty-state" class="empty-state hidden">
+      <p>No media found. Tap <strong>+</strong> to log your first title!</p>
+    </div>
+  </main>
+
+  <div id="modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-title">Add Media</h2>
+        <button id="close-modal" class="close-btn">&times;</button>
+      </div>
+      <form id="media-form">
+        <input type="hidden" id="item-id" />
+
+        <label for="title">Title</label>
+        <input type="text" id="title" required placeholder="e.g. Inception" />
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="type">Category</label>
+            <select id="type">
+              <option value="Movie">Movie</option>
+              <option value="TV Show">TV Show</option>
+              <option value="Anime">Anime</option>
+              <option value="Book">Book</option>
+              <option value="Game">Game</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="status">Status</label>
+            <select id="status">
+              <option value="Watching">Watching</option>
+              <option value="Plan to Watch">Plan to Watch</option>
+              <option value="Completed">Completed</option>
+              <option value="On Hold">On Hold</option>
+              <option value="Dropped">Dropped</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="rating">Rating (1–10)</label>
+            <input type="number" id="rating" min="1" max="10" placeholder="e.g. 9" />
+          </div>
+          <div class="form-group">
+            <label for="reminder-date">Reminder Date</label>
+            <input type="datetime-local" id="reminder-date" />
+          </div>
+        </div>
+
+        <label for="notes">Notes / Episodes</label>
+        <textarea id="notes" rows="3" placeholder="Episode progress, thoughts, etc..."></textarea>
+
+        <div class="modal-actions">
+          <button type="button" id="delete-btn" class="btn btn-danger hidden">Delete</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // State & Storage
+    let mediaItems = JSON.parse(localStorage.getItem('watchlog_items')) || [];
+    let activeFilter = 'All';
+
+    // Elements
+    const mediaList = document.getElementById('media-list');
+    const emptyState = document.getElementById('empty-state');
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    const modal = document.getElementById('modal');
+    const addBtn = document.getElementById('add-btn');
+    const closeModal = document.getElementById('close-modal');
+    const mediaForm = document.getElementById('media-form');
+    const deleteBtn = document.getElementById('delete-btn');
+
+    // Notification Check
+    if ('Notification' in window && Notification.permission !== 'granted') {
+      Notification.requestPermission();
+    }
+
+    function save() {
+      localStorage.setItem('watchlog_items', JSON.stringify(mediaItems));
+    }
+
+    function render() {
+      mediaList.innerHTML = '';
+      const filtered = activeFilter === 'All' 
+        ? mediaItems 
+        : mediaItems.filter(item => item.status === activeFilter);
+
+      if (filtered.length === 0) {
+        emptyState.classList.remove('hidden');
+      } else {
+        emptyState.classList.add('hidden');
+        filtered.forEach(item => {
+          const card = document.createElement('div');
+          card.className = 'media-card';
+          card.onclick = () => openEditModal(item.id);
+
+          card.innerHTML = `
+            <div class="card-top">
+              <span class="card-title">${escapeHTML(item.title)}</span>
+              <span class="card-badge">${item.type}</span>
+            </div>
+            <div class="card-details">
+              <span>Status: <strong>${item.status}</strong></span>
+              ${item.rating ? `<span>★ ${item.rating}/10</span>` : ''}
+              ${item.reminder ? `<span>⏰ ${new Date(item.reminder).toLocaleDateString()}</span>` : ''}
+            </div>
+            ${item.notes ? `<div class="card-notes">${escapeHTML(item.notes)}</div>` : ''}
+          `;
+          mediaList.appendChild(card);
+        });
+      }
+    }
+
+    function openAddModal() {
+      mediaForm.reset();
+      document.getElementById('item-id').value = '';
+      document.getElementById('modal-title').innerText = 'Add Media';
+      deleteBtn.classList.add('hidden');
+      modal.classList.remove('hidden');
+    }
+
+    function openEditModal(id) {
+      const item = mediaItems.find(i => i.id === id);
+      if (!item) return;
+
+      document.getElementById('item-id').value = item.id;
+      document.getElementById('title').value = item.title;
+      document.getElementById('type').value = item.type;
+      document.getElementById('status').value = item.status;
+      document.getElementById('rating').value = item.rating || '';
+      document.getElementById('reminder-date').value = item.reminder || '';
+      document.getElementById('notes').value = item.notes || '';
+
+      document.getElementById('modal-title').innerText = 'Edit Media';
+      deleteBtn.classList.remove('hidden');
+      modal.classList.remove('hidden');
+    }
+
+    mediaForm.onsubmit = (e) => {
+      e.preventDefault();
+      const id = document.getElementById('item-id').value;
+      const title = document.getElementById('title').value;
+      const type = document.getElementById('type').value;
+      const status = document.getElementById('status').value;
+      const rating = document.getElementById('rating').value;
+      const reminder = document.getElementById('reminder-date').value;
+      const notes = document.getElementById('notes').value;
+
+      if (id) {
+        const idx = mediaItems.findIndex(i => i.id === id);
+        if (idx !== -1) mediaItems[idx] = { id, title, type, status, rating, reminder, notes };
+      } else {
+        mediaItems.unshift({ id: Date.now().toString(), title, type, status, rating, reminder, notes });
+      }
+
+      save();
+      render();
+      modal.classList.add('hidden');
+    };
+
+    deleteBtn.onclick = () => {
+      const id = document.getElementById('item-id').value;
+      if (id) {
+        mediaItems = mediaItems.filter(i => i.id !== id);
+        save();
+        render();
+        modal.classList.add('hidden');
+      }
+    };
+
+    filterBtns.forEach(btn => {
+      btn.onclick = () => {
+        filterBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeFilter = btn.dataset.filter;
+        render();
+      };
+    });
+
+    addBtn.onclick = openAddModal;
+    closeModal.onclick = () => modal.classList.add('hidden');
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+    }
+
+    render();
+  </script>
+</body>
+</html>
