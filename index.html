@@ -38,6 +38,11 @@
         <div class="form-group"><label for="auth-password">Password</label><input id="auth-password" type="password" autocomplete="current-password" required placeholder="••••••••" /></div>
         <button id="auth-submit" class="btn btn-primary btn-full" type="submit">Log In</button>
       </form>
+      <form id="recovery-form" class="hidden">
+        <div class="form-group"><label for="recovery-password">New Password</label><input id="recovery-password" type="password" autocomplete="new-password" required placeholder="••••••••" /></div>
+        <div class="form-group"><label for="recovery-password-confirm">Confirm New Password</label><input id="recovery-password-confirm" type="password" autocomplete="new-password" required placeholder="••••••••" /></div>
+        <button id="recovery-submit" class="btn btn-primary btn-full" type="submit">Save New Password</button>
+      </form>
       <div id="auth-toggle" class="auth-toggle">Don't have an account? Sign Up</div>
       <button id="forgot-password" class="btn btn-secondary btn-full" type="button">Reset Password</button>
     </div>
@@ -94,9 +99,10 @@
   let currentTab = "library";
   let searchQuery = "";
   let searchTimer = null;
+  let recoveryMode = false;
 
   const $ = id => document.getElementById(id);
-  const authScreen = $("auth-screen"), authForm = $("auth-form"), authTitle = $("auth-title"), authSub = $("auth-sub"), authNameGroup = $("auth-name-group"), authEmail = $("auth-email"), authPassword = $("auth-password"), authName = $("auth-name"), authSubmit = $("auth-submit"), authToggle = $("auth-toggle"), authMessage = $("auth-message"), forgotPassword = $("forgot-password");
+  const authScreen = $("auth-screen"), authForm = $("auth-form"), authTitle = $("auth-title"), authSub = $("auth-sub"), authNameGroup = $("auth-name-group"), authEmail = $("auth-email"), authPassword = $("auth-password"), authName = $("auth-name"), authSubmit = $("auth-submit"), authToggle = $("auth-toggle"), authMessage = $("auth-message"), forgotPassword = $("forgot-password"), recoveryForm = $("recovery-form"), recoveryPassword = $("recovery-password"), recoveryPasswordConfirm = $("recovery-password-confirm"), recoverySubmit = $("recovery-submit");
   const navName = $("nav-name"), userPill = $("user-pill"), libraryView = $("library-view"), settingsView = $("settings-view"), profileName = $("profile-name"), profileEmail = $("profile-email"), avatar = $("avatar"), syncDot = $("sync-dot"), syncStatus = $("sync-status"), refreshCloud = $("refresh-cloud"), logoutBtn = $("logout-btn");
   const mediaList = $("media-list"), emptyState = $("empty-state"), searchInput = $("search-input"), modal = $("modal"), addBtn = $("add-btn"), closeModal = $("close-modal"), mediaForm = $("media-form"), deleteBtn = $("delete-btn"), saveBtn = $("save-btn"), typeSelect = $("type"), seriesSection = $("series-section"), upcomingSection = $("upcoming-section"), titleInput = $("title"), suggestList = $("suggest-list");
   const pillBtns = document.querySelectorAll(".pill-btn"), tabBtns = document.querySelectorAll(".tab-btn");
@@ -109,6 +115,11 @@
   function uuid(){return crypto.randomUUID?crypto.randomUUID():`item_${Date.now()}_${Math.random().toString(36).slice(2)}`;}
   function toMillis(v){const n=new Date(v||0).getTime();return Number.isFinite(n)?n:0;}
   function isEmail(v){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||"").trim());}
+  const WATCHLOG_APP_URL = "https://cryptic011.github.io/Watch-Log/";
+  function getAppBaseURL(){return WATCHLOG_APP_URL;}
+  function getRecoveryRedirectURL(){return WATCHLOG_APP_URL;}
+  function hasRecoveryHint(){const hash=new URLSearchParams(window.location.hash.replace(/^#/,""));const query=new URLSearchParams(window.location.search);return hash.get("type")==="recovery"||query.get("watchlog_recovery")==="1";}
+  function clearRecoveryURL(){try{history.replaceState({},document.title,getAppBaseURL());}catch(_){}}
 
   async function sha256(value){const bytes=new TextEncoder().encode(String(value));const digest=await crypto.subtle.digest("SHA-256",bytes);return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");}
   function cacheName(userIdHash){return `WatchLogCache_${userIdHash.slice(0,48)}`;}
@@ -128,7 +139,13 @@
     if(!window.supabase?.createClient){showMessage("The account service failed to load.","error");return false;}
     sb=window.supabase.createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
     const {data,error}=await sb.auth.getSession();if(error)throw error;session=data.session;currentUser=session?.user||null;
-    sb.auth.onAuthStateChange(async(event,newSession)=>{session=newSession;currentUser=newSession?.user||null;if(event==="SIGNED_OUT"){await clearUserState();showAuth();}else if(currentUser){await enterAccount();}});
+    sb.auth.onAuthStateChange(async(event,newSession)=>{
+      session=newSession;currentUser=newSession?.user||null;
+      if(event==="PASSWORD_RECOVERY"){showRecoveryMode();return;}
+      if(event==="SIGNED_OUT"){await clearUserState();if(!recoveryMode)showAuth();return;}
+      if(currentUser&&!recoveryMode){await enterAccount();}
+    });
+    if(hasRecoveryHint()&&currentUser){showRecoveryMode();}
     return true;
   }
 
@@ -183,8 +200,15 @@
   }
   async function clearUserState(){mediaItems=[];currentProfile=null;currentUser=null;session=null;if(cacheDB){try{cacheDB.close();}catch(_){}}cacheDB=null;render();}
   function showAuth(){authScreen.classList.remove("hidden");}
+  function showRecoveryMode(){
+    recoveryMode=true;authScreen.classList.remove("hidden");authForm.classList.add("hidden");authToggle.classList.add("hidden");forgotPassword.classList.add("hidden");recoveryForm.classList.remove("hidden");
+    authTitle.textContent="Set New Password";authSub.textContent="Your recovery link is verified. Choose a new WatchLog password.";hideMessage();
+  }
+  function leaveRecoveryMode(){
+    recoveryMode=false;recoveryForm.classList.add("hidden");authForm.classList.remove("hidden");authToggle.classList.remove("hidden");forgotPassword.classList.remove("hidden");recoveryForm.reset();clearRecoveryURL();updateAuthMode();showAuth();
+  }
 
-  function updateAuthMode(){hideMessage();authNameGroup.classList.toggle("hidden",!isSignUp);authTitle.textContent=isSignUp?"Create Account":"Welcome Back";authSub.textContent=isSignUp?"This account will work on every device using the same email and password.":"Use the same email and password on every device.";authSubmit.textContent=isSignUp?"Create Account":"Log In";authToggle.textContent=isSignUp?"Already have an account? Log In":"Don't have an account? Sign Up";authPassword.setAttribute("autocomplete",isSignUp?"new-password":"current-password");}
+  function updateAuthMode(){if(recoveryMode)return;hideMessage();authNameGroup.classList.toggle("hidden",!isSignUp);authTitle.textContent=isSignUp?"Create Account":"Welcome Back";authSub.textContent=isSignUp?"This account will work on every device using the same email and password.":"Use the same email and password on every device.";authSubmit.textContent=isSignUp?"Create Account":"Log In";authToggle.textContent=isSignUp?"Already have an account? Log In":"Don't have an account? Sign Up";authPassword.setAttribute("autocomplete",isSignUp?"new-password":"current-password");}
   authToggle.onclick=()=>{isSignUp=!isSignUp;authForm.reset();updateAuthMode();};
 
   authForm.onsubmit=async e=>{
@@ -194,7 +218,7 @@
     try{
       if(isSignUp){
         const name=authName.value.trim()||"User";
-        const {data,error}=await sb.auth.signUp({email,password,options:{data:{display_name:name}}});if(error)throw error;
+        const {data,error}=await sb.auth.signUp({email,password,options:{data:{display_name:name},emailRedirectTo:getAppBaseURL()}});if(error)throw error;
         if(!data.session){showMessage("Account created. Confirm the verification email, then use the same email and password on every device.","success");return;}
         session=data.session;currentUser=data.user;await enterAccount();
       }else{
@@ -204,7 +228,22 @@
     finally{authSubmit.disabled=false;authSubmit.textContent=isSignUp?"Create Account":"Log In";}
   };
 
-  forgotPassword.onclick=async()=>{if(!sb){showMessage("Cloud accounts are not configured.");return;}const email=authEmail.value.trim().toLowerCase();if(!isEmail(email)){showMessage("Enter the account email first.");return;}const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.href});if(error)showMessage(`Password reset failed: ${error.message}`);else showMessage(`Password reset sent to ${email}.`,"success");};
+  forgotPassword.onclick=async()=>{
+    if(!sb){showMessage("Cloud accounts are not configured.");return;}
+    const email=authEmail.value.trim().toLowerCase();if(!isEmail(email)){showMessage("Enter the account email first.");return;}
+    const redirectTo=getRecoveryRedirectURL();
+    if(location.protocol!=="https:"||location.hostname==="localhost"||location.hostname==="127.0.0.1"){showMessage("Open the deployed HTTPS WatchLog site before requesting a password reset. Recovery links are blocked from using localhost.");return;}
+    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});
+    if(error)showMessage(`Password reset failed: ${error.message}`);else showMessage(`Password reset sent to ${email}. The recovery link will return to ${WATCHLOG_APP_URL} instead of localhost.`,"success");
+  };
+  recoveryForm.onsubmit=async e=>{
+    e.preventDefault();if(!sb||!currentUser){showMessage("This recovery session is missing or expired. Request a new password reset.");return;}
+    const password=recoveryPassword.value,confirm=recoveryPasswordConfirm.value;if(password.length<6){showMessage("New password must be at least 6 characters.");return;}if(password!==confirm){showMessage("The two new passwords do not match.");return;}
+    recoverySubmit.disabled=true;recoverySubmit.textContent="Saving…";
+    try{const recoveryEmail=currentUser?.email||authEmail.value;const {error}=await sb.auth.updateUser({password});if(error)throw error;await sb.auth.signOut();leaveRecoveryMode();authEmail.value=recoveryEmail;showMessage("Password updated. Log in with the new password on any device.","success");}
+    catch(err){console.error(err);showMessage(`Password update failed: ${err.message||"Unknown error"}`);}
+    finally{recoverySubmit.disabled=false;recoverySubmit.textContent="Save New Password";}
+  };
   logoutBtn.onclick=async()=>{if(sb)await sb.auth.signOut();await clearUserState();showAuth();};
   refreshCloud.onclick=()=>loadCloudLibrary({allowCache:false}).catch(e=>{console.error(e);setSync("Could not refresh the cloud library.","warn");});
   userPill.onclick=()=>switchTab("settings");
@@ -256,7 +295,7 @@
   };
   deleteBtn.onclick=async()=>{const id=$("item-id").value;if(!id)return;try{await deleteCloudItem(id);mediaItems=mediaItems.filter(x=>String(x.id)!==String(id));await saveCache(mediaItems);render();modal.classList.add("hidden");}catch(e){console.error(e);alert("Delete failed.");}};
 
-  async function start(){updateAuthMode();if(!await initSupabase())return;if(currentUser)await enterAccount();else showAuth();}
+  async function start(){updateAuthMode();if(!await initSupabase())return;if(recoveryMode)return;if(currentUser)await enterAccount();else showAuth();}
   start().catch(err=>{console.error(err);showMessage(`WatchLog could not start: ${err.message||err}`);});
   </script>
 </body>
