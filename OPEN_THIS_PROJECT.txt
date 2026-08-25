@@ -1,0 +1,15 @@
+WATCHLOG — OPEN THIS PROJECT
+PROJECT BUILD: 1.8 — REMINDER NOTIFICATIONS FIXED
+
+1. Open WatchLog.xcodeproj from this folder.
+2. Do not create a new iOS App project in Xcode.
+3. In Signing & Capabilities, select your development team and keep Automatically manage signing enabled.
+4. Run the WatchLog scheme.
+
+The supplied target has NO iCloud capability and NO Push Notifications capability. WatchLog reminders are local notifications and do not require Push Notifications.
+Local reminders still appear as normal banners, sounds, and Lock Screen alerts. Open Settings in WatchLog to enable permission and send a three-second test reminder.
+The project deliberately has no entitlements file. Its bundle identifier is com.roberthinchliffe.watchlog.local.r202608251437.
+
+The correct first screen has four tabs: Library, History, Watchlist, and Settings.
+If you see an empty black list with only + and Edit, Xcode is running its default template project instead of WatchLog.
+If signing mentions iCloud or Push Notifications, Xcode is also using the wrong template target. Select the WatchLog scheme from this supplied project.
