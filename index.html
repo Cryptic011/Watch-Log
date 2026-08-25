@@ -49,7 +49,6 @@
       min-height: 100vh;
     }
 
-    /* Top Navigation Bar */
     .top-nav {
       position: sticky;
       top: 0;
@@ -337,7 +336,11 @@
       font-weight: 600;
     }
 
-    /* Auto-Search Dropdown */
+    .reminder-pill-banner .tz-local {
+      font-size: 0.75rem;
+      opacity: 0.85;
+    }
+
     .search-suggest-box {
       position: relative;
     }
@@ -394,7 +397,6 @@
       font-weight: 600;
     }
 
-    /* Bottom iOS Navigation Bar */
     .bottom-tabs {
       position: fixed;
       bottom: 0;
@@ -432,7 +434,6 @@
     }
     .tab-icon-wrap svg { width: 22px; height: 22px; fill: currentColor; }
 
-    /* Modal Sheet */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -680,16 +681,16 @@
           </div>
         </div>
 
-        <!-- Next Season Due & Reminder Section -->
+        <!-- Next Season Due & Converted Timezone Reminder Section -->
         <div id="upcoming-section" class="section-box">
-          <span class="section-title">🔔 Next Season Reminder</span>
+          <span class="section-title">🔔 Next Season Reminder (Local Timezone Auto-Adjusted)</span>
           <div class="form-row">
             <div class="form-group">
               <label for="next-season-num">Next Season #</label>
               <input type="number" id="next-season-num" placeholder="e.g. 24" />
             </div>
             <div class="form-group">
-              <label for="next-season-date">Air / Release Date</label>
+              <label for="next-season-date">Local Air / Release Date</label>
               <input type="datetime-local" id="next-season-date" />
             </div>
           </div>
@@ -754,7 +755,21 @@
     const titleInput = document.getElementById('title');
     const suggestList = document.getElementById('suggest-list');
 
-    // Live Auto-Search / Auto-Fill API handler
+    // Helper: converts ISO/UTC/US airstamps to formatted local datetime input string (YYYY-MM-DDTHH:mm)
+    function toLocalDatetimeInput(utcString) {
+      if (!utcString) return '';
+      const d = new Date(utcString);
+      if (isNaN(d.getTime())) return '';
+      
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+
+    // Live Auto-Search & Timezone Cross-Check
     let debounceTimeout = null;
     titleInput.addEventListener('input', () => {
       clearTimeout(debounceTimeout);
@@ -786,7 +801,6 @@
             }).join('');
             suggestList.classList.remove('hidden');
 
-            // Attach 1-tap autofill listeners
             document.querySelectorAll('.suggest-item').forEach(el => {
               el.onclick = async () => {
                 const showId = el.dataset.id;
@@ -795,8 +809,8 @@
                 document.getElementById('type').value = 'Series';
                 suggestList.classList.add('hidden');
 
-                // Auto-fetch seasons metadata
                 try {
+                  // Fetch seasons & episodes breakdown
                   const sRes = await fetch(`https://api.tvmaze.com/shows/${showId}/seasons`);
                   const seasons = await sRes.json();
                   if (seasons && seasons.length > 0) {
@@ -807,21 +821,18 @@
                     document.getElementById('cur-season').value = totalSeasons;
                     document.getElementById('watched-seasons').value = totalSeasons;
                     document.getElementById('cur-ep').value = latestSeason.episodeOrder || '';
-
-                    // Check for next announced season
-                    const nextSeasonNum = totalSeasons + 1;
-                    document.getElementById('next-season-num').value = nextSeasonNum;
+                    document.getElementById('next-season-num').value = totalSeasons + 1;
                   }
 
-                  // Auto-fetch upcoming premiere date if scheduled
+                  // Cross-check next episode air time and convert from US timezone to device's local time
                   const epRes = await fetch(`https://api.tvmaze.com/shows/${showId}?embed=nextepisode`);
                   const epData = await epRes.json();
                   if (epData._embedded?.nextepisode?.airstamp) {
-                    const nextDate = new Date(epData._embedded.nextepisode.airstamp).toISOString().slice(0, 16);
-                    document.getElementById('next-season-date').value = nextDate;
+                    const rawAirstamp = epData._embedded.nextepisode.airstamp;
+                    document.getElementById('next-season-date').value = toLocalDatetimeInput(rawAirstamp);
                   }
                 } catch (err) {
-                  console.error('Auto-fetch failed:', err);
+                  console.error('Auto-fetch / timezone conversion failed:', err);
                 }
               };
             });
@@ -895,11 +906,14 @@
 
           let reminderHTML = '';
           if (item.nextSeasonDate) {
-            const formattedDate = new Date(item.nextSeasonDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            const dateObj = new Date(item.nextSeasonDate);
+            const formattedDate = dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            const formattedTime = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
             reminderHTML = `
               <div class="reminder-pill-banner">
                 <span>🔔 Season ${item.nextSeasonNum || 'Next'} Premiere</span>
-                <span>${formattedDate}</span>
+                <span class="tz-local">${formattedDate} at ${formattedTime} (Local)</span>
               </div>
             `;
           }
@@ -963,7 +977,7 @@
       document.getElementById('cur-season').value = item.curSeason || '';
       document.getElementById('cur-ep').value = item.curEp || '';
       document.getElementById('next-season-num').value = item.nextSeasonNum || '';
-      document.getElementById('next-season-date').value = item.nextSeasonDate || '';
+      document.getElementById('next-season-date').value = item.nextSeasonDate ? toLocalDatetimeInput(item.nextSeasonDate) : '';
       document.getElementById('platform').value = item.platform || '';
 
       const isFilm = item.type === 'Film';
