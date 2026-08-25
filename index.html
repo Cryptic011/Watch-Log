@@ -29,6 +29,9 @@
       --tag-watched-text: #34d399;
       --tag-watching-bg: #1e293b;
       --tag-watching-text: #60a5fa;
+      --tag-reminder-bg: rgba(245, 158, 11, 0.12);
+      --tag-reminder-text: #fbbf24;
+      --tag-reminder-border: rgba(245, 158, 11, 0.3);
       --danger: #ef4444;
       --radius-card: 20px;
     }
@@ -197,13 +200,19 @@
     .title-item {
       padding: 16px;
       display: flex;
-      align-items: center;
-      gap: 14px;
+      flex-direction: column;
+      gap: 10px;
       position: relative;
       cursor: pointer;
       border-bottom: 1px solid var(--border);
     }
     .title-item:last-child { border-bottom: none; }
+
+    .item-header-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
 
     .item-icon-box {
       width: 48px;
@@ -319,6 +328,26 @@
       color: #4b5563;
       font-size: 1.1rem;
       font-weight: bold;
+    }
+
+    /* Reminder Pill Banner */
+    .reminder-pill-banner {
+      background: var(--tag-reminder-bg);
+      border: 1px solid var(--tag-reminder-border);
+      border-radius: 10px;
+      padding: 6px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      color: var(--tag-reminder-text);
+      font-weight: 600;
+    }
+
+    .reminder-pill-banner .bell-tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     /* Bottom iOS Navigation Bar */
@@ -522,36 +551,34 @@
   </div>
 
   <main class="container">
-    <div class="section-label">Titles</div>
-    <div id="media-list" class="titles-group">
-      <!-- Item list injected dynamically -->
-    </div>
+    <div class="section-label" id="list-label">Titles</div>
+    <div id="media-list" class="titles-group"></div>
     <div id="empty-state" class="hidden" style="text-align: center; margin-top: 40px; color: var(--text-muted);">
-      <p>No titles logged. Tap <strong>+</strong> to start!</p>
+      <p>No titles found. Tap <strong>+</strong> to start!</p>
     </div>
   </main>
 
   <!-- iOS Bottom Tab Bar -->
   <nav class="bottom-tabs">
-    <button class="tab-btn active">
+    <button class="tab-btn active" data-tab="library">
       <div class="tab-icon-wrap">
         <svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
       </div>
       <span>Library</span>
     </button>
-    <button class="tab-btn">
+    <button class="tab-btn" data-tab="history">
       <div class="tab-icon-wrap">
         <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
       </div>
       <span>History</span>
     </button>
-    <button class="tab-btn">
+    <button class="tab-btn" data-tab="watchlist">
       <div class="tab-icon-wrap">
         <svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
       </div>
       <span>Watchlist</span>
     </button>
-    <button class="tab-btn">
+    <button class="tab-btn" data-tab="settings">
       <div class="tab-icon-wrap">
         <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
       </div>
@@ -594,7 +621,7 @@
           </div>
         </div>
 
-        <!-- Explicit Seasons & Episodes Config -->
+        <!-- Seasons & Episodes Config -->
         <div id="series-section" class="section-box">
           <span class="section-title">Seasons & Current Progress</span>
           <div class="form-row">
@@ -619,17 +646,17 @@
           </div>
         </div>
 
-        <!-- Upcoming Season Due Date -->
+        <!-- Next Season Due & Reminder Section -->
         <div id="upcoming-section" class="section-box">
-          <span class="section-title">Next Season Due</span>
+          <span class="section-title">🔔 Next Season Reminder</span>
           <div class="form-row">
             <div class="form-group">
               <label for="next-season-num">Next Season #</label>
               <input type="number" id="next-season-num" placeholder="e.g. 24" />
             </div>
             <div class="form-group">
-              <label for="next-season-date">Due / Premiere Date</label>
-              <input type="date" id="next-season-date" />
+              <label for="next-season-date">Air / Release Date</label>
+              <input type="datetime-local" id="next-season-date" />
             </div>
           </div>
         </div>
@@ -668,17 +695,19 @@
         curSeason: 23,
         curEp: 20,
         nextSeasonNum: 24,
-        nextSeasonDate: '2026-10-04',
+        nextSeasonDate: '2026-10-04T17:12',
         date: '25 Aug 2026'
       }
     ];
 
     let activeFilter = 'All';
+    let currentTab = 'library';
     let searchQuery = '';
 
     const mediaList = document.getElementById('media-list');
     const emptyState = document.getElementById('empty-state');
     const pillBtns = document.querySelectorAll('.pill-btn');
+    const tabBtns = document.querySelectorAll('.tab-btn');
     const searchInput = document.getElementById('search-input');
     const modal = document.getElementById('modal');
     const addBtn = document.getElementById('add-btn');
@@ -688,6 +717,11 @@
     const typeSelect = document.getElementById('type');
     const seriesSection = document.getElementById('series-section');
     const upcomingSection = document.getElementById('upcoming-section');
+
+    // Ask for Notification Permissions for air date reminders
+    if ('Notification' in window && Notification.permission !== 'granted') {
+      Notification.requestPermission();
+    }
 
     typeSelect.addEventListener('change', () => {
       const isFilm = typeSelect.value === 'Film';
@@ -711,12 +745,19 @@
       updateCounts();
 
       const filtered = mediaItems.filter(item => {
+        let matchesTab = true;
+        if (currentTab === 'watchlist') {
+          matchesTab = Boolean(item.nextSeasonDate);
+        } else if (currentTab === 'history') {
+          matchesTab = item.status === 'Watched';
+        }
+
         const matchesFilter = (activeFilter === 'All') || (item.status === activeFilter);
         const matchesSearch = !searchQuery 
           || item.title.toLowerCase().includes(searchQuery.toLowerCase())
           || (item.platform && item.platform.toLowerCase().includes(searchQuery.toLowerCase()));
 
-        return matchesFilter && matchesSearch;
+        return matchesTab && matchesFilter && matchesSearch;
       });
 
       if (filtered.length === 0) {
@@ -741,32 +782,46 @@
             ? 100 
             : Math.min(100, (((item.watchedSeasons || 1) / (item.totalSeasons || 1)) * 100));
 
+          let reminderHTML = '';
+          if (item.nextSeasonDate) {
+            const formattedDate = new Date(item.nextSeasonDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            reminderHTML = `
+              <div class="reminder-pill-banner">
+                <span class="bell-tag">🔔 Season ${item.nextSeasonNum || 'Next'} Premiere</span>
+                <span>${formattedDate}</span>
+              </div>
+            `;
+          }
+
           row.innerHTML = `
-            <div class="item-icon-box">${iconSVG}</div>
-            <div class="item-main">
-              <span class="item-name">${escapeHTML(item.title)}</span>
-              <div class="item-subline">
-                <span>${item.type}</span>
-                <span>${seasonText}</span>
-              </div>
-              <div class="platform-row">
-                <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                <span>${escapeHTML(item.platform || item.type)}</span>
-              </div>
-              ${!isFilm ? `
-                <div class="item-progress-bar">
-                  <div class="item-progress-fill" style="width: ${progressPercent}%;"></div>
+            <div class="item-header-row">
+              <div class="item-icon-box">${iconSVG}</div>
+              <div class="item-main">
+                <span class="item-name">${escapeHTML(item.title)}</span>
+                <div class="item-subline">
+                  <span>${item.type}</span>
+                  <span>${seasonText}</span>
                 </div>
-              ` : ''}
-            </div>
-            <div class="item-right">
-              <div class="status-badge ${item.status.toLowerCase()}">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-                <span>${item.status}</span>
+                <div class="platform-row">
+                  <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  <span>${escapeHTML(item.platform || item.type)}</span>
+                </div>
+                ${!isFilm ? `
+                  <div class="item-progress-bar">
+                    <div class="item-progress-fill" style="width: ${progressPercent}%;"></div>
+                  </div>
+                ` : ''}
               </div>
-              <span class="item-date">${item.date || '25 Aug 2026'}</span>
+              <div class="item-right">
+                <div class="status-badge ${item.status.toLowerCase()}">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                  <span>${item.status}</span>
+                </div>
+                <span class="item-date">${item.date || '25 Aug 2026'}</span>
+              </div>
+              <span class="chevron">›</span>
             </div>
-            <span class="chevron">›</span>
+            ${reminderHTML}
           `;
           mediaList.appendChild(row);
         });
@@ -854,6 +909,17 @@
         pillBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         activeFilter = btn.dataset.filter;
+        render();
+      };
+    });
+
+    tabBtns.forEach(btn => {
+      btn.onclick = () => {
+        tabBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentTab = btn.dataset.tab;
+        document.getElementById('list-label').innerText = 
+          currentTab === 'watchlist' ? 'Upcoming Premieres' : (currentTab === 'history' ? 'Watch History' : 'Titles');
         render();
       };
     });
