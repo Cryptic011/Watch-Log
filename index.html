@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>WatchLog</title>
+  <title>Watched Logger</title>
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="WatchLog" />
+  <meta name="apple-mobile-web-app-title" content="Watched Logger" />
   <meta name="theme-color" content="#000000" />
   <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='120' fill='%23181b20'/><polygon points='210,160 360,256 210,352' fill='%233b82f6'/></svg>" />
-  <link rel="manifest" href='data:application/manifest+json,{"name":"WatchLog","short_name":"WatchLog","start_url":".","display":"standalone","background_color":"%23000000","theme_color":"%23000000"}' />
+  <link rel="manifest" href='data:application/manifest+json,{"name":"Watched Logger","short_name":"Watched Logger","start_url":".","display":"standalone","background_color":"%23000000","theme_color":"%23000000"}' />
   <style>
     :root{--bg:#000;--card:#15181e;--inner:#1e222a;--blue:#2563eb;--blue2:#60a5fa;--text:#fff;--muted:#8e95a2;--border:#232730;--green:#34d399;--red:#ef4444;--amber:#fbbf24;--radius:20px}
     *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",sans-serif;-webkit-tap-highlight-color:transparent}
@@ -38,13 +38,13 @@
         <button id="auth-submit" class="btn btn-primary btn-full" type="submit">Log In</button>
       </form>
       <div id="auth-toggle" class="auth-toggle">Don't have an account? Create PIN Account</div>
-      <div class="message info">Your email is the account ID and your library syncs through WatchLog cloud storage. No verification or reset emails are sent. The PIN cannot be recovered by email.</div>
+      <div class="message info">Your email is the account ID and your library syncs through Watched Logger cloud storage. No verification or reset emails are sent. The PIN cannot be recovered by email.</div>
     </div>
   </div>
 
   <div class="top-nav">
     <div class="nav-header"><div id="user-pill" class="user-pill"><div class="user-dot"></div><span id="nav-name">Guest</span></div><button id="add-btn" class="circle-btn" aria-label="Add">+</button></div>
-    <h1>WatchLog</h1>
+    <h1>Watched Logger</h1>
     <div class="search-box"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5z"/></svg><input id="search-input" type="text" placeholder="Search titles or platforms" /></div>
     <div class="stats-row"><div class="stat-card"><span id="count-saved" class="num">0</span><span class="label">Saved</span></div><div class="stat-card"><span id="count-watching" class="num">0</span><span class="label">Watching</span></div><div class="stat-card"><span id="count-watched" class="num">0</span><span class="label">Watched</span></div></div>
     <div class="filter-pills"><button class="pill-btn active" data-filter="All">All</button><button class="pill-btn" data-filter="Saved">Saved</button><button class="pill-btn" data-filter="Watching">Watching</button><button class="pill-btn" data-filter="Watched">Watched</button></div>
@@ -52,7 +52,7 @@
 
   <main class="container">
     <div id="library-view"><div id="list-label" class="section-label">Titles</div><div id="media-list" class="titles-group"></div><div id="empty-state" class="hidden" style="text-align:center;margin-top:40px;color:var(--muted)">No titles found. Tap <strong>+</strong> to start.</div></div>
-    <div id="settings-view" class="hidden"><div class="section-label">Account & Sync</div><div class="profile-card"><div class="profile-header"><div id="avatar" class="avatar">U</div><div class="profile-info"><h3 id="profile-name">User</h3><p id="profile-email"></p></div></div><div class="sync-box"><div class="sync-title"><div id="sync-dot" class="sync-dot ok"></div>WatchLog Cloud Sync</div><div id="sync-status" class="sync-text">Your library is linked to this email account and can be loaded on another device with the same 4-digit PIN.</div><button id="sync-now" class="btn btn-secondary btn-full" type="button">Sync Now</button></div><div class="sync-box"><div class="sync-title">Change 4-digit PIN</div><div class="form-group"><label for="new-pin">New PIN</label><input id="new-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="••••" /></div><button id="change-pin" class="btn btn-secondary btn-full" type="button">Change PIN</button><div class="small-note">PIN changes apply to every device. Five incorrect PIN attempts temporarily lock sign-in for 15 minutes.</div></div><button id="logout-btn" class="btn btn-danger btn-full">Log Out</button></div></div>
+    <div id="settings-view" class="hidden"><div class="section-label">Account & Sync</div><div class="profile-card"><div class="profile-header"><div id="avatar" class="avatar">U</div><div class="profile-info"><h3 id="profile-name">User</h3><p id="profile-email"></p></div></div><div class="sync-box"><div class="sync-title"><div id="sync-dot" class="sync-dot ok"></div>Watched Logger Cloud Sync</div><div id="sync-status" class="sync-text">Your library is linked to this email account and can be loaded on another device with the same 4-digit PIN.</div><button id="sync-now" class="btn btn-secondary btn-full" type="button">Sync Now</button></div><div class="sync-box"><div class="sync-title">Change 4-digit PIN</div><div class="form-group"><label for="new-pin">New PIN</label><input id="new-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="••••" /></div><button id="change-pin" class="btn btn-secondary btn-full" type="button">Change PIN</button><div class="small-note">PIN changes apply to every device. Five incorrect PIN attempts temporarily lock sign-in for 15 minutes.</div></div><button id="logout-btn" class="btn btn-danger btn-full">Log Out</button></div></div>
   </main>
 
   <nav class="bottom-tabs">
@@ -62,7 +62,7 @@
     <button class="tab-btn" data-tab="settings"><div class="tab-icon"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58-1.92-3.32-2.39.96c-.5-.38-1.03-.7-1.62-.94L14.4 2.4h-4.8l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96-1.92 3.32 2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58 1.92 3.32 2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54h4.8l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96 1.92-3.32-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div><span>Settings</span></button>
   </nav>
 
-  <div id="modal" class="modal-overlay hidden"><div class="modal-content"><div class="modal-header"><h2 id="modal-title">Log Title</h2><button id="close-modal" class="close-btn" type="button">&times;</button></div><form id="media-form"><input id="item-id" type="hidden" /><input id="tvmaze-id" type="hidden" /><input id="imdb-id" type="hidden" /><input id="film-release-source" type="hidden" /><div class="form-group suggest-wrap"><label for="title">Title</label><input id="title" type="text" required autocomplete="off" placeholder="e.g. Black Mirror" /><div id="suggest-list" class="suggest-list hidden"></div></div><div class="form-row"><div class="form-group"><label for="type">Format</label><select id="type"><option>Series</option><option>Film</option><option>Anime</option><option>Game</option></select></div><div class="form-group"><label for="status">Status</label><select id="status"><option>Watched</option><option>Watching</option><option>Saved</option></select></div></div><div id="series-section" class="section-box"><span class="section-title">Seasons & Progress</span><div class="form-row"><div class="form-group"><label for="total-seasons">Known / Announced Seasons</label><input id="total-seasons" type="number" min="1" /></div><div class="form-group"><label for="watched-seasons">Watched Seasons</label><input id="watched-seasons" type="number" min="0" /></div></div><div class="form-row"><div class="form-group"><label for="cur-season">Current Season #</label><input id="cur-season" type="number" min="1" /></div><div class="form-group"><label for="cur-ep">Episode in Season</label><input id="cur-ep" type="number" min="0" /></div></div></div><div id="upcoming-section" class="section-box"><span class="section-title">🔔 Verified Upcoming Season</span><p class="small-note">For TVMaze-linked shows, WatchLog only uses a season number that exists in TVMaze's season list. It never calculates “current + 1”.</p><div class="form-row"><div class="form-group"><label for="next-season-num">Upcoming Season #</label><input id="next-season-num" type="number" /></div><div class="form-group"><label for="next-season-date">Premiere Date / Time</label><input id="next-season-date" type="datetime-local" /></div></div></div><div id="film-section" class="section-box" style="display:none"><span class="section-title">🎬 Film Release</span><p class="small-note">When the film catalogue provides an exact scheduled release date, WatchLog fills it automatically. You can also enter or change the date manually.</p><div class="form-group"><label for="film-release-date">Release Date</label><input id="film-release-date" type="date" /></div></div><div class="form-group"><label for="platform">Watched / Streaming Source</label><input id="platform" type="text" list="platform-options" placeholder="Theatre, Netflix, Apple TV+, etc." /><datalist id="platform-options"><option value="Theatre"></option><option value="Netflix"></option><option value="Disney+"></option><option value="Prime Video"></option><option value="Apple TV+"></option><option value="Max"></option><option value="Hulu"></option><option value="Paramount+"></option><option value="Peacock"></option><option value="BBC iPlayer"></option><option value="ITVX"></option><option value="Channel 4"></option><option value="Blu-ray"></option><option value="DVD"></option><option value="Digital Purchase"></option></datalist></div><div class="modal-actions"><button id="delete-btn" type="button" class="btn btn-danger hidden">Delete</button><button id="save-btn" type="submit" class="btn btn-primary">Save to Log</button></div></form></div></div>
+  <div id="modal" class="modal-overlay hidden"><div class="modal-content"><div class="modal-header"><h2 id="modal-title">Log Title</h2><button id="close-modal" class="close-btn" type="button">&times;</button></div><form id="media-form"><input id="item-id" type="hidden" /><input id="tvmaze-id" type="hidden" /><input id="imdb-id" type="hidden" /><input id="film-release-source" type="hidden" /><div class="form-group suggest-wrap"><label for="title">Title</label><input id="title" type="text" required autocomplete="off" placeholder="e.g. Black Mirror" /><div id="suggest-list" class="suggest-list hidden"></div></div><div class="form-row"><div class="form-group"><label for="type">Format</label><select id="type"><option>Series</option><option>Film</option><option>Anime</option><option>Game</option></select></div><div class="form-group"><label for="status">Status</label><select id="status"><option>Watched</option><option>Watching</option><option>Saved</option></select></div></div><div id="series-section" class="section-box"><span class="section-title">Seasons & Progress</span><div class="form-row"><div class="form-group"><label for="total-seasons">Known / Announced Seasons</label><input id="total-seasons" type="number" min="1" /></div><div class="form-group"><label for="watched-seasons">Watched Seasons</label><input id="watched-seasons" type="number" min="0" /></div></div><div class="form-row"><div class="form-group"><label for="cur-season">Current Season #</label><input id="cur-season" type="number" min="1" /></div><div class="form-group"><label for="cur-ep">Episode in Season</label><input id="cur-ep" type="number" min="0" /></div></div></div><div id="upcoming-section" class="section-box"><span class="section-title">🔔 Verified Upcoming Season</span><p id="season-verify-note" class="small-note">Season data is cross-checked with TVMaze and Wikipedia where available. Watched Logger only uses season numbers found in a real source; it never invents a season by adding 1.</p><div class="form-row"><div class="form-group"><label for="next-season-num">Upcoming Season #</label><input id="next-season-num" type="number" /></div><div class="form-group"><label for="next-season-date">Premiere Date / Time</label><input id="next-season-date" type="datetime-local" /></div></div></div><div id="film-section" class="section-box" style="display:none"><span class="section-title">🎬 Film Release</span><p class="small-note">When the film catalogue provides an exact scheduled release date, Watched Logger fills it automatically. You can also enter or change the date manually.</p><div class="form-group"><label for="film-release-date">Release Date</label><input id="film-release-date" type="date" /></div></div><div class="form-group"><label for="platform">Watched / Streaming Source</label><input id="platform" type="text" list="platform-options" placeholder="Theatre, Netflix, Apple TV+, etc." /><datalist id="platform-options"><option value="Theatre"></option><option value="Netflix"></option><option value="Disney+"></option><option value="Prime Video"></option><option value="Apple TV+"></option><option value="Max"></option><option value="Hulu"></option><option value="Paramount+"></option><option value="Peacock"></option><option value="BBC iPlayer"></option><option value="ITVX"></option><option value="Channel 4"></option><option value="Blu-ray"></option><option value="DVD"></option><option value="Digital Purchase"></option></datalist></div><div class="modal-actions"><button id="delete-btn" type="button" class="btn btn-danger hidden">Delete</button><button id="save-btn" type="submit" class="btn btn-primary">Save to Log</button></div></form></div></div>
 
   <script>
   "use strict";
@@ -72,7 +72,7 @@
      ---------------------------------------------------------
      Supabase Auth/email is NOT used. No SMTP, verification or
      password-reset email is required. The browser talks only to
-     WatchLog's custom PIN API. The API stores a salted PBKDF2 PIN
+     Watched Logger's custom PIN API. The API stores a salted PBKDF2 PIN
      verifier, rate-limits failed PIN attempts, and returns an
      opaque session token. Libraries are stored per account and
      also cached locally for offline use.
@@ -98,7 +98,7 @@
   const $ = id => document.getElementById(id);
   const authScreen = $("auth-screen"), authForm = $("auth-form"), authTitle = $("auth-title"), authSub = $("auth-sub"), authNameGroup = $("auth-name-group"), authEmail = $("auth-email"), authPin = $("auth-pin"), authName = $("auth-name"), authSubmit = $("auth-submit"), authToggle = $("auth-toggle"), authMessage = $("auth-message");
   const navName = $("nav-name"), userPill = $("user-pill"), libraryView = $("library-view"), settingsView = $("settings-view"), profileName = $("profile-name"), profileEmail = $("profile-email"), avatar = $("avatar"), syncDot = $("sync-dot"), syncStatus = $("sync-status"), syncNowBtn = $("sync-now"), changePinBtn = $("change-pin"), newPinInput = $("new-pin"), logoutBtn = $("logout-btn");
-  const mediaList = $("media-list"), emptyState = $("empty-state"), searchInput = $("search-input"), modal = $("modal"), addBtn = $("add-btn"), closeModal = $("close-modal"), mediaForm = $("media-form"), deleteBtn = $("delete-btn"), saveBtn = $("save-btn"), typeSelect = $("type"), seriesSection = $("series-section"), upcomingSection = $("upcoming-section"), filmSection = $("film-section"), filmReleaseDate = $("film-release-date"), filmReleaseSource = $("film-release-source"), titleInput = $("title"), suggestList = $("suggest-list");
+  const mediaList = $("media-list"), emptyState = $("empty-state"), searchInput = $("search-input"), modal = $("modal"), addBtn = $("add-btn"), closeModal = $("close-modal"), mediaForm = $("media-form"), deleteBtn = $("delete-btn"), saveBtn = $("save-btn"), typeSelect = $("type"), seriesSection = $("series-section"), upcomingSection = $("upcoming-section"), seasonVerifyNote = $("season-verify-note"), filmSection = $("film-section"), filmReleaseDate = $("film-release-date"), filmReleaseSource = $("film-release-source"), titleInput = $("title"), suggestList = $("suggest-list");
   const pillBtns = document.querySelectorAll(".pill-btn"), tabBtns = document.querySelectorAll(".tab-btn");
 
   function nowISO(){return new Date().toISOString();}
@@ -119,10 +119,10 @@
     if(token)headers["X-WatchLog-Session"]=token;
     let response;
     try{response=await fetch(PIN_API,{method:"POST",headers,body:JSON.stringify({action,...payload})});}
-    catch(e){const err=new Error("Could not reach WatchLog cloud. Check your connection.");err.code="network";throw err;}
+    catch(e){const err=new Error("Could not reach Watched Logger cloud. Check your connection.");err.code="network";throw err;}
     let data={};
     try{data=await response.json();}catch(_){}
-    if(!response.ok){const err=new Error(data.error||`WatchLog cloud error (${response.status})`);err.code=data.code||"api_error";err.status=response.status;err.retryAfter=data.retryAfter;throw err;}
+    if(!response.ok){const err=new Error(data.error||`Watched Logger cloud error (${response.status})`);err.code=data.code||"api_error";err.status=response.status;err.retryAfter=data.retryAfter;throw err;}
     return data;
   }
 
@@ -213,7 +213,7 @@
     const snap=await readLegacyLocalSnapshotById(id);if(!snap?.profile)return;
     if(!authEmail.value&&snap.profile.email)authEmail.value=snap.profile.email;
     if(!authName.value&&snap.profile.display_name)authName.value=snap.profile.display_name;
-    if(Array.isArray(snap.items)&&snap.items.length)showMessage(`Found ${snap.items.length} title(s) from the previous on-device WatchLog account. Creating a PIN account with this email will carry them into cloud sync.`,"info");
+    if(Array.isArray(snap.items)&&snap.items.length)showMessage(`Found ${snap.items.length} title(s) from the previous on-device Watched Logger account. Creating a PIN account with this email will carry them into cloud sync.`,"info");
   }
 
   async function persistLibrary(items){
@@ -326,20 +326,287 @@
   function dateOnlyInput(v){return v?`${v}T00:00`:"";}
   async function imdbVerify(title,season,premiereDate){if(!IMDB_VERIFY_ENDPOINT)return{confirmed:null};try{const u=new URL(IMDB_VERIFY_ENDPOINT,location.href);u.searchParams.set("title",title);u.searchParams.set("season",String(season));if(premiereDate)u.searchParams.set("premiereDate",premiereDate);const r=await fetch(u);if(!r.ok)return{confirmed:null};return await r.json();}catch(_){return{confirmed:null};}}
 
-  async function verifiedSeasonData(showId,title){
-    const [sr,shr,er]=await Promise.all([fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}/seasons`),fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}?embed=nextepisode`),fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}/episodes`)]);
-    if(!sr.ok)throw new Error("TVMaze season lookup failed");const seasonsRaw=await sr.json(),show=shr.ok?await shr.json():{},episodes=er.ok?await er.json():[];
-    const seasons=(Array.isArray(seasonsRaw)?seasonsRaw:[]).filter(s=>Number.isFinite(Number(s.number))).map(s=>({...s,number:Number(s.number)})).sort((a,b)=>a.number-b.number);if(!seasons.length)return{highest:null,latestAired:null,currentEpisode:null,upcoming:null,nextEpisode:null,known:new Set()};
-    const known=new Set(seasons.map(s=>s.number)),highest=Math.max(...known),now=Date.now();const aired=(Array.isArray(episodes)?episodes:[]).filter(ep=>{const t=ep.airstamp?new Date(ep.airstamp).getTime():ep.airdate?new Date(`${ep.airdate}T23:59:59`).getTime():0;return t>0&&t<=now&&known.has(Number(ep.season));});const airedSeasons=aired.map(ep=>Number(ep.season)).filter(Number.isFinite),latestAired=airedSeasons.length?Math.max(...airedSeasons):null;let currentEpisode=null;if(latestAired!==null){const nums=aired.filter(ep=>Number(ep.season)===latestAired).map(ep=>Number(ep.number)).filter(Number.isFinite);currentEpisode=nums.length?Math.max(...nums):null;}
-    const nextEpisode=show?._embedded?.nextepisode||null;let upcoming=null;
-    if(nextEpisode&&known.has(Number(nextEpisode.season))&&(latestAired===null||Number(nextEpisode.season)>latestAired)){upcoming=seasons.find(s=>s.number===Number(nextEpisode.season))||null;}
-    if(!upcoming){upcoming=seasons.filter(s=>s.premiereDate&&new Date(`${s.premiereDate}T00:00:00`).getTime()>now&&(latestAired===null||s.number>latestAired)).sort((a,b)=>a.number-b.number)[0]||null;}
-    if(upcoming&&aired.some(ep=>Number(ep.season)===upcoming.number))upcoming=null;
-    if(upcoming&&!known.has(upcoming.number))upcoming=null;
-    if(upcoming){const imdb=await imdbVerify(title,upcoming.number,upcoming.premiereDate||"");if(imdb?.confirmed===false)upcoming=null;if(imdb?.confirmed===true&&Number.isFinite(Number(imdb.seasonNumber))&&Number(imdb.seasonNumber)!==upcoming?.number)upcoming=null;}
-    return{highest,latestAired,currentEpisode,upcoming,nextEpisode,known};
+  const WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php";
+  const wikiRequestCache = new Map();
+  const ORDINAL_SEASON_WORDS = {
+    first:1,second:2,third:3,fourth:4,fifth:5,sixth:6,seventh:7,eighth:8,ninth:9,tenth:10,
+    eleventh:11,twelfth:12,thirteenth:13,fourteenth:14,fifteenth:15,sixteenth:16,seventeenth:17,
+    eighteenth:18,nineteenth:19,twentieth:20
+  };
+
+  async function wikipediaApi(params){
+    const query={...params,format:"json",origin:"*"};
+    const key=JSON.stringify(Object.keys(query).sort().reduce((o,k)=>(o[k]=query[k],o),{}));
+    if(wikiRequestCache.has(key))return wikiRequestCache.get(key);
+    const promise=(async()=>{
+      const u=new URL(WIKIPEDIA_API);
+      Object.entries(query).forEach(([k,v])=>u.searchParams.set(k,String(v)));
+      const r=await fetch(u.toString());
+      if(!r.ok)throw new Error(`Wikipedia lookup failed (${r.status})`);
+      return r.json();
+    })();
+    wikiRequestCache.set(key,promise);
+    try{return await promise;}catch(e){wikiRequestCache.delete(key);throw e;}
   }
-  async function fillSeasonData(showId,title,{preserveProgress=false}={}){const r=await verifiedSeasonData(showId,title);$("total-seasons").value=r.highest??"";if(!preserveProgress){$("cur-season").value=r.latestAired??"";$("cur-ep").value=r.currentEpisode??"";$("watched-seasons").value=r.latestAired??"";}if(!r.upcoming){$("next-season-num").value="";$("next-season-date").value="";return r;}$("next-season-num").value=String(r.upcoming.number);if(r.nextEpisode&&Number(r.nextEpisode.season)===r.upcoming.number&&r.nextEpisode.airstamp)$("next-season-date").value=toLocalInput(r.nextEpisode.airstamp);else $("next-season-date").value=r.upcoming.premiereDate?dateOnlyInput(r.upcoming.premiereDate):"";return r;}
+
+  function cleanWikiValue(value){
+    return String(value||"")
+      .replace(/<ref\b[^>]*>[\s\S]*?<\/ref>/gi," ")
+      .replace(/<ref\b[^/>]*\/>/gi," ")
+      .replace(/<!--([\s\S]*?)-->/g," ")
+      .replace(/\[\[[^\]|]+\|([^\]]+)\]\]/g,"$1")
+      .replace(/\[\[([^\]]+)\]\]/g,"$1")
+      .replace(/'{2,3}/g,"")
+      .replace(/&nbsp;/gi," ")
+      .replace(/\s+/g," ")
+      .trim();
+  }
+
+  function parseWikipediaSeasonCount(wikitext){
+    const match=String(wikitext||"").match(/\|\s*(?:num_seasons|num_series)\s*=\s*([^\n\r]+)/i);
+    if(!match)return null;
+    const cleaned=cleanWikiValue(match[1]);
+    const numberMatch=cleaned.match(/\b(\d{1,2})\b/);
+    if(!numberMatch)return null;
+    const n=Number(numberMatch[1]);
+    return n>=1&&n<=99?n:null;
+  }
+
+  function extractWikipediaAnnouncedSeasons(wikitext){
+    const raw=String(wikitext||"")
+      .replace(/<ref\b[^>]*>[\s\S]*?<\/ref>/gi," ")
+      .replace(/<ref\b[^/>]*\/>/gi," ")
+      .replace(/<!--([\s\S]*?)-->/g," ");
+    const evidence=new Set();
+    const relevant=raw.split(/\n|(?<=[.!?])\s+/).filter(line=>
+      /\b(season|series)\b/i.test(line)&&
+      /\b(renewed|renewal|commissioned|ordered|announced|upcoming|scheduled|premiere|premieres|premiering|return|returning|will air|will be released|set to)\b/i.test(line)
+    );
+    for(const line of relevant){
+      let m;
+      const numericPatterns=[
+        /\b(?:season|series)\s*(\d{1,2})\b/gi,
+        /\b(\d{1,2})(?:st|nd|rd|th)\s+(?:season|series)\b/gi
+      ];
+      for(const rx of numericPatterns){while((m=rx.exec(line)))evidence.add(Number(m[1]));}
+      for(const [word,n] of Object.entries(ORDINAL_SEASON_WORDS)){
+        const rx=new RegExp(`\\b${word}\\s+(?:season|series)\\b`,`i`);
+        if(rx.test(line))evidence.add(n);
+      }
+    }
+    return Array.from(evidence).filter(n=>Number.isFinite(n)&&n>=1&&n<=99).sort((a,b)=>a-b);
+  }
+
+  function wikipediaDateFromWikitext(wikitext){
+    const text=String(wikitext||"");
+    const fields=["first_aired","original_release","released","release_date","premiere","first_release"];
+    const values=[];
+    for(const field of fields){
+      const rx=new RegExp(`\\|\\s*${field}\\s*=\\s*([^\\n\\r]+)`,`i`);
+      const m=text.match(rx);if(m)values.push(m[1]);
+    }
+    for(const value of values){
+      let m=value.match(/\{\{\s*(?:start date(?: and age)?|dts|date)\s*\|\s*(\d{4})\s*\|\s*(\d{1,2})\s*\|\s*(\d{1,2})/i);
+      if(m){const y=Number(m[1]),mo=Number(m[2]),d=Number(m[3]);return `${String(y).padStart(4,"0")}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`;}
+      m=value.match(/\b(20\d{2}|19\d{2})-(\d{2})-(\d{2})\b/);
+      if(m)return `${m[1]}-${m[2]}-${m[3]}`;
+      const cleaned=cleanWikiValue(value).replace(/\{\{[^{}]*\}\}/g," ");
+      const datePatterns=[
+        /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b/i,
+        /\b\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\b/i
+      ];
+      for(const rx of datePatterns){const hit=cleaned.match(rx);if(hit){const d=new Date(hit[0]);if(!Number.isNaN(d.getTime())){const p=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}}}
+    }
+    return null;
+  }
+
+  function wikipediaLooksFuture(wikitext){
+    return /\b(upcoming|scheduled to premiere|scheduled for release|set to premiere|will premiere|will be released|to be released|renewed for|commissioned for|ordered for)\b/i.test(String(wikitext||""));
+  }
+
+  async function wikipediaWikitext(pageTitle){
+    if(!pageTitle)return null;
+    try{
+      const data=await wikipediaApi({action:"parse",page:pageTitle,prop:"wikitext",redirects:1});
+      return {title:data?.parse?.title||pageTitle,wikitext:data?.parse?.wikitext?.["*"]||""};
+    }catch(_){return null;}
+  }
+
+  function wikipediaSeriesCandidateScore(candidate,title){
+    const a=normalizeTitle(candidate),b=normalizeTitle(title);
+    if(!a||!b)return 0;
+    let score=0;
+    if(a===b)score+=100;
+    if(a.startsWith(b)||b.startsWith(a))score+=55;
+    const tokens=titleTokens(title),candTokens=new Set(titleTokens(candidate));
+    score+=tokens.filter(t=>candTokens.has(t)).length*10;
+    if(/\b(tv|television) series\b/i.test(candidate))score+=35;
+    return score;
+  }
+
+  async function wikipediaFindSeriesPage(title){
+    const searches=[`\"${title}\" television series`,`\"${title}\" TV series`,title];
+    const candidateTitles=[];
+    for(const q of searches){
+      try{
+        const data=await wikipediaApi({action:"query",list:"search",srsearch:q,srnamespace:0,srlimit:6,srprop:""});
+        for(const row of data?.query?.search||[])if(row?.title&&!candidateTitles.includes(row.title))candidateTitles.push(row.title);
+      }catch(_){}
+      if(candidateTitles.length>=6)break;
+    }
+    candidateTitles.sort((a,b)=>wikipediaSeriesCandidateScore(b,title)-wikipediaSeriesCandidateScore(a,title));
+    for(const pageTitle of candidateTitles.slice(0,6)){
+      const page=await wikipediaWikitext(pageTitle);
+      if(!page)continue;
+      if(/\{\{\s*Infobox television/i.test(page.wikitext)||/\|\s*(?:num_seasons|num_series)\s*=/i.test(page.wikitext))return page;
+    }
+    return null;
+  }
+
+  async function wikipediaFindSeasonPage(title,seasonNumber){
+    const variants=[
+      `${title} season ${seasonNumber}`,
+      `${title} (season ${seasonNumber})`,
+      `${title} series ${seasonNumber}`,
+      `${title} (series ${seasonNumber})`
+    ];
+    try{
+      const data=await wikipediaApi({action:"query",prop:"info",redirects:1,titles:variants.join("|")});
+      const pages=Object.values(data?.query?.pages||{}).filter(p=>p&&!Object.prototype.hasOwnProperty.call(p,"missing")&&p.title);
+      for(const p of pages){
+        const page=await wikipediaWikitext(p.title);
+        if(page&&(/\{\{\s*Infobox television season/i.test(page.wikitext)||new RegExp(`\\b(?:season|series)\\s*${seasonNumber}\\b`,`i`).test(page.title)))return page;
+      }
+    }catch(_){}
+    for(const q of [`\"${title}\" \"season ${seasonNumber}\"`,`\"${title}\" \"series ${seasonNumber}\"`]){
+      try{
+        const data=await wikipediaApi({action:"query",list:"search",srsearch:q,srnamespace:0,srlimit:6,srprop:""});
+        const rows=(data?.query?.search||[]).filter(r=>new RegExp(`\\b(?:season|series)\\s*${seasonNumber}\\b`,`i`).test(r.title||""));
+        rows.sort((a,b)=>wikipediaSeriesCandidateScore(b.title,title)-wikipediaSeriesCandidateScore(a.title,title));
+        for(const row of rows.slice(0,3)){
+          const page=await wikipediaWikitext(row.title);
+          if(page&&(/\{\{\s*Infobox television season/i.test(page.wikitext)||new RegExp(`\\b(?:season|series)\\s*${seasonNumber}\\b`,`i`).test(page.title)))return page;
+        }
+      }catch(_){}
+    }
+    return null;
+  }
+
+  async function wikipediaSeasonData(title,{tvHighest=null,tvLatestAired=null}={}){
+    const seriesPage=await wikipediaFindSeriesPage(title);
+    if(!seriesPage)return {available:false,highest:null,latestAired:null,upcoming:null,known:new Set(),pageTitle:null};
+    const count=parseWikipediaSeasonCount(seriesPage.wikitext);
+    const announced=extractWikipediaAnnouncedSeasons(seriesPage.wikitext);
+    const known=new Set();
+    if(count)for(let n=1;n<=count;n++)known.add(n);
+    announced.forEach(n=>known.add(n));
+    let highest=Math.max(tvHighest||0,count||0,...announced,0)||null;
+    let latestAired=tvLatestAired;
+    const baseMax=Math.max(highest||0,tvHighest||0,tvLatestAired||0);
+    const start=tvLatestAired!==null&&tvLatestAired!==undefined?Math.max(1,tvLatestAired+1):Math.max(1,baseMax-2);
+    const end=Math.min(Math.max(baseMax+2,start+2),start+5);
+    const pageChecks=[];
+    for(let n=start;n<=end;n++)pageChecks.push(wikipediaFindSeasonPage(title,n).then(page=>({n,page})));
+    const pages=await Promise.all(pageChecks);
+    const futureCandidates=[];
+    const now=Date.now();
+    for(const {n,page} of pages){
+      if(!page)continue;
+      known.add(n);highest=Math.max(highest||0,n);
+      const premiereDate=wikipediaDateFromWikitext(page.wikitext);
+      const premiereTime=premiereDate?new Date(`${premiereDate}T23:59:59`).getTime():0;
+      if(premiereTime&&premiereTime<=now){latestAired=Math.max(latestAired||0,n);continue;}
+      if((premiereTime&&premiereTime>now)||announced.includes(n)||wikipediaLooksFuture(page.wikitext)){
+        futureCandidates.push({number:n,premiereDate:premiereDate||null,source:"Wikipedia",pageTitle:page.title});
+      }
+    }
+    for(const n of announced){
+      if((latestAired===null||latestAired===undefined||n>latestAired)&&!futureCandidates.some(c=>c.number===n)){
+        futureCandidates.push({number:n,premiereDate:null,source:"Wikipedia",pageTitle:seriesPage.title});
+      }
+    }
+    const upcoming=futureCandidates.filter(c=>latestAired===null||latestAired===undefined||c.number>latestAired).sort((a,b)=>a.number-b.number||Boolean(b.premiereDate)-Boolean(a.premiereDate))[0]||null;
+    return {available:true,highest:highest||null,latestAired:latestAired||null,upcoming,known,pageTitle:seriesPage.title};
+  }
+
+  async function verifiedSeasonData(showId,title){
+    let tvAvailable=false,tvHighest=null,tvLatestAired=null,tvCurrentEpisode=null,tvUpcoming=null,nextEpisode=null;
+    const tvKnown=new Set();
+    if(showId){
+      try{
+        const [sr,shr,er]=await Promise.all([
+          fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}/seasons`),
+          fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}?embed=nextepisode`),
+          fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}/episodes`)
+        ]);
+        if(sr.ok){
+          tvAvailable=true;
+          const seasonsRaw=await sr.json(),show=shr.ok?await shr.json():{},episodes=er.ok?await er.json():[];
+          const seasons=(Array.isArray(seasonsRaw)?seasonsRaw:[]).filter(s=>Number.isFinite(Number(s.number))).map(s=>({...s,number:Number(s.number)})).sort((a,b)=>a.number-b.number);
+          seasons.forEach(s=>tvKnown.add(s.number));
+          if(seasons.length)tvHighest=Math.max(...tvKnown);
+          const now=Date.now();
+          const aired=(Array.isArray(episodes)?episodes:[]).filter(ep=>{const t=ep.airstamp?new Date(ep.airstamp).getTime():ep.airdate?new Date(`${ep.airdate}T23:59:59`).getTime():0;return t>0&&t<=now&&tvKnown.has(Number(ep.season));});
+          const airedSeasons=aired.map(ep=>Number(ep.season)).filter(Number.isFinite);
+          tvLatestAired=airedSeasons.length?Math.max(...airedSeasons):null;
+          if(tvLatestAired!==null){const nums=aired.filter(ep=>Number(ep.season)===tvLatestAired).map(ep=>Number(ep.number)).filter(Number.isFinite);tvCurrentEpisode=nums.length?Math.max(...nums):null;}
+          nextEpisode=show?._embedded?.nextepisode||null;
+          if(nextEpisode&&tvKnown.has(Number(nextEpisode.season))&&(tvLatestAired===null||Number(nextEpisode.season)>tvLatestAired))tvUpcoming=seasons.find(s=>s.number===Number(nextEpisode.season))||null;
+          if(!tvUpcoming)tvUpcoming=seasons.filter(s=>s.premiereDate&&new Date(`${s.premiereDate}T00:00:00`).getTime()>now&&(tvLatestAired===null||s.number>tvLatestAired)).sort((a,b)=>a.number-b.number)[0]||null;
+          if(tvUpcoming&&aired.some(ep=>Number(ep.season)===tvUpcoming.number))tvUpcoming=null;
+          if(tvUpcoming&&!tvKnown.has(tvUpcoming.number))tvUpcoming=null;
+          if(tvUpcoming)tvUpcoming={...tvUpcoming,source:"TVMaze"};
+        }
+      }catch(e){console.warn("TVMaze season verification unavailable",e);}
+    }
+
+    let wiki={available:false,highest:null,latestAired:null,upcoming:null,known:new Set()};
+    try{wiki=await wikipediaSeasonData(title,{tvHighest,tvLatestAired});}
+    catch(e){console.warn("Wikipedia season verification unavailable",e);}
+
+    const highest=Math.max(tvHighest||0,wiki.highest||0)||null;
+    const latestValues=[tvLatestAired,wiki.latestAired].filter(v=>Number.isFinite(Number(v))).map(Number);
+    const latestAired=latestValues.length?Math.max(...latestValues):null;
+    const currentEpisode=latestAired!==null&&latestAired===tvLatestAired?tvCurrentEpisode:null;
+    const known=new Set([...tvKnown,...(wiki.known||[])]);
+    const candidates=[];
+    if(tvUpcoming)candidates.push({number:Number(tvUpcoming.number),premiereDate:tvUpcoming.premiereDate||null,source:"TVMaze",raw:tvUpcoming});
+    if(wiki.upcoming)candidates.push({...wiki.upcoming,number:Number(wiki.upcoming.number)});
+    let upcoming=candidates.filter(c=>Number.isFinite(c.number)&&(latestAired===null||c.number>latestAired)).sort((a,b)=>a.number-b.number||Boolean(b.premiereDate)-Boolean(a.premiereDate))[0]||null;
+    if(upcoming){
+      const same=candidates.filter(c=>c.number===upcoming.number);
+      if(same.length>1){
+        const dated=same.find(c=>c.premiereDate)||same[0];
+        upcoming={...dated,source:"TVMaze + Wikipedia"};
+      }
+      const imdb=await imdbVerify(title,upcoming.number,upcoming.premiereDate||"");
+      if(imdb?.confirmed===false)upcoming=null;
+      if(imdb?.confirmed===true&&Number.isFinite(Number(imdb.seasonNumber))&&Number(imdb.seasonNumber)!==upcoming?.number)upcoming=null;
+    }
+    const sources=[];if(tvAvailable)sources.push("TVMaze");if(wiki.available)sources.push("Wikipedia");
+    return {highest,latestAired,currentEpisode,upcoming,nextEpisode,known,sources};
+  }
+
+  function updateSeasonVerifyNote(result){
+    if(!seasonVerifyNote)return;
+    const sources=result?.sources?.length?result.sources.join(" + "):"available public sources";
+    const upcoming=result?.upcoming;
+    seasonVerifyNote.textContent=upcoming
+      ?`Cross-checked with ${sources}. Season ${upcoming.number} is sourced from ${upcoming.source||sources}${upcoming.premiereDate?` with a listed premiere date of ${upcoming.premiereDate}`:"; its premiere date is still TBA"}. Watched Logger never creates a season number by adding 1.`
+      :`Cross-checked with ${sources}. No separately sourced future season is currently confirmed. Watched Logger never creates a season number by adding 1.`;
+  }
+
+  async function fillSeasonData(showId,title,{preserveProgress=false}={}){
+    const r=await verifiedSeasonData(showId,title);
+    updateSeasonVerifyNote(r);
+    $("total-seasons").value=r.highest??"";
+    if(!preserveProgress){$("cur-season").value=r.latestAired??"";$("cur-ep").value=r.currentEpisode??"";$("watched-seasons").value=r.latestAired??"";}
+    if(!r.upcoming){$("next-season-num").value="";$("next-season-date").value="";return r;}
+    $("next-season-num").value=String(r.upcoming.number);
+    if(r.nextEpisode&&Number(r.nextEpisode.season)===r.upcoming.number&&r.nextEpisode.airstamp)$("next-season-date").value=toLocalInput(r.nextEpisode.airstamp);
+    else $("next-season-date").value=r.upcoming.premiereDate?dateOnlyInput(r.upcoming.premiereDate):"";
+    return r;
+  }
   async function exactTVMazeId(title){try{const r=await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(title)}`);if(!r.ok)return"";const data=await r.json(),norm=normalizeTitle(title);const hit=(Array.isArray(data)?data:[]).find(x=>normalizeTitle(x?.show?.name||"")===norm);return hit?.show?.id?String(hit.show.id):"";}catch(_){return"";}}
 
   function normalizeTitle(value){
@@ -738,10 +1005,8 @@
         filmReleaseDate.value="";
         filmReleaseSource.value="";
         let sid=item.source==="tvmaze"?item.externalId:await exactTVMazeId(item.title);
-        if(sid){
-          $("tvmaze-id").value=sid;
-          try{await fillSeasonData(sid,item.title);}catch(e){console.warn(e);}
-        }
+        $("tvmaze-id").value=sid||"";
+        try{await fillSeasonData(sid||"",item.title);}catch(e){console.warn(e);}
       };
     });
   }
@@ -767,8 +1032,8 @@
   typeSelect.onchange=()=>{const film=typeSelect.value==="Film";seriesSection.style.display=film?"none":"flex";upcomingSection.style.display=film?"none":"flex";filmSection.style.display=film?"flex":"none";if(!film){filmReleaseDate.value="";filmReleaseSource.value="";}};
   filmReleaseDate.addEventListener("input",()=>{if(typeSelect.value==="Film")filmReleaseSource.value="Manual";});
 
-  function openAdd(){mediaForm.reset();$("item-id").value="";$("tvmaze-id").value="";$("imdb-id").value="";filmReleaseSource.value="";$("modal-title").textContent="Log Title";deleteBtn.classList.add("hidden");seriesSection.style.display="flex";upcomingSection.style.display="flex";filmSection.style.display="none";modal.classList.remove("hidden");}
-  async function openEdit(id){const item=mediaItems.find(x=>String(x.id)===String(id));if(!item)return;$("item-id").value=item.id;$("tvmaze-id").value=item.tvmazeShowId||"";$("imdb-id").value=item.imdbId||"";$("title").value=item.title||"";$("type").value=item.type||"Series";$("status").value=item.status||"Saved";$("total-seasons").value=item.totalSeasons??"";$("watched-seasons").value=item.watchedSeasons??"";$("cur-season").value=item.curSeason??"";$("cur-ep").value=item.curEp??"";$("next-season-num").value=item.nextSeasonNum??"";$("next-season-date").value=item.nextSeasonDate?toLocalInput(item.nextSeasonDate):"";filmReleaseDate.value=item.filmReleaseDate||"";filmReleaseSource.value=item.filmReleaseSource||"";$("platform").value=item.platform||"";const film=item.type==="Film";seriesSection.style.display=film?"none":"flex";upcomingSection.style.display=film?"none":"flex";filmSection.style.display=film?"flex":"none";$("modal-title").textContent="Edit Title";deleteBtn.classList.remove("hidden");modal.classList.remove("hidden");if(!film){let sid=item.tvmazeShowId||await exactTVMazeId(item.title);if(sid){$("tvmaze-id").value=sid;try{await fillSeasonData(sid,item.title,{preserveProgress:true});}catch(e){console.warn(e);}}}}
+  function openAdd(){mediaForm.reset();$("item-id").value="";$("tvmaze-id").value="";$("imdb-id").value="";filmReleaseSource.value="";if(seasonVerifyNote)seasonVerifyNote.textContent="Season data is cross-checked with TVMaze and Wikipedia where available. Watched Logger only uses season numbers found in a real source; it never invents a season by adding 1.";$("modal-title").textContent="Log Title";deleteBtn.classList.add("hidden");seriesSection.style.display="flex";upcomingSection.style.display="flex";filmSection.style.display="none";modal.classList.remove("hidden");}
+  async function openEdit(id){const item=mediaItems.find(x=>String(x.id)===String(id));if(!item)return;$("item-id").value=item.id;$("tvmaze-id").value=item.tvmazeShowId||"";$("imdb-id").value=item.imdbId||"";$("title").value=item.title||"";$("type").value=item.type||"Series";$("status").value=item.status||"Saved";$("total-seasons").value=item.totalSeasons??"";$("watched-seasons").value=item.watchedSeasons??"";$("cur-season").value=item.curSeason??"";$("cur-ep").value=item.curEp??"";$("next-season-num").value=item.nextSeasonNum??"";$("next-season-date").value=item.nextSeasonDate?toLocalInput(item.nextSeasonDate):"";filmReleaseDate.value=item.filmReleaseDate||"";filmReleaseSource.value=item.filmReleaseSource||"";$("platform").value=item.platform||"";const film=item.type==="Film";seriesSection.style.display=film?"none":"flex";upcomingSection.style.display=film?"none":"flex";filmSection.style.display=film?"flex":"none";$("modal-title").textContent="Edit Title";deleteBtn.classList.remove("hidden");modal.classList.remove("hidden");if(!film){let sid=item.tvmazeShowId||await exactTVMazeId(item.title);$("tvmaze-id").value=sid||"";try{await fillSeasonData(sid||"",item.title,{preserveProgress:true});}catch(e){console.warn(e);}}}
   addBtn.onclick=openAdd;closeModal.onclick=()=>modal.classList.add("hidden");modal.addEventListener("click",e=>{if(e.target===modal)modal.classList.add("hidden");});
 
   mediaForm.onsubmit=async e=>{
@@ -776,7 +1041,7 @@
     try{
       const existingId=$("item-id").value,id=existingId||uuid(),title=$("title").value.trim(),type=$("type").value;if(!title)throw new Error("Enter a title.");let sid=$("tvmaze-id").value;if(type!=="Film"&&!sid)sid=await exactTVMazeId(title);
       let total=$("total-seasons").value?Number($("total-seasons").value):null,nextNum=$("next-season-num").value?Number($("next-season-num").value):"",nextDate=$("next-season-date").value||"";
-      if(type!=="Film"&&sid){const r=await verifiedSeasonData(sid,title);total=r.highest??null;if(r.upcoming){nextNum=r.upcoming.number;if(r.nextEpisode&&Number(r.nextEpisode.season)===r.upcoming.number&&r.nextEpisode.airstamp)nextDate=toLocalInput(r.nextEpisode.airstamp);else nextDate=r.upcoming.premiereDate?dateOnlyInput(r.upcoming.premiereDate):"";}else{nextNum="";nextDate="";}$("total-seasons").value=total??"";$("next-season-num").value=nextNum;$("next-season-date").value=nextDate;}
+      if(type!=="Film"){const r=await verifiedSeasonData(sid||"",title);updateSeasonVerifyNote(r);if(r.highest!==null)total=r.highest;if(r.upcoming){nextNum=r.upcoming.number;if(r.nextEpisode&&Number(r.nextEpisode.season)===r.upcoming.number&&r.nextEpisode.airstamp)nextDate=toLocalInput(r.nextEpisode.airstamp);else nextDate=r.upcoming.premiereDate?dateOnlyInput(r.upcoming.premiereDate):"";}else{nextNum="";nextDate="";}$("total-seasons").value=total??"";$("next-season-num").value=nextNum;$("next-season-date").value=nextDate;}
       const previous=mediaItems.find(x=>String(x.id)===String(id));const numOrNull=x=>$(x).value===""?null:Number.parseInt($(x).value,10);const item={id,title,type,status:$("status").value,tvmazeShowId:sid||"",imdbId:$("imdb-id").value||"",totalSeasons:type==="Film"?null:total,watchedSeasons:type==="Film"?null:numOrNull("watched-seasons"),curSeason:type==="Film"?null:numOrNull("cur-season"),curEp:type==="Film"?null:numOrNull("cur-ep"),nextSeasonNum:type==="Film"?"":nextNum,nextSeasonDate:type==="Film"?"":nextDate,filmReleaseDate:type==="Film"?(filmReleaseDate.value||""):"",filmReleaseSource:type==="Film"?(filmReleaseDate.value?(filmReleaseSource.value||"Manual"):""):"",platform:$("platform").value.trim(),date:new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}),createdAt:previous?.createdAt||nowISO(),updatedAt:nowISO()};
       const idx=mediaItems.findIndex(x=>String(x.id)===String(id));if(idx>=0)mediaItems[idx]=item;else mediaItems.unshift(item);await persistLibrary(mediaItems);render();modal.classList.add("hidden");
     }catch(err){console.error(err);alert(err.message||"Save failed.");}
@@ -791,7 +1056,7 @@
       await prefillLegacyAccount();
     }
   }
-  start().catch(err=>{console.error(err);showAuth();showMessage(`WatchLog could not start: ${err.message||err}`);});
+  start().catch(err=>{console.error(err);showAuth();showMessage(`Watched Logger could not start: ${err.message||err}`);});
   </script>
 </body>
 </html>
