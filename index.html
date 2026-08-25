@@ -631,8 +631,8 @@
         <input type="hidden" id="item-id" />
 
         <div class="form-group search-suggest-box">
-          <label for="title">Title (Live Auto-Search)</label>
-          <input type="text" id="title" required placeholder="Type series name (e.g. NCIS, Severance...)" autocomplete="off" />
+          <label for="title">Title (Type freely or select match)</label>
+          <input type="text" id="title" required placeholder="e.g. NCIS, Spider-Man, The Bear" autocomplete="off" />
           <div id="suggest-list" class="search-suggest-list hidden"></div>
         </div>
 
@@ -683,7 +683,7 @@
 
         <!-- Next Season Due & Converted Timezone Reminder Section -->
         <div id="upcoming-section" class="section-box">
-          <span class="section-title">🔔 Next Season Reminder (Local Timezone Auto-Adjusted)</span>
+          <span class="section-title">🔔 Next Season Reminder</span>
           <div class="form-row">
             <div class="form-group">
               <label for="next-season-num">Next Season #</label>
@@ -698,7 +698,7 @@
 
         <div class="form-group">
           <label for="platform">Streaming / Platform</label>
-          <input type="text" id="platform" placeholder="Paramount+, Netflix, Apple TV+..." />
+          <input type="text" id="platform" placeholder="Paramount+, Netflix, Apple TV+, Film..." />
         </div>
 
         <div class="modal-actions">
@@ -755,7 +755,6 @@
     const titleInput = document.getElementById('title');
     const suggestList = document.getElementById('suggest-list');
 
-    // Helper: converts ISO/UTC/US airstamps to formatted local datetime input string (YYYY-MM-DDTHH:mm)
     function toLocalDatetimeInput(utcString) {
       if (!utcString) return '';
       const d = new Date(utcString);
@@ -769,7 +768,14 @@
       return `${year}-${month}-${day}T${hours}:${minutes}`;
     }
 
-    // Live Auto-Search & Timezone Cross-Check
+    // Dismiss search list if user clicks outside
+    document.addEventListener('click', (e) => {
+      if (!titleInput.contains(e.target) && !suggestList.contains(e.target)) {
+        suggestList.classList.add('hidden');
+      }
+    });
+
+    // Optional Auto-Search & Timezone Cross-Check
     let debounceTimeout = null;
     titleInput.addEventListener('input', () => {
       clearTimeout(debounceTimeout);
@@ -810,7 +816,6 @@
                 suggestList.classList.add('hidden');
 
                 try {
-                  // Fetch seasons & episodes breakdown
                   const sRes = await fetch(`https://api.tvmaze.com/shows/${showId}/seasons`);
                   const seasons = await sRes.json();
                   if (seasons && seasons.length > 0) {
@@ -824,7 +829,6 @@
                     document.getElementById('next-season-num').value = totalSeasons + 1;
                   }
 
-                  // Cross-check next episode air time and convert from US timezone to device's local time
                   const epRes = await fetch(`https://api.tvmaze.com/shows/${showId}?embed=nextepisode`);
                   const epData = await epRes.json();
                   if (epData._embedded?.nextepisode?.airstamp) {
@@ -832,7 +836,7 @@
                     document.getElementById('next-season-date').value = toLocalDatetimeInput(rawAirstamp);
                   }
                 } catch (err) {
-                  console.error('Auto-fetch / timezone conversion failed:', err);
+                  console.error('Auto-fetch info unavailable:', err);
                 }
               };
             });
