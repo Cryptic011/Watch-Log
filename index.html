@@ -16,7 +16,270 @@
   <!-- Cross-device account/database support. The publishable key is safe for browser use; never put a service-role key here. -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <!-- Optional iCloud / CloudKit backup. The app st<!DOCTYPE html>
+  <!-- Optional iCloud / CloudKit backup. The ap<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>WatchLog</title>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="WatchLog" />
+  <meta name="theme-color" content="#000000" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='120' fill='%23181b20'/><polygon points='210,160 360,256 210,352' fill='%233b82f6'/></svg>" />
+  <link rel="manifest" href='data:application/manifest+json,{"name":"WatchLog","short_name":"WatchLog","start_url":".","display":"standalone","background_color":"%23000000","theme_color":"%23000000"}' />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{--bg:#000;--card:#15181e;--inner:#1e222a;--blue:#2563eb;--blue2:#60a5fa;--text:#fff;--muted:#8e95a2;--border:#232730;--green:#34d399;--red:#ef4444;--amber:#fbbf24;--radius:20px}
+    *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",sans-serif;-webkit-tap-highlight-color:transparent}
+    html,body{background:var(--bg);color:var(--text);min-height:100%}body{min-height:100vh;padding-bottom:110px}button,input,select{font:inherit}.hidden{display:none!important}
+    .auth-overlay{position:fixed;inset:0;background:#000;z-index:500;display:flex;align-items:center;justify-content:center;padding:max(24px,env(safe-area-inset-top)) 24px max(24px,env(safe-area-inset-bottom))}
+    .auth-card{width:100%;max-width:390px;background:var(--card);border:1px solid var(--border);border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:16px}.auth-header{text-align:center}.auth-header h2{font-size:1.8rem;font-weight:800;margin-bottom:6px}.auth-header p{color:var(--muted);font-size:.86rem;line-height:1.45}.auth-toggle{color:var(--blue2);font-size:.86rem;text-align:center;cursor:pointer;font-weight:700}.message{border-radius:11px;padding:10px 12px;font-size:.82rem;line-height:1.45}.message.error{background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}.message.success{background:rgba(52,211,153,.1);color:#6ee7b7;border:1px solid rgba(52,211,153,.25)}.message.info{background:rgba(59,130,246,.12);color:#93c5fd;border:1px solid rgba(59,130,246,.3)}
+    form{display:flex;flex-direction:column;gap:12px}label{font-size:.75rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;display:block}input,select{width:100%;background:var(--inner);border:1px solid var(--border);color:var(--text);padding:11px 12px;border-radius:10px;font-size:.95rem}.form-row{display:flex;gap:10px}.form-group{flex:1;min-width:0}.btn{padding:12px 18px;border-radius:10px;border:none;font-weight:700;font-size:.95rem;cursor:pointer}.btn:disabled{opacity:.55;cursor:default}.btn-primary{background:var(--blue);color:#fff}.btn-secondary{background:#252a34;color:#fff;border:1px solid #343a46}.btn-danger{background:var(--red);color:#fff}.btn-full{width:100%}
+    .top-nav{position:sticky;top:0;background:rgba(0,0,0,.9);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:max(12px,env(safe-area-inset-top)) 16px 10px;z-index:50}.nav-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.user-pill{background:#181c24;border:1px solid var(--border);color:#fff;padding:6px 14px;border-radius:20px;display:flex;align-items:center;gap:8px;font-size:.85rem;font-weight:700;cursor:pointer}.user-dot{width:8px;height:8px;background:var(--green);border-radius:50%}.circle-btn{background:#181c24;border:1px solid var(--border);color:var(--blue2);width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.3rem;cursor:pointer}h1{font-size:2.1rem;font-weight:800;letter-spacing:-.6px;margin-bottom:12px}.search-box{background:var(--card);border:1px solid var(--border);border-radius:12px;display:flex;align-items:center;padding:10px 14px;gap:10px;margin-bottom:14px}.search-box svg{width:18px;height:18px;fill:var(--muted)}.search-box input{background:transparent;border:none;padding:0;outline:none}
+    .stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}.stat-card{background:var(--card);border-radius:14px;padding:12px 6px;text-align:center;display:flex;flex-direction:column;gap:2px}.stat-card .num{font-size:1.35rem;font-weight:800}.stat-card .label{font-size:.78rem;color:var(--muted);font-weight:600}.filter-pills{display:flex;gap:6px;background:var(--card);padding:4px;border-radius:14px;margin-bottom:20px}.pill-btn{flex:1;background:transparent;border:none;color:var(--muted);padding:8px 0;border-radius:10px;font-size:.88rem;font-weight:600;cursor:pointer}.pill-btn.active{background:#3e4552;color:#fff}
+    .container{padding:0 16px;max-width:600px;margin:0 auto}.section-label{font-size:1rem;font-weight:700;margin-bottom:12px}.titles-group{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;display:flex;flex-direction:column}.title-item{padding:16px;display:flex;flex-direction:column;gap:10px;cursor:pointer;border-bottom:1px solid var(--border)}.title-item:last-child{border-bottom:none}.item-row{display:flex;align-items:center;gap:14px}.item-icon{width:48px;height:48px;background:#202632;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}.item-icon svg{width:24px;height:24px;fill:var(--blue2)}.item-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}.item-name{font-size:1.05rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.item-sub{font-size:.82rem;color:var(--muted);display:flex;gap:6px;align-items:center}.platform{display:flex;align-items:center;gap:6px;color:var(--blue2);font-size:.82rem;font-weight:600}.platform svg{width:14px;height:14px;fill:var(--blue2)}.progress{height:3px;background:#2d3748;border-radius:2px;margin-top:5px;overflow:hidden;max-width:140px}.progress>div{height:100%;background:#3b82f6}.item-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}.badge{padding:5px 10px;border-radius:20px;font-size:.8rem;font-weight:700}.badge.watched{background:#143026;color:#34d399}.badge.watching{background:#1e293b;color:#60a5fa}.badge.saved{background:#252830;color:var(--muted)}.item-date{font-size:.75rem;color:var(--muted)}.chevron{color:#4b5563;font-size:1.1rem;font-weight:bold}.reminder{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:7px 11px;display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--amber);font-size:.8rem;font-weight:600}.reminder small{text-align:right;opacity:.85}
+    .bottom-tabs{position:fixed;bottom:0;left:0;right:0;background:rgba(10,10,10,.92);backdrop-filter:blur(25px);-webkit-backdrop-filter:blur(25px);border-top:1px solid var(--border);display:flex;padding:10px 0 calc(env(safe-area-inset-bottom,12px) + 8px);z-index:60}.tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;background:transparent;border:none;color:var(--muted);font-size:.75rem;font-weight:600;cursor:pointer}.tab-btn.active{color:var(--blue2)}.tab-btn.active .tab-icon{background:#232d3f;border-radius:16px;padding:4px 18px}.tab-icon svg{width:22px;height:22px;fill:currentColor}
+    .profile-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:20px;display:flex;flex-direction:column;gap:16px}.profile-header{display:flex;align-items:center;gap:14px}.avatar{width:56px;height:56px;background:var(--blue);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:800}.profile-info{min-width:0}.profile-info h3{font-size:1.2rem}.profile-info p{font-size:.85rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis}.sync-box{background:#101217;border:1px solid var(--border);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:9px}.sync-title{display:flex;align-items:center;gap:8px;font-weight:700}.sync-dot{width:9px;height:9px;border-radius:50%;background:#6b7280}.sync-dot.ok{background:var(--green)}.sync-dot.warn{background:#f59e0b}.sync-text{font-size:.8rem;color:var(--muted);line-height:1.45}
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:flex-end;z-index:100}.modal-content{background:var(--card);border-top:1px solid var(--border);width:100%;max-width:600px;margin:0 auto;border-radius:24px 24px 0 0;padding:20px 20px calc(env(safe-area-inset-bottom,20px) + 20px);max-height:90vh;overflow-y:auto}.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.close-btn{background:transparent;border:none;font-size:1.8rem;color:var(--muted);cursor:pointer}.section-box{background:#101217;border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}.section-title{font-size:.78rem;color:var(--blue2);font-weight:700;text-transform:uppercase;letter-spacing:.5px}.modal-actions{display:flex;justify-content:space-between;gap:10px;margin-top:14px}.small-note{color:var(--muted);font-size:.75rem;line-height:1.45}.suggest-wrap{position:relative}.suggest-list{position:absolute;left:0;right:0;top:100%;background:#181d26;border:1px solid var(--border);border-radius:12px;max-height:220px;overflow-y:auto;z-index:150;margin-top:6px;box-shadow:0 10px 25px rgba(0,0,0,.6)}.suggest-item{padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:1px solid var(--border)}.suggest-item:last-child{border-bottom:none}.suggest-name{font-size:.95rem;font-weight:700}.suggest-meta{font-size:.75rem;color:var(--muted)}.suggest-network{background:rgba(59,130,246,.15);color:var(--blue2);font-size:.75rem;padding:2px 8px;border-radius:6px;font-weight:600}
+    @media(max-width:420px){.form-row{gap:8px}.item-row{gap:10px}.item-icon{width:44px;height:44px}.badge{padding:4px 8px}}
+  </style>
+</head>
+<body>
+  <div id="auth-screen" class="auth-overlay">
+    <div class="auth-card">
+      <div class="auth-header"><h2 id="auth-title">Welcome Back</h2><p id="auth-sub">Use the same email and password on every device.</p></div>
+      <div id="auth-message" class="message info hidden"></div>
+      <form id="auth-form">
+        <div id="auth-name-group" class="form-group hidden"><label for="auth-name">Name</label><input id="auth-name" type="text" autocomplete="name" placeholder="Your name" /></div>
+        <div class="form-group"><label for="auth-email">Email</label><input id="auth-email" type="email" autocomplete="email" required placeholder="name@example.com" /></div>
+        <div class="form-group"><label for="auth-password">Password</label><input id="auth-password" type="password" autocomplete="current-password" required placeholder="••••••••" /></div>
+        <button id="auth-submit" class="btn btn-primary btn-full" type="submit">Log In</button>
+      </form>
+      <div id="auth-toggle" class="auth-toggle">Don't have an account? Sign Up</div>
+      <button id="forgot-password" class="btn btn-secondary btn-full" type="button">Reset Password</button>
+    </div>
+  </div>
+
+  <div class="top-nav">
+    <div class="nav-header"><div id="user-pill" class="user-pill"><div class="user-dot"></div><span id="nav-name">Guest</span></div><button id="add-btn" class="circle-btn" aria-label="Add">+</button></div>
+    <h1>WatchLog</h1>
+    <div class="search-box"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5z"/></svg><input id="search-input" type="text" placeholder="Search titles or platforms" /></div>
+    <div class="stats-row"><div class="stat-card"><span id="count-saved" class="num">0</span><span class="label">Saved</span></div><div class="stat-card"><span id="count-watching" class="num">0</span><span class="label">Watching</span></div><div class="stat-card"><span id="count-watched" class="num">0</span><span class="label">Watched</span></div></div>
+    <div class="filter-pills"><button class="pill-btn active" data-filter="All">All</button><button class="pill-btn" data-filter="Saved">Saved</button><button class="pill-btn" data-filter="Watching">Watching</button><button class="pill-btn" data-filter="Watched">Watched</button></div>
+  </div>
+
+  <main class="container">
+    <div id="library-view"><div id="list-label" class="section-label">Titles</div><div id="media-list" class="titles-group"></div><div id="empty-state" class="hidden" style="text-align:center;margin-top:40px;color:var(--muted)">No titles found. Tap <strong>+</strong> to start.</div></div>
+    <div id="settings-view" class="hidden"><div class="section-label">Account & Sync</div><div class="profile-card"><div class="profile-header"><div id="avatar" class="avatar">U</div><div class="profile-info"><h3 id="profile-name">User</h3><p id="profile-email"></p></div></div><div class="sync-box"><div class="sync-title"><div id="sync-dot" class="sync-dot"></div>Cross-device account</div><div id="sync-status" class="sync-text">Checking cloud account…</div><button id="refresh-cloud" class="btn btn-secondary btn-full" type="button">Refresh from Cloud</button></div><button id="logout-btn" class="btn btn-danger btn-full">Log Out</button></div></div>
+  </main>
+
+  <nav class="bottom-tabs">
+    <button class="tab-btn active" data-tab="library"><div class="tab-icon"><svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg></div><span>Library</span></button>
+    <button class="tab-btn" data-tab="history"><div class="tab-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg></div><span>History</span></button>
+    <button class="tab-btn" data-tab="watchlist"><div class="tab-icon"><svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5S10.5 3.17 10.5 4v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg></div><span>Watchlist</span></button>
+    <button class="tab-btn" data-tab="settings"><div class="tab-icon"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58-1.92-3.32-2.39.96c-.5-.38-1.03-.7-1.62-.94L14.4 2.4h-4.8l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96-1.92 3.32 2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58 1.92 3.32 2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54h4.8l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96 1.92-3.32-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div><span>Settings</span></button>
+  </nav>
+
+  <div id="modal" class="modal-overlay hidden"><div class="modal-content"><div class="modal-header"><h2 id="modal-title">Log Title</h2><button id="close-modal" class="close-btn" type="button">&times;</button></div><form id="media-form"><input id="item-id" type="hidden" /><input id="tvmaze-id" type="hidden" /><div class="form-group suggest-wrap"><label for="title">Title</label><input id="title" type="text" required autocomplete="off" placeholder="e.g. Black Mirror" /><div id="suggest-list" class="suggest-list hidden"></div></div><div class="form-row"><div class="form-group"><label for="type">Format</label><select id="type"><option>Series</option><option>Film</option><option>Anime</option><option>Game</option></select></div><div class="form-group"><label for="status">Status</label><select id="status"><option>Watched</option><option>Watching</option><option>Saved</option></select></div></div><div id="series-section" class="section-box"><span class="section-title">Seasons & Progress</span><div class="form-row"><div class="form-group"><label for="total-seasons">Known / Announced Seasons</label><input id="total-seasons" type="number" min="1" /></div><div class="form-group"><label for="watched-seasons">Watched Seasons</label><input id="watched-seasons" type="number" min="0" /></div></div><div class="form-row"><div class="form-group"><label for="cur-season">Current Season #</label><input id="cur-season" type="number" min="1" /></div><div class="form-group"><label for="cur-ep">Episode in Season</label><input id="cur-ep" type="number" min="0" /></div></div></div><div id="upcoming-section" class="section-box"><span class="section-title">🔔 Verified Upcoming Season</span><p class="small-note">For TVMaze-linked shows, WatchLog only uses a season number that exists in TVMaze's season list. It never calculates “current + 1”.</p><div class="form-row"><div class="form-group"><label for="next-season-num">Upcoming Season #</label><input id="next-season-num" type="number" /></div><div class="form-group"><label for="next-season-date">Premiere Date / Time</label><input id="next-season-date" type="datetime-local" /></div></div></div><div class="form-group"><label for="platform">Streaming / Platform</label><input id="platform" type="text" placeholder="Netflix, Apple TV+, etc." /></div><div class="modal-actions"><button id="delete-btn" type="button" class="btn btn-danger hidden">Delete</button><button id="save-btn" type="submit" class="btn btn-primary">Save to Log</button></div></form></div></div>
+
+  <script>
+  "use strict";
+
+  /* =========================================================
+     REQUIRED CLOUD CONFIGURATION
+     ---------------------------------------------------------
+     Every account uses Supabase Auth. Every media row is bound
+     to auth.uid() in Postgres and protected by RLS.
+     Do NOT put a service_role key in this file.
+     ========================================================= */
+  const SUPABASE_CONFIG = {
+    url: "REPLACE_WITH_YOUR_SUPABASE_PROJECT_URL",
+    publishableKey: "REPLACE_WITH_YOUR_SUPABASE_PUBLISHABLE_KEY"
+  };
+
+  /* Optional server endpoint for an IMDb cross-check. Leave blank if unused. */
+  const IMDB_VERIFY_ENDPOINT = "";
+
+  let sb = null;
+  let session = null;
+  let currentUser = null;
+  let currentProfile = null;
+  let mediaItems = [];
+  let cacheDB = null;
+  let isSignUp = false;
+  let activeFilter = "All";
+  let currentTab = "library";
+  let searchQuery = "";
+  let searchTimer = null;
+
+  const $ = id => document.getElementById(id);
+  const authScreen = $("auth-screen"), authForm = $("auth-form"), authTitle = $("auth-title"), authSub = $("auth-sub"), authNameGroup = $("auth-name-group"), authEmail = $("auth-email"), authPassword = $("auth-password"), authName = $("auth-name"), authSubmit = $("auth-submit"), authToggle = $("auth-toggle"), authMessage = $("auth-message"), forgotPassword = $("forgot-password");
+  const navName = $("nav-name"), userPill = $("user-pill"), libraryView = $("library-view"), settingsView = $("settings-view"), profileName = $("profile-name"), profileEmail = $("profile-email"), avatar = $("avatar"), syncDot = $("sync-dot"), syncStatus = $("sync-status"), refreshCloud = $("refresh-cloud"), logoutBtn = $("logout-btn");
+  const mediaList = $("media-list"), emptyState = $("empty-state"), searchInput = $("search-input"), modal = $("modal"), addBtn = $("add-btn"), closeModal = $("close-modal"), mediaForm = $("media-form"), deleteBtn = $("delete-btn"), saveBtn = $("save-btn"), typeSelect = $("type"), seriesSection = $("series-section"), upcomingSection = $("upcoming-section"), titleInput = $("title"), suggestList = $("suggest-list");
+  const pillBtns = document.querySelectorAll(".pill-btn"), tabBtns = document.querySelectorAll(".tab-btn");
+
+  function configured(){return Boolean(SUPABASE_CONFIG.url&&SUPABASE_CONFIG.publishableKey&&!SUPABASE_CONFIG.url.startsWith("REPLACE_")&&!SUPABASE_CONFIG.publishableKey.startsWith("REPLACE_"));}
+  function nowISO(){return new Date().toISOString();}
+  function esc(v){return String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));}
+  function showMessage(text,type="error"){authMessage.textContent=text;authMessage.className=`message ${type}`;}
+  function hideMessage(){authMessage.textContent="";authMessage.className="message hidden";}
+  function uuid(){return crypto.randomUUID?crypto.randomUUID():`item_${Date.now()}_${Math.random().toString(36).slice(2)}`;}
+  function toMillis(v){const n=new Date(v||0).getTime();return Number.isFinite(n)?n:0;}
+  function isEmail(v){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||"").trim());}
+
+  async function sha256(value){const bytes=new TextEncoder().encode(String(value));const digest=await crypto.subtle.digest("SHA-256",bytes);return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");}
+  function cacheName(userIdHash){return `WatchLogCache_${userIdHash.slice(0,48)}`;}
+  async function openCache(userId){if(cacheDB){try{cacheDB.close();}catch(_){}}const h=await sha256(`watchlog:${userId}`);return new Promise((resolve,reject)=>{const r=indexedDB.open(cacheName(h),1);r.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains("data"))db.createObjectStore("data",{keyPath:"key"});};r.onsuccess=()=>{cacheDB=r.result;resolve(cacheDB);};r.onerror=()=>reject(r.error);});}
+  function cachePut(value){return new Promise((resolve,reject)=>{if(!cacheDB)return resolve(false);const tx=cacheDB.transaction("data","readwrite");tx.objectStore("data").put(value);tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);});}
+  function cacheGet(key){return new Promise((resolve,reject)=>{if(!cacheDB)return resolve(null);const tx=cacheDB.transaction("data","readonly");const r=tx.objectStore("data").get(key);r.onsuccess=()=>resolve(r.result||null);r.onerror=()=>reject(r.error);});}
+  async function saveCache(items){if(!currentUser)return;await cachePut({key:"library",userId:currentUser.id,items,updatedAt:nowISO()});}
+  async function loadCache(){if(!currentUser)return[];const r=await cacheGet("library");return r?.userId===currentUser.id&&Array.isArray(r.items)?r.items:[];}
+
+  function setSync(text,state="warn"){syncStatus.textContent=text;syncDot.className=`sync-dot ${state==="ok"?"ok":state==="warn"?"warn":""}`;}
+
+  async function initSupabase(){
+    if(!configured()){
+      showMessage("Cross-device accounts are not configured. Add the Supabase project URL and publishable key to SUPABASE_CONFIG. Device-only account creation is disabled so users cannot accidentally create incompatible logins.","error");
+      authSubmit.disabled=true;forgotPassword.disabled=true;setSync("Cloud account backend is not configured.","warn");return false;
+    }
+    if(!window.supabase?.createClient){showMessage("The account service failed to load.","error");return false;}
+    sb=window.supabase.createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+    const {data,error}=await sb.auth.getSession();if(error)throw error;session=data.session;currentUser=session?.user||null;
+    sb.auth.onAuthStateChange(async(event,newSession)=>{session=newSession;currentUser=newSession?.user||null;if(event==="SIGNED_OUT"){await clearUserState();showAuth();}else if(currentUser){await enterAccount();}});
+    return true;
+  }
+
+  async function ensureProfile(){
+    if(!currentUser)throw new Error("No authenticated user");
+    const desired={user_id:currentUser.id,email:(currentUser.email||"").toLowerCase(),display_name:String(currentUser.user_metadata?.display_name||currentUser.user_metadata?.name||"User").trim()||"User",updated_at:nowISO()};
+    const {data,error}=await sb.from("watchlog_profiles").upsert(desired,{onConflict:"user_id"}).select("user_id,email,display_name,updated_at").single();
+    if(error)throw error;currentProfile=data;return data;
+  }
+
+  async function loadCloudLibrary({allowCache=true}={}){
+    if(!currentUser)return;
+    setSync(`Loading ${currentUser.email}'s private library…`,"warn");
+    mediaItems=[];render();
+    const {data,error}=await sb.from("watchlog_items").select("id,payload,updated_at").order("updated_at",{ascending:false});
+    if(error){
+      console.error("Cloud library load failed",error);
+      if(allowCache){mediaItems=await loadCache();render();setSync(`Offline/cache view for ${currentUser.email}. Cloud refresh failed.`,"warn");return;}
+      throw error;
+    }
+    mediaItems=(data||[]).map(row=>({...row.payload,id:String(row.id),updatedAt:row.updated_at||row.payload?.updatedAt||""}));
+    await saveCache(mediaItems);render();setSync(`Synced as ${currentUser.email}. Only this account's rows are visible.`,"ok");
+  }
+
+  async function saveCloudItem(item){
+    if(!currentUser)throw new Error("Not logged in");
+    const clean={...item};delete clean.ownerEmail;delete clean.ownerId;delete clean.user_id;
+    const row={user_id:currentUser.id,id:String(item.id),payload:clean,updated_at:item.updatedAt||nowISO()};
+    const {error}=await sb.from("watchlog_items").upsert(row,{onConflict:"user_id,id"});if(error)throw error;
+  }
+  async function deleteCloudItem(id){if(!currentUser)throw new Error("Not logged in");const {error}=await sb.from("watchlog_items").delete().eq("id",String(id));if(error)throw error;}
+
+  async function migrateLegacyForCurrentUser(){
+    if(!currentUser?.email)return;
+    const marker=`watchlog_cloud_migrated_${currentUser.id}`;if(localStorage.getItem(marker)==="1")return;
+    const email=currentUser.email.toLowerCase();const collections=[];
+    try{const a=JSON.parse(localStorage.getItem(`watchlog_records_${email}`)||"[]");if(Array.isArray(a))collections.push(a);}catch(_){ }
+    try{
+      const users=JSON.parse(localStorage.getItem("watchlog_auth_users")||"[]");
+      if(Array.isArray(users))for(const u of users){if(String(u?.email||"").toLowerCase()===email&&u?.id){const v=JSON.parse(localStorage.getItem(`watchlog_records_user_${u.id}`)||"[]");if(Array.isArray(v))collections.push(v);}}
+    }catch(_){ }
+    const merged=new Map();for(const list of collections)for(const raw of list){if(!raw?.title)continue;const id=String(raw.id||uuid());const prev=merged.get(id);if(!prev||toMillis(raw.updatedAt||raw.date)>=toMillis(prev.updatedAt||prev.date))merged.set(id,{...raw,id,updatedAt:raw.updatedAt||nowISO()});}
+    if(merged.size){for(const item of merged.values()){try{await saveCloudItem(item);}catch(e){console.warn("Legacy item migration failed",e);}}}
+    localStorage.setItem(marker,"1");
+  }
+
+  async function enterAccount(){
+    if(!currentUser)return showAuth();
+    hideMessage();await openCache(currentUser.id);await ensureProfile();await migrateLegacyForCurrentUser();
+    profileName.textContent=currentProfile.display_name||"User";profileEmail.textContent=currentUser.email||"";navName.textContent=currentProfile.display_name||currentUser.email||"User";avatar.textContent=String(currentProfile.display_name||currentUser.email||"U").charAt(0).toUpperCase();
+    authScreen.classList.add("hidden");await loadCloudLibrary();
+  }
+  async function clearUserState(){mediaItems=[];currentProfile=null;currentUser=null;session=null;if(cacheDB){try{cacheDB.close();}catch(_){}}cacheDB=null;render();}
+  function showAuth(){authScreen.classList.remove("hidden");}
+
+  function updateAuthMode(){hideMessage();authNameGroup.classList.toggle("hidden",!isSignUp);authTitle.textContent=isSignUp?"Create Account":"Welcome Back";authSub.textContent=isSignUp?"This account will work on every device using the same email and password.":"Use the same email and password on every device.";authSubmit.textContent=isSignUp?"Create Account":"Log In";authToggle.textContent=isSignUp?"Already have an account? Log In":"Don't have an account? Sign Up";authPassword.setAttribute("autocomplete",isSignUp?"new-password":"current-password");}
+  authToggle.onclick=()=>{isSignUp=!isSignUp;authForm.reset();updateAuthMode();};
+
+  authForm.onsubmit=async e=>{
+    e.preventDefault();hideMessage();if(!sb){showMessage("Cross-device account backend is not configured.");return;}
+    const email=authEmail.value.trim().toLowerCase(),password=authPassword.value;if(!isEmail(email)){showMessage("Enter a valid email address.");return;}if(password.length<6){showMessage("Password must be at least 6 characters.");return;}
+    authSubmit.disabled=true;authSubmit.textContent=isSignUp?"Creating…":"Logging In…";
+    try{
+      if(isSignUp){
+        const name=authName.value.trim()||"User";
+        const {data,error}=await sb.auth.signUp({email,password,options:{data:{display_name:name}}});if(error)throw error;
+        if(!data.session){showMessage("Account created. Confirm the verification email, then use the same email and password on every device.","success");return;}
+        session=data.session;currentUser=data.user;await enterAccount();
+      }else{
+        const {data,error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;session=data.session;currentUser=data.user;await enterAccount();
+      }
+    }catch(err){console.error(err);showMessage(isSignUp?`Account creation failed: ${err.message||"Unknown error"}`:"Email or password is incorrect for the cloud account. Use the exact same email/password that created the account, or reset the password.","error");}
+    finally{authSubmit.disabled=false;authSubmit.textContent=isSignUp?"Create Account":"Log In";}
+  };
+
+  forgotPassword.onclick=async()=>{if(!sb){showMessage("Cloud accounts are not configured.");return;}const email=authEmail.value.trim().toLowerCase();if(!isEmail(email)){showMessage("Enter the account email first.");return;}const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.href});if(error)showMessage(`Password reset failed: ${error.message}`);else showMessage(`Password reset sent to ${email}.`,"success");};
+  logoutBtn.onclick=async()=>{if(sb)await sb.auth.signOut();await clearUserState();showAuth();};
+  refreshCloud.onclick=()=>loadCloudLibrary({allowCache:false}).catch(e=>{console.error(e);setSync("Could not refresh the cloud library.","warn");});
+  userPill.onclick=()=>switchTab("settings");
+
+  function updateCounts(){$("count-saved").textContent=mediaItems.filter(x=>x.status==="Saved").length;$("count-watching").textContent=mediaItems.filter(x=>x.status==="Watching").length;$("count-watched").textContent=mediaItems.filter(x=>x.status==="Watched").length;}
+  function switchTab(tab){currentTab=tab;tabBtns.forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));const settings=tab==="settings";libraryView.classList.toggle("hidden",settings);settingsView.classList.toggle("hidden",!settings);if(!settings){$("list-label").textContent=tab==="watchlist"?"Upcoming Premieres":tab==="history"?"Watch History":"Titles";render();}}
+  tabBtns.forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));pillBtns.forEach(b=>b.onclick=()=>{pillBtns.forEach(x=>x.classList.remove("active"));b.classList.add("active");activeFilter=b.dataset.filter;render();});searchInput.oninput=e=>{searchQuery=e.target.value;render();};
+
+  function render(){mediaList.innerHTML="";updateCounts();if(!currentUser){emptyState.classList.add("hidden");return;}const q=searchQuery.trim().toLowerCase();const rows=mediaItems.filter(item=>{if(!item?.title)return false;let tab=true;if(currentTab==="watchlist")tab=Boolean(item.nextSeasonNum||item.nextSeasonDate);else if(currentTab==="history")tab=item.status==="Watched";const filter=activeFilter==="All"||item.status===activeFilter;const search=!q||String(item.title).toLowerCase().includes(q)||String(item.platform||"").toLowerCase().includes(q);return tab&&filter&&search;});emptyState.classList.toggle("hidden",rows.length>0);for(const item of rows){const row=document.createElement("div");row.className="title-item";row.onclick=()=>openEdit(item.id);const isFilm=item.type==="Film";const icon=isFilm?`<svg viewBox="0 0 24 24"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></svg>`:`<svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg>`;const season=isFilm?"":`• ${item.watchedSeasons??item.curSeason??0} of ${item.totalSeasons??item.curSeason??1} seasons`;const pct=isFilm?100:Math.min(100,Math.max(0,(Number(item.watchedSeasons||0)/Math.max(1,Number(item.totalSeasons||1)))*100));let reminder="";if(item.nextSeasonNum||item.nextSeasonDate){let text="Date TBA";if(item.nextSeasonDate){const d=new Date(item.nextSeasonDate);if(!Number.isNaN(d.getTime()))text=`${d.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})} at ${d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`;}reminder=`<div class="reminder"><span>🔔 Season ${esc(item.nextSeasonNum||"Next")} Premiere</span><small>${esc(text)}</small></div>`;}row.innerHTML=`<div class="item-row"><div class="item-icon">${icon}</div><div class="item-main"><span class="item-name">${esc(item.title)}</span><div class="item-sub"><span>${esc(item.type||"Series")}</span>${season?`<span>${esc(season)}</span>`:""}</div><div class="platform"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><span>${esc(item.platform||item.type||"")}</span></div>${!isFilm?`<div class="progress"><div style="width:${pct}%"></div></div>`:""}</div><div class="item-right"><div class="badge ${String(item.status||"Saved").toLowerCase()}">${esc(item.status||"Saved")}</div><span class="item-date">${esc(item.date||"")}</span></div><span class="chevron">›</span></div>${reminder}`;mediaList.appendChild(row);}}
+
+  function toLocalInput(v){if(!v)return"";const d=new Date(v);if(Number.isNaN(d.getTime()))return"";const p=n=>String(n).padStart(2,"0");return`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;}
+  function dateOnlyInput(v){return v?`${v}T00:00`:"";}
+  async function imdbVerify(title,season,premiereDate){if(!IMDB_VERIFY_ENDPOINT)return{confirmed:null};try{const u=new URL(IMDB_VERIFY_ENDPOINT,location.href);u.searchParams.set("title",title);u.searchParams.set("season",String(season));if(premiereDate)u.searchParams.set("premiereDate",premiereDate);const r=await fetch(u);if(!r.ok)return{confirmed:null};return await r.json();}catch(_){return{confirmed:null};}}
+
+  async function verifiedSeasonData(showId,title){
+    const [sr,shr,er]=await Promise.all([fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}/seasons`),fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}?embed=nextepisode`),fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}/episodes`)]);
+    if(!sr.ok)throw new Error("TVMaze season lookup failed");const seasonsRaw=await sr.json(),show=shr.ok?await shr.json():{},episodes=er.ok?await er.json():[];
+    const seasons=(Array.isArray(seasonsRaw)?seasonsRaw:[]).filter(s=>Number.isFinite(Number(s.number))).map(s=>({...s,number:Number(s.number)})).sort((a,b)=>a.number-b.number);if(!seasons.length)return{highest:null,latestAired:null,currentEpisode:null,upcoming:null,nextEpisode:null,known:new Set()};
+    const known=new Set(seasons.map(s=>s.number)),highest=Math.max(...known),now=Date.now();const aired=(Array.isArray(episodes)?episodes:[]).filter(ep=>{const t=ep.airstamp?new Date(ep.airstamp).getTime():ep.airdate?new Date(`${ep.airdate}T23:59:59`).getTime():0;return t>0&&t<=now&&known.has(Number(ep.season));});const airedSeasons=aired.map(ep=>Number(ep.season)).filter(Number.isFinite),latestAired=airedSeasons.length?Math.max(...airedSeasons):null;let currentEpisode=null;if(latestAired!==null){const nums=aired.filter(ep=>Number(ep.season)===latestAired).map(ep=>Number(ep.number)).filter(Number.isFinite);currentEpisode=nums.length?Math.max(...nums):null;}
+    const nextEpisode=show?._embedded?.nextepisode||null;let upcoming=null;
+    if(nextEpisode&&known.has(Number(nextEpisode.season))&&(latestAired===null||Number(nextEpisode.season)>latestAired)){upcoming=seasons.find(s=>s.number===Number(nextEpisode.season))||null;}
+    if(!upcoming){upcoming=seasons.filter(s=>s.premiereDate&&new Date(`${s.premiereDate}T00:00:00`).getTime()>now&&(latestAired===null||s.number>latestAired)).sort((a,b)=>a.number-b.number)[0]||null;}
+    if(upcoming&&aired.some(ep=>Number(ep.season)===upcoming.number))upcoming=null;
+    if(upcoming&&!known.has(upcoming.number))upcoming=null;
+    if(upcoming){const imdb=await imdbVerify(title,upcoming.number,upcoming.premiereDate||"");if(imdb?.confirmed===false)upcoming=null;if(imdb?.confirmed===true&&Number.isFinite(Number(imdb.seasonNumber))&&Number(imdb.seasonNumber)!==upcoming?.number)upcoming=null;}
+    return{highest,latestAired,currentEpisode,upcoming,nextEpisode,known};
+  }
+  async function fillSeasonData(showId,title,{preserveProgress=false}={}){const r=await verifiedSeasonData(showId,title);$("total-seasons").value=r.highest??"";if(!preserveProgress){$("cur-season").value=r.latestAired??"";$("cur-ep").value=r.currentEpisode??"";$("watched-seasons").value=r.latestAired??"";}if(!r.upcoming){$("next-season-num").value="";$("next-season-date").value="";return r;}$("next-season-num").value=String(r.upcoming.number);if(r.nextEpisode&&Number(r.nextEpisode.season)===r.upcoming.number&&r.nextEpisode.airstamp)$("next-season-date").value=toLocalInput(r.nextEpisode.airstamp);else $("next-season-date").value=r.upcoming.premiereDate?dateOnlyInput(r.upcoming.premiereDate):"";return r;}
+  async function exactTVMazeId(title){try{const r=await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(title)}`);if(!r.ok)return"";const data=await r.json(),norm=String(title).toLowerCase().replace(/[^a-z0-9]+/g," ").trim();const hit=(Array.isArray(data)?data:[]).find(x=>String(x?.show?.name||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim()===norm);return hit?.show?.id?String(hit.show.id):"";}catch(_){return"";}}
+
+  titleInput.addEventListener("input",()=>{clearTimeout(searchTimer);const q=titleInput.value.trim();if(q.length<2){suggestList.classList.add("hidden");return;}searchTimer=setTimeout(async()=>{try{const r=await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(q)}`),data=r.ok?await r.json():[];if(!Array.isArray(data)||!data.length){suggestList.classList.add("hidden");return;}suggestList.innerHTML=data.slice(0,5).map(x=>{const s=x.show,n=s.network?.name||s.webChannel?.name||"Streaming",y=s.premiered?.slice(0,4)||"";return`<div class="suggest-item" data-id="${s.id}" data-title="${esc(s.name)}" data-platform="${esc(n)}"><div><div class="suggest-name">${esc(s.name)}</div><div class="suggest-meta">${y?`${y} • `:""}${esc(s.type||"Series")}</div></div><span class="suggest-network">${esc(n)}</span></div>`;}).join("");suggestList.classList.remove("hidden");document.querySelectorAll(".suggest-item").forEach(el=>el.onclick=async()=>{titleInput.value=el.dataset.title;$("platform").value=el.dataset.platform;$("tvmaze-id").value=el.dataset.id;typeSelect.value="Series";seriesSection.style.display="flex";upcomingSection.style.display="flex";suggestList.classList.add("hidden");await fillSeasonData(el.dataset.id,el.dataset.title);});}catch(e){console.warn(e);suggestList.classList.add("hidden");}},300);});
+  document.addEventListener("click",e=>{if(!titleInput.contains(e.target)&&!suggestList.contains(e.target))suggestList.classList.add("hidden");});
+  typeSelect.onchange=()=>{const film=typeSelect.value==="Film";seriesSection.style.display=film?"none":"flex";upcomingSection.style.display=film?"none":"flex";};
+
+  function openAdd(){mediaForm.reset();$("item-id").value="";$("tvmaze-id").value="";$("modal-title").textContent="Log Title";deleteBtn.classList.add("hidden");seriesSection.style.display="flex";upcomingSection.style.display="flex";modal.classList.remove("hidden");}
+  async function openEdit(id){const item=mediaItems.find(x=>String(x.id)===String(id));if(!item)return;$("item-id").value=item.id;$("tvmaze-id").value=item.tvmazeShowId||"";$("title").value=item.title||"";$("type").value=item.type||"Series";$("status").value=item.status||"Saved";$("total-seasons").value=item.totalSeasons??"";$("watched-seasons").value=item.watchedSeasons??"";$("cur-season").value=item.curSeason??"";$("cur-ep").value=item.curEp??"";$("next-season-num").value=item.nextSeasonNum??"";$("next-season-date").value=item.nextSeasonDate?toLocalInput(item.nextSeasonDate):"";$("platform").value=item.platform||"";const film=item.type==="Film";seriesSection.style.display=film?"none":"flex";upcomingSection.style.display=film?"none":"flex";$("modal-title").textContent="Edit Title";deleteBtn.classList.remove("hidden");modal.classList.remove("hidden");if(!film){let sid=item.tvmazeShowId||await exactTVMazeId(item.title);if(sid){$("tvmaze-id").value=sid;try{await fillSeasonData(sid,item.title,{preserveProgress:true});}catch(e){console.warn(e);}}}}
+  addBtn.onclick=openAdd;closeModal.onclick=()=>modal.classList.add("hidden");modal.addEventListener("click",e=>{if(e.target===modal)modal.classList.add("hidden");});
+
+  mediaForm.onsubmit=async e=>{
+    e.preventDefault();if(!currentUser)return;saveBtn.disabled=true;saveBtn.textContent="Saving…";
+    try{
+      const existingId=$("item-id").value,id=existingId||uuid(),title=$("title").value.trim(),type=$("type").value;if(!title)throw new Error("Enter a title.");let sid=$("tvmaze-id").value;if(type!=="Film"&&!sid)sid=await exactTVMazeId(title);
+      let total=$("total-seasons").value?Number($("total-seasons").value):null,nextNum=$("next-season-num").value?Number($("next-season-num").value):"",nextDate=$("next-season-date").value||"";
+      if(type!=="Film"&&sid){const r=await verifiedSeasonData(sid,title);total=r.highest??null;if(r.upcoming){nextNum=r.upcoming.number;if(r.nextEpisode&&Number(r.nextEpisode.season)===r.upcoming.number&&r.nextEpisode.airstamp)nextDate=toLocalInput(r.nextEpisode.airstamp);else nextDate=r.upcoming.premiereDate?dateOnlyInput(r.upcoming.premiereDate):"";}else{nextNum="";nextDate="";}$("total-seasons").value=total??"";$("next-season-num").value=nextNum;$("next-season-date").value=nextDate;}
+      const previous=mediaItems.find(x=>String(x.id)===String(id));const numOrNull=x=>$(x).value===""?null:Number.parseInt($(x).value,10);const item={id,title,type,status:$("status").value,tvmazeShowId:sid||"",totalSeasons:type==="Film"?null:total,watchedSeasons:type==="Film"?null:numOrNull("watched-seasons"),curSeason:type==="Film"?null:numOrNull("cur-season"),curEp:type==="Film"?null:numOrNull("cur-ep"),nextSeasonNum:type==="Film"?"":nextNum,nextSeasonDate:type==="Film"?"":nextDate,platform:$("platform").value.trim(),date:new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}),createdAt:previous?.createdAt||nowISO(),updatedAt:nowISO()};
+      await saveCloudItem(item);const idx=mediaItems.findIndex(x=>String(x.id)===String(id));if(idx>=0)mediaItems[idx]=item;else mediaItems.unshift(item);await saveCache(mediaItems);render();modal.classList.add("hidden");setSync(`Saved to ${currentUser.email}'s private cloud library.`,"ok");
+    }catch(err){console.error(err);alert(err.message||"Save failed.");}
+    finally{saveBtn.disabled=false;saveBtn.textContent="Save to Log";}
+  };
+  deleteBtn.onclick=async()=>{const id=$("item-id").value;if(!id)return;try{await deleteCloudItem(id);mediaItems=mediaItems.filter(x=>String(x.id)!==String(id));await saveCache(mediaItems);render();modal.classList.add("hidden");}catch(e){console.error(e);alert("Delete failed.");}};
+
+  async function start(){updateAuthMode();if(!await initSupabase())return;if(currentUser)await enterAccount();else showAuth();}
+  start().catch(err=>{console.error(err);showMessage(`WatchLog could not start: ${err.message||err}`);});
+  </script>
+</body>
+</html>
+p st<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
