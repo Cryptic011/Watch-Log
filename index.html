@@ -62,7 +62,7 @@
     <button class="tab-btn" data-tab="settings"><div class="tab-icon"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58-1.92-3.32-2.39.96c-.5-.38-1.03-.7-1.62-.94L14.4 2.4h-4.8l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96-1.92 3.32 2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58 1.92 3.32 2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54h4.8l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96 1.92-3.32-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div><span>Settings</span></button>
   </nav>
 
-  <div id="modal" class="modal-overlay hidden"><div class="modal-content"><div class="modal-header"><h2 id="modal-title">Log Title</h2><button id="close-modal" class="close-btn" type="button">&times;</button></div><form id="media-form"><input id="item-id" type="hidden" /><input id="tvmaze-id" type="hidden" /><div class="form-group suggest-wrap"><label for="title">Title</label><input id="title" type="text" required autocomplete="off" placeholder="e.g. Black Mirror" /><div id="suggest-list" class="suggest-list hidden"></div></div><div class="form-row"><div class="form-group"><label for="type">Format</label><select id="type"><option>Series</option><option>Film</option><option>Anime</option><option>Game</option></select></div><div class="form-group"><label for="status">Status</label><select id="status"><option>Watched</option><option>Watching</option><option>Saved</option></select></div></div><div id="series-section" class="section-box"><span class="section-title">Seasons & Progress</span><div class="form-row"><div class="form-group"><label for="total-seasons">Known / Announced Seasons</label><input id="total-seasons" type="number" min="1" /></div><div class="form-group"><label for="watched-seasons">Watched Seasons</label><input id="watched-seasons" type="number" min="0" /></div></div><div class="form-row"><div class="form-group"><label for="cur-season">Current Season #</label><input id="cur-season" type="number" min="1" /></div><div class="form-group"><label for="cur-ep">Episode in Season</label><input id="cur-ep" type="number" min="0" /></div></div></div><div id="upcoming-section" class="section-box"><span class="section-title">🔔 Verified Upcoming Season</span><p class="small-note">For TVMaze-linked shows, WatchLog only uses a season number that exists in TVMaze's season list. It never calculates “current + 1”.</p><div class="form-row"><div class="form-group"><label for="next-season-num">Upcoming Season #</label><input id="next-season-num" type="number" /></div><div class="form-group"><label for="next-season-date">Premiere Date / Time</label><input id="next-season-date" type="datetime-local" /></div></div></div><div class="form-group"><label for="platform">Streaming / Platform</label><input id="platform" type="text" placeholder="Netflix, Apple TV+, etc." /></div><div class="modal-actions"><button id="delete-btn" type="button" class="btn btn-danger hidden">Delete</button><button id="save-btn" type="submit" class="btn btn-primary">Save to Log</button></div></form></div></div>
+  <div id="modal" class="modal-overlay hidden"><div class="modal-content"><div class="modal-header"><h2 id="modal-title">Log Title</h2><button id="close-modal" class="close-btn" type="button">&times;</button></div><form id="media-form"><input id="item-id" type="hidden" /><input id="tvmaze-id" type="hidden" /><input id="imdb-id" type="hidden" /><div class="form-group suggest-wrap"><label for="title">Title</label><input id="title" type="text" required autocomplete="off" placeholder="e.g. Black Mirror" /><div id="suggest-list" class="suggest-list hidden"></div></div><div class="form-row"><div class="form-group"><label for="type">Format</label><select id="type"><option>Series</option><option>Film</option><option>Anime</option><option>Game</option></select></div><div class="form-group"><label for="status">Status</label><select id="status"><option>Watched</option><option>Watching</option><option>Saved</option></select></div></div><div id="series-section" class="section-box"><span class="section-title">Seasons & Progress</span><div class="form-row"><div class="form-group"><label for="total-seasons">Known / Announced Seasons</label><input id="total-seasons" type="number" min="1" /></div><div class="form-group"><label for="watched-seasons">Watched Seasons</label><input id="watched-seasons" type="number" min="0" /></div></div><div class="form-row"><div class="form-group"><label for="cur-season">Current Season #</label><input id="cur-season" type="number" min="1" /></div><div class="form-group"><label for="cur-ep">Episode in Season</label><input id="cur-ep" type="number" min="0" /></div></div></div><div id="upcoming-section" class="section-box"><span class="section-title">🔔 Verified Upcoming Season</span><p class="small-note">For TVMaze-linked shows, WatchLog only uses a season number that exists in TVMaze's season list. It never calculates “current + 1”.</p><div class="form-row"><div class="form-group"><label for="next-season-num">Upcoming Season #</label><input id="next-season-num" type="number" /></div><div class="form-group"><label for="next-season-date">Premiere Date / Time</label><input id="next-season-date" type="datetime-local" /></div></div></div><div class="form-group"><label for="platform">Streaming / Platform</label><input id="platform" type="text" placeholder="Netflix, Apple TV+, etc." /></div><div class="modal-actions"><button id="delete-btn" type="button" class="btn btn-danger hidden">Delete</button><button id="save-btn" type="submit" class="btn btn-primary">Save to Log</button></div></form></div></div>
 
   <script>
   "use strict";
@@ -460,14 +460,244 @@
     return{highest,latestAired,currentEpisode,upcoming,nextEpisode,known};
   }
   async function fillSeasonData(showId,title,{preserveProgress=false}={}){const r=await verifiedSeasonData(showId,title);$("total-seasons").value=r.highest??"";if(!preserveProgress){$("cur-season").value=r.latestAired??"";$("cur-ep").value=r.currentEpisode??"";$("watched-seasons").value=r.latestAired??"";}if(!r.upcoming){$("next-season-num").value="";$("next-season-date").value="";return r;}$("next-season-num").value=String(r.upcoming.number);if(r.nextEpisode&&Number(r.nextEpisode.season)===r.upcoming.number&&r.nextEpisode.airstamp)$("next-season-date").value=toLocalInput(r.nextEpisode.airstamp);else $("next-season-date").value=r.upcoming.premiereDate?dateOnlyInput(r.upcoming.premiereDate):"";return r;}
-  async function exactTVMazeId(title){try{const r=await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(title)}`);if(!r.ok)return"";const data=await r.json(),norm=String(title).toLowerCase().replace(/[^a-z0-9]+/g," ").trim();const hit=(Array.isArray(data)?data:[]).find(x=>String(x?.show?.name||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim()===norm);return hit?.show?.id?String(hit.show.id):"";}catch(_){return"";}}
+  async function exactTVMazeId(title){try{const r=await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(title)}`);if(!r.ok)return"";const data=await r.json(),norm=normalizeTitle(title);const hit=(Array.isArray(data)?data:[]).find(x=>normalizeTitle(x?.show?.name||"")===norm);return hit?.show?.id?String(hit.show.id):"";}catch(_){return"";}}
 
-  titleInput.addEventListener("input",()=>{clearTimeout(searchTimer);const q=titleInput.value.trim();if(q.length<2){suggestList.classList.add("hidden");return;}searchTimer=setTimeout(async()=>{try{const r=await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(q)}`),data=r.ok?await r.json():[];if(!Array.isArray(data)||!data.length){suggestList.classList.add("hidden");return;}suggestList.innerHTML=data.map(x=>{const s=x.show,n=s.network?.name||s.webChannel?.name||"Streaming",y=s.premiered?.slice(0,4)||"";return`<div class="suggest-item" data-id="${s.id}" data-title="${esc(s.name)}" data-platform="${esc(n)}"><div><div class="suggest-name">${esc(s.name)}</div><div class="suggest-meta">${y?`${y} • `:""}${esc(s.type||"Series")}</div></div><span class="suggest-network">${esc(n)}</span></div>`;}).join("");suggestList.classList.remove("hidden");document.querySelectorAll(".suggest-item").forEach(el=>el.onclick=async()=>{titleInput.value=el.dataset.title;$("platform").value=el.dataset.platform;$("tvmaze-id").value=el.dataset.id;typeSelect.value="Series";seriesSection.style.display="flex";upcomingSection.style.display="flex";suggestList.classList.add("hidden");await fillSeasonData(el.dataset.id,el.dataset.title);});}catch(e){console.warn(e);suggestList.classList.add("hidden");}},300);});
+  function normalizeTitle(value){
+    return String(value||"")
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g,"")
+      .replace(/&/g," and ")
+      .replace(/[^a-z0-9]+/g," ")
+      .trim();
+  }
+
+  function titleTokens(value){
+    return normalizeTitle(value).split(" ").filter(Boolean);
+  }
+
+  function suggestionScore(item,query){
+    const q=normalizeTitle(query),t=normalizeTitle(item.title);
+    if(!q||!t)return 0;
+    let score=0;
+    if(t===q)score+=1200;
+    else if(t.startsWith(q))score+=850;
+    else if(t.includes(q))score+=650;
+
+    const qTokens=titleTokens(query),tTokens=new Set(titleTokens(item.title));
+    const matched=qTokens.filter(token=>tTokens.has(token)).length;
+    score+=matched*95;
+    if(qTokens.length&&matched===qTokens.length)score+=180;
+
+    const currentYear=new Date().getFullYear();
+    const year=Number(item.year||0);
+    if(year===currentYear)score+=95;
+    else if(year===currentYear-1||year===currentYear+1)score+=55;
+
+    if(item.source==="imdb")score+=90;
+    if(item.source==="apple")score+=40;
+    if(item.source==="tvmaze")score+=35;
+    return score;
+  }
+
+  function jsonp(url,timeout=6500){
+    return new Promise((resolve,reject)=>{
+      const callback=`watchlog_jsonp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const script=document.createElement("script");
+      const cleanup=()=>{try{delete window[callback];}catch(_){window[callback]=undefined;}script.remove();clearTimeout(timer);};
+      const timer=setTimeout(()=>{cleanup();reject(new Error("Catalog search timed out"));},timeout);
+      window[callback]=data=>{cleanup();resolve(data);};
+      script.onerror=()=>{cleanup();reject(new Error("Catalog search failed"));};
+      script.src=`${url}${url.includes("?")?"&":"?"}callback=${encodeURIComponent(callback)}`;
+      document.head.appendChild(script);
+    });
+  }
+
+  async function searchTVMaze(query){
+    try{
+      const r=await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`);
+      if(!r.ok)return[];
+      const data=await r.json();
+      return (Array.isArray(data)?data:[]).map(x=>{
+        const s=x.show||{};
+        return {
+          source:"tvmaze",
+          externalId:String(s.id||""),
+          title:s.name||"",
+          format:"Series",
+          year:s.premiered?.slice(0,4)||"",
+          platform:s.network?.name||s.webChannel?.name||"",
+          detail:s.type||"Series"
+        };
+      }).filter(x=>x.title);
+    }catch(e){console.warn("TVMaze search failed",e);return[];}
+  }
+
+  async function searchAppleMovies(query){
+    try{
+      const url=`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&country=gb&media=movie&entity=movie&limit=40`;
+      const data=await jsonp(url);
+      return (Array.isArray(data?.results)?data.results:[]).map(x=>({
+        source:"apple",
+        externalId:String(x.trackId||x.collectionId||""),
+        title:x.trackName||x.collectionName||"",
+        format:"Film",
+        year:x.releaseDate?String(new Date(x.releaseDate).getFullYear()):"",
+        platform:"",
+        detail:x.primaryGenreName||"Film"
+      })).filter(x=>x.title);
+    }catch(e){console.warn("Apple movie search failed",e);return[];}
+  }
+
+  async function searchIMDbTitles(query){
+    try{
+      const cleaned=String(query||"").trim();
+      if(cleaned.length<2)return[];
+      const first=cleaned.charAt(0).toLowerCase();
+      const bucket=/[a-z0-9]/.test(first)?first:"x";
+      const url=`https://v3.sg.media-imdb.com/suggestion/${encodeURIComponent(bucket)}/${encodeURIComponent(cleaned)}.json`;
+      const r=await fetch(url,{mode:"cors",credentials:"omit",cache:"no-store"});
+      if(!r.ok)return[];
+      const data=await r.json();
+      return (Array.isArray(data?.d)?data.d:[]).map(x=>{
+        const id=String(x?.id||"");
+        if(!id.startsWith("tt"))return null;
+        const kind=String(x?.qid||x?.q||"").toLowerCase();
+        let format="";
+        if(/tvseries|tvminiseries|series|mini-series|television series/.test(kind))format="Series";
+        else if(/movie|feature|film|tvmovie|tv movie/.test(kind))format="Film";
+        else if(/video game|videogame|game/.test(kind))format="Game";
+        else return null;
+        const year=Number.isFinite(Number(x?.y))?String(x.y):"";
+        const detail=String(x?.q||x?.qid||format).replace(/_/g," ");
+        return {
+          source:"imdb",
+          externalId:id,
+          title:String(x?.l||""),
+          format,
+          year,
+          platform:"",
+          detail:detail||format
+        };
+      }).filter(x=>x?.title);
+    }catch(e){console.warn("IMDb search failed",e);return[];}
+  }
+
+  function dedupeAndRankSuggestions(results,query){
+    const byKey=new Map();
+    for(const item of results.flat()){
+      if(!item?.title)continue;
+      const key=`${normalizeTitle(item.title)}|${item.format}|${item.year||""}`;
+      const scored={...item,score:suggestionScore(item,query)};
+      const existing=byKey.get(key);
+      if(!existing||scored.score>existing.score)byKey.set(key,scored);
+    }
+    return Array.from(byKey.values())
+      .sort((a,b)=>b.score-a.score||Number(b.year||0)-Number(a.year||0)||a.title.localeCompare(b.title))
+      .slice(0,45);
+  }
+
+  let activeSuggestions=[];
+
+  function correctedCatalogueQuery(query){
+    let q=normalizeTitle(query);
+    q=q.replace(/\bmandolorian\b/g,"mandalorian");
+    if(/\bmandalorian\b/.test(q))q=q.replace(/\bgorge\b/g,"grogu");
+    q=q.replace(/\bsuper girl\b/g,"supergirl");
+    return q;
+  }
+
+  async function searchAllTitles(query){
+    const corrected=correctedCatalogueQuery(query);
+    const variants=[query];
+    if(corrected&&normalizeTitle(query)!==corrected)variants.push(corrected);
+
+    const primary=await Promise.allSettled(variants.flatMap(q=>[
+      searchIMDbTitles(q),
+      searchTVMaze(q),
+      searchAppleMovies(q)
+    ]));
+    let merged=primary.flatMap(r=>r.status==="fulfilled"?r.value:[]);
+
+    /* If a longer or misspelled query returns very little, retry the strongest
+       words separately. This catches catalogues that only index part of a title. */
+    if(merged.length<12){
+      const tokens=Array.from(new Set(variants.flatMap(titleTokens))).filter(t=>t.length>=5).slice(0,4);
+      const fallbacks=await Promise.allSettled(tokens.flatMap(token=>[
+        searchIMDbTitles(token),
+        searchAppleMovies(token)
+      ]));
+      merged=merged.concat(fallbacks.flatMap(r=>r.status==="fulfilled"?r.value:[]));
+    }
+    return dedupeAndRankSuggestions(merged,corrected||query);
+  }
+
+  function renderSuggestions(items){
+    activeSuggestions=items;
+    if(!items.length){
+      suggestList.innerHTML=`<div class="suggest-item" style="cursor:default"><div><div class="suggest-name">No matching films or series found</div><div class="suggest-meta">Try fewer words or check the spelling.</div></div></div>`;
+      suggestList.classList.remove("hidden");
+      return;
+    }
+    suggestList.innerHTML=items.map((item,index)=>{
+      const sourceLabel=item.source==="imdb"?"IMDb":item.source==="apple"?"Film":item.source==="tvmaze"?"TV":"Media";
+      const meta=[item.year,item.format,item.detail&&item.detail!==item.format?item.detail:""] .filter(Boolean).join(" • ");
+      return `<div class="suggest-item" data-suggestion-index="${index}"><div><div class="suggest-name">${esc(item.title)}</div><div class="suggest-meta">${esc(meta)}</div></div><span class="suggest-network">${esc(sourceLabel)}</span></div>`;
+    }).join("");
+    suggestList.classList.remove("hidden");
+    suggestList.querySelectorAll("[data-suggestion-index]").forEach(el=>{
+      el.onclick=async()=>{
+        const item=activeSuggestions[Number(el.dataset.suggestionIndex)];
+        if(!item)return;
+        titleInput.value=item.title;
+        suggestList.classList.add("hidden");
+        $("platform").value=item.platform||"";
+        $("tvmaze-id").value="";
+        $("imdb-id").value=item.source==="imdb"?item.externalId:"";
+        typeSelect.value=item.format;
+        const film=item.format==="Film";
+        seriesSection.style.display=film?"none":"flex";
+        upcomingSection.style.display=film?"none":"flex";
+        if(film){
+          $("total-seasons").value="";
+          $("watched-seasons").value="";
+          $("cur-season").value="";
+          $("cur-ep").value="";
+          $("next-season-num").value="";
+          $("next-season-date").value="";
+          return;
+        }
+        let sid=item.source==="tvmaze"?item.externalId:await exactTVMazeId(item.title);
+        if(sid){
+          $("tvmaze-id").value=sid;
+          try{await fillSeasonData(sid,item.title);}catch(e){console.warn(e);}
+        }
+      };
+    });
+  }
+
+  titleInput.addEventListener("input",()=>{
+    clearTimeout(searchTimer);
+    const q=titleInput.value.trim();
+    if(q.length<2){suggestList.classList.add("hidden");return;}
+    suggestList.innerHTML=`<div class="suggest-item" style="cursor:default"><div><div class="suggest-name">Searching films & series…</div><div class="suggest-meta">Checking IMDb, TV & movie catalogues</div></div></div>`;
+    suggestList.classList.remove("hidden");
+    searchTimer=setTimeout(async()=>{
+      try{
+        const items=await searchAllTitles(q);
+        if(titleInput.value.trim()!==q)return;
+        renderSuggestions(items);
+      }catch(e){
+        console.warn(e);
+        if(titleInput.value.trim()===q)suggestList.classList.add("hidden");
+      }
+    },260);
+  });
   document.addEventListener("click",e=>{if(!titleInput.contains(e.target)&&!suggestList.contains(e.target))suggestList.classList.add("hidden");});
   typeSelect.onchange=()=>{const film=typeSelect.value==="Film";seriesSection.style.display=film?"none":"flex";upcomingSection.style.display=film?"none":"flex";};
 
-  function openAdd(){mediaForm.reset();$("item-id").value="";$("tvmaze-id").value="";$("modal-title").textContent="Log Title";deleteBtn.classList.add("hidden");seriesSection.style.display="flex";upcomingSection.style.display="flex";modal.classList.remove("hidden");}
-  async function openEdit(id){const item=mediaItems.find(x=>String(x.id)===String(id));if(!item)return;$("item-id").value=item.id;$("tvmaze-id").value=item.tvmazeShowId||"";$("title").value=item.title||"";$("type").value=item.type||"Series";$("status").value=item.status||"Saved";$("total-seasons").value=item.totalSeasons??"";$("watched-seasons").value=item.watchedSeasons??"";$("cur-season").value=item.curSeason??"";$("cur-ep").value=item.curEp??"";$("next-season-num").value=item.nextSeasonNum??"";$("next-season-date").value=item.nextSeasonDate?toLocalInput(item.nextSeasonDate):"";$("platform").value=item.platform||"";const film=item.type==="Film";seriesSection.style.display=film?"none":"flex";upcomingSection.style.display=film?"none":"flex";$("modal-title").textContent="Edit Title";deleteBtn.classList.remove("hidden");modal.classList.remove("hidden");if(!film){let sid=item.tvmazeShowId||await exactTVMazeId(item.title);if(sid){$("tvmaze-id").value=sid;try{await fillSeasonData(sid,item.title,{preserveProgress:true});}catch(e){console.warn(e);}}}}
+  function openAdd(){mediaForm.reset();$("item-id").value="";$("tvmaze-id").value="";$("imdb-id").value="";$("modal-title").textContent="Log Title";deleteBtn.classList.add("hidden");seriesSection.style.display="flex";upcomingSection.style.display="flex";modal.classList.remove("hidden");}
+  async function openEdit(id){const item=mediaItems.find(x=>String(x.id)===String(id));if(!item)return;$("item-id").value=item.id;$("tvmaze-id").value=item.tvmazeShowId||"";$("imdb-id").value=item.imdbId||"";$("title").value=item.title||"";$("type").value=item.type||"Series";$("status").value=item.status||"Saved";$("total-seasons").value=item.totalSeasons??"";$("watched-seasons").value=item.watchedSeasons??"";$("cur-season").value=item.curSeason??"";$("cur-ep").value=item.curEp??"";$("next-season-num").value=item.nextSeasonNum??"";$("next-season-date").value=item.nextSeasonDate?toLocalInput(item.nextSeasonDate):"";$("platform").value=item.platform||"";const film=item.type==="Film";seriesSection.style.display=film?"none":"flex";upcomingSection.style.display=film?"none":"flex";$("modal-title").textContent="Edit Title";deleteBtn.classList.remove("hidden");modal.classList.remove("hidden");if(!film){let sid=item.tvmazeShowId||await exactTVMazeId(item.title);if(sid){$("tvmaze-id").value=sid;try{await fillSeasonData(sid,item.title,{preserveProgress:true});}catch(e){console.warn(e);}}}}
   addBtn.onclick=openAdd;closeModal.onclick=()=>modal.classList.add("hidden");modal.addEventListener("click",e=>{if(e.target===modal)modal.classList.add("hidden");});
 
   mediaForm.onsubmit=async e=>{
@@ -476,7 +706,7 @@
       const existingId=$("item-id").value,id=existingId||uuid(),title=$("title").value.trim(),type=$("type").value;if(!title)throw new Error("Enter a title.");let sid=$("tvmaze-id").value;if(type!=="Film"&&!sid)sid=await exactTVMazeId(title);
       let total=$("total-seasons").value?Number($("total-seasons").value):null,nextNum=$("next-season-num").value?Number($("next-season-num").value):"",nextDate=$("next-season-date").value||"";
       if(type!=="Film"&&sid){const r=await verifiedSeasonData(sid,title);total=r.highest??null;if(r.upcoming){nextNum=r.upcoming.number;if(r.nextEpisode&&Number(r.nextEpisode.season)===r.upcoming.number&&r.nextEpisode.airstamp)nextDate=toLocalInput(r.nextEpisode.airstamp);else nextDate=r.upcoming.premiereDate?dateOnlyInput(r.upcoming.premiereDate):"";}else{nextNum="";nextDate="";}$("total-seasons").value=total??"";$("next-season-num").value=nextNum;$("next-season-date").value=nextDate;}
-      const previous=mediaItems.find(x=>String(x.id)===String(id));const numOrNull=x=>$(x).value===""?null:Number.parseInt($(x).value,10);const item={id,title,type,status:$("status").value,tvmazeShowId:sid||"",totalSeasons:type==="Film"?null:total,watchedSeasons:type==="Film"?null:numOrNull("watched-seasons"),curSeason:type==="Film"?null:numOrNull("cur-season"),curEp:type==="Film"?null:numOrNull("cur-ep"),nextSeasonNum:type==="Film"?"":nextNum,nextSeasonDate:type==="Film"?"":nextDate,platform:$("platform").value.trim(),date:new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}),createdAt:previous?.createdAt||nowISO(),updatedAt:nowISO()};
+      const previous=mediaItems.find(x=>String(x.id)===String(id));const numOrNull=x=>$(x).value===""?null:Number.parseInt($(x).value,10);const item={id,title,type,status:$("status").value,tvmazeShowId:sid||"",imdbId:$("imdb-id").value||"",totalSeasons:type==="Film"?null:total,watchedSeasons:type==="Film"?null:numOrNull("watched-seasons"),curSeason:type==="Film"?null:numOrNull("cur-season"),curEp:type==="Film"?null:numOrNull("cur-ep"),nextSeasonNum:type==="Film"?"":nextNum,nextSeasonDate:type==="Film"?"":nextDate,platform:$("platform").value.trim(),date:new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}),createdAt:previous?.createdAt||nowISO(),updatedAt:nowISO()};
       const idx=mediaItems.findIndex(x=>String(x.id)===String(id));if(idx>=0)mediaItems[idx]=item;else mediaItems.unshift(item);await saveCache(mediaItems);render();modal.classList.add("hidden");setSync("Saved locally to this account on this device.","ok");
     }catch(err){console.error(err);alert(err.message||"Save failed.");}
     finally{saveBtn.disabled=false;saveBtn.textContent="Save to Log";}
