@@ -13,7 +13,10 @@
   <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='120' fill='%23181b20'/><polygon points='210,160 360,256 210,352' fill='%233b82f6'/></svg>" />
   <link rel="manifest" href='data:application/manifest+json,{"name":"WatchLog","short_name":"WatchLog","start_url":".","display":"standalone","background_color":"%23000000","theme_color":"%23000000"}' />
 
-  <!-- Optional iCloud / CloudKit support. The app still works fully on-device without this. -->
+  <!-- Cross-device account/database support. The publishable key is safe for browser use; never put a service-role key here. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Optional iCloud / CloudKit backup. The app still works without this. -->
   <script src="https://cdn.apple-cloudkit.com/ck/2/cloudkit.js"></script>
 
   <style>
@@ -392,6 +395,17 @@
         <div class="storage-box">
           <div class="storage-heading">
             <div style="display:flex;align-items:center;gap:8px;">
+              <div id="cloud-account-status-dot" class="status-dot off"></div>
+              <span class="storage-title">Cross-device Account Database</span>
+            </div>
+          </div>
+          <p id="cloud-account-status" class="storage-status">Checking cloud account configuration…</p>
+          <button type="button" id="cloud-sync-now-btn" class="btn btn-secondary btn-full">Sync Account & Library</button>
+        </div>
+
+        <div class="storage-box">
+          <div class="storage-heading">
+            <div style="display:flex;align-items:center;gap:8px;">
               <div id="icloud-status-dot" class="status-dot off"></div>
               <span class="storage-title">iCloud Backup & Sync</span>
             </div>
@@ -552,6 +566,81 @@
        CONFIGURATION
        ========================================================= */
 
+    /*
+      CROSS-DEVICE LOGIN / DATABASE
+      --------------------------------
+      This is the part that makes the SAME login work on different devices.
+
+      Create a Supabase project, run the SQL shown immediately below in the
+      Supabase SQL editor, then paste the Project URL and PUBLISHABLE/ANON key
+      here. Never put the service_role key in this HTML file.
+
+      SQL TO RUN ONCE:
+
+      create table if not exists public.watchlog_profiles (
+        user_id uuid primary key references auth.users(id) on delete cascade,
+        username text not null,
+        username_hash text not null unique,
+        email text not null,
+        name text not null default 'User',
+        updated_at timestamptz not null default now()
+      );
+
+      create table if not exists public.watchlog_libraries (
+        user_id uuid primary key references auth.users(id) on delete cascade,
+        payload jsonb not null default '[]'::jsonb,
+        integrity_hash text,
+        updated_at timestamptz not null default now()
+      );
+
+      alter table public.watchlog_profiles enable row level security;
+      alter table public.watchlog_libraries enable row level security;
+
+      drop policy if exists "watchlog profile read own" on public.watchlog_profiles;
+      create policy "watchlog profile read own" on public.watchlog_profiles
+        for select using (auth.uid() = user_id);
+
+      drop policy if exists "watchlog profile insert own" on public.watchlog_profiles;
+      create policy "watchlog profile insert own" on public.watchlog_profiles
+        for insert with check (auth.uid() = user_id);
+
+      drop policy if exists "watchlog profile update own" on public.watchlog_profiles;
+      create policy "watchlog profile update own" on public.watchlog_profiles
+        for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+      drop policy if exists "watchlog library read own" on public.watchlog_libraries;
+      create policy "watchlog library read own" on public.watchlog_libraries
+        for select using (auth.uid() = user_id);
+
+      drop policy if exists "watchlog library insert own" on public.watchlog_libraries;
+      create policy "watchlog library insert own" on public.watchlog_libraries
+        for insert with check (auth.uid() = user_id);
+
+      drop policy if exists "watchlog library update own" on public.watchlog_libraries;
+      create policy "watchlog library update own" on public.watchlog_libraries
+        for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+      create or replace function public.watchlog_resolve_username(p_username_hash text)
+      returns text
+      language sql
+      security definer
+      set search_path = public
+      stable
+      as $$
+        select email
+        from public.watchlog_profiles
+        where username_hash = p_username_hash
+        limit 1;
+      $$;
+
+      revoke all on function public.watchlog_resolve_username(text) from public;
+      grant execute on function public.watchlog_resolve_username(text) to anon, authenticated;
+    */
+    const SUPABASE_CONFIG = {
+      url: "REPLACE_WITH_YOUR_SUPABASE_PROJECT_URL",
+      publishableKey: "REPLACE_WITH_YOUR_SUPABASE_PUBLISHABLE_KEY"
+    };
+
     const CLOUDKIT_CONFIG = {
       containerIdentifier: "REPLACE_WITH_YOUR_ICLOUD_CONTAINER",
       apiToken: "REPLACE_WITH_YOUR_CLOUDKIT_WEB_API_TOKEN",
@@ -612,6 +701,11 @@
     let cloudKitReady = false;
     let cloudSyncTimer = null;
 
+    let supabaseClient = null;
+    let supabaseSession = null;
+    let supabaseReady = false;
+    let supabaseSyncTimer = null;
+
     /* =========================================================
        DOM
        ========================================================= */
@@ -637,6 +731,9 @@
     const profileDisplayEmail = document.getElementById("profile-display-email");
     const profileAvatarIcon = document.getElementById("profile-avatar-icon");
     const deviceStorageStatus = document.getElementById("device-storage-status");
+    const cloudAccountStatusDot = document.getElementById("cloud-account-status-dot");
+    const cloudAccountStatus = document.getElementById("cloud-account-status");
+    const cloudSyncNowBtn = document.getElementById("cloud-sync-now-btn");
     const logoutBtn = document.getElementById("logout-btn");
     const switchAccountBtn = document.getElementById("switch-account-btn");
     const userProfilePill = document.getElementById("user-profile-pill");
@@ -1020,7 +1117,10 @@
         currentLibraryUpdatedAt = verify.updatedAt || updatedAt;
         updateCounts();
 
-        if (syncCloud) queueICloudSync();
+        if (syncCloud) {
+          queueSupabaseSync();
+          queueICloudSync();
+        }
         return true;
       } catch (error) {
         console.error("Library save failed:", error);
@@ -1248,7 +1348,7 @@
         ...passwordRecord,
         createdAt: legacyUser.createdAt || nowISO(),
         updatedAt: nowISO(),
-        schemaVersion: 4
+        schemaVersion: 5
       };
 
       await authPut(account);
@@ -1320,7 +1420,7 @@
               ...account,
               ...repairedPassword,
               updatedAt: nowISO(),
-              schemaVersion: 4
+              schemaVersion: 5
             };
             await authPut(repaired);
             return repaired;
@@ -1394,6 +1494,571 @@
     }
 
     /* =========================================================
+       SUPABASE CROSS-DEVICE ACCOUNT + DATABASE
+       ========================================================= */
+
+    function isSupabaseConfigured() {
+      return Boolean(
+        SUPABASE_CONFIG.url &&
+        SUPABASE_CONFIG.publishableKey &&
+        !SUPABASE_CONFIG.url.startsWith("REPLACE_") &&
+        !SUPABASE_CONFIG.publishableKey.startsWith("REPLACE_")
+      );
+    }
+
+    function setSupabaseStatus(message, state = "off") {
+      if (cloudAccountStatus) cloudAccountStatus.textContent = message;
+      if (cloudAccountStatusDot) cloudAccountStatusDot.className = `status-dot ${state}`;
+    }
+
+    function updateSupabaseUI() {
+      if (!isSupabaseConfigured()) {
+        setSupabaseStatus(
+          "Cross-device login is not configured yet. Add your Supabase Project URL and publishable key in SUPABASE_CONFIG.",
+          "warning"
+        );
+        if (cloudSyncNowBtn) cloudSyncNowBtn.disabled = true;
+        return;
+      }
+
+      if (!supabaseReady) {
+        setSupabaseStatus("Connecting to the cross-device account database…", "warning");
+        if (cloudSyncNowBtn) cloudSyncNowBtn.disabled = true;
+        return;
+      }
+
+      if (supabaseSession?.user) {
+        setSupabaseStatus(
+          `Cloud account connected. Login and library are available across devices for ${supabaseSession.user.email || "this account"}.`,
+          "ok"
+        );
+        if (cloudSyncNowBtn) cloudSyncNowBtn.disabled = !currentUser;
+      } else {
+        setSupabaseStatus(
+          "Cloud database is configured, but this device is not currently signed into a cloud WatchLog account.",
+          "warning"
+        );
+        if (cloudSyncNowBtn) cloudSyncNowBtn.disabled = true;
+      }
+    }
+
+    async function initializeSupabase() {
+      if (!isSupabaseConfigured()) {
+        supabaseReady = false;
+        updateSupabaseUI();
+        return false;
+      }
+
+      if (!window.supabase?.createClient) {
+        supabaseReady = false;
+        setSupabaseStatus("The Supabase browser library could not be loaded.", "warning");
+        return false;
+      }
+
+      try {
+        supabaseClient = window.supabase.createClient(
+          SUPABASE_CONFIG.url,
+          SUPABASE_CONFIG.publishableKey,
+          {
+            auth: {
+              persistSession: true,
+              autoRefreshToken: true,
+              detectSessionInUrl: true
+            }
+          }
+        );
+
+        const { data, error } = await supabaseClient.auth.getSession();
+        if (error) throw error;
+
+        supabaseSession = data?.session || null;
+        supabaseReady = true;
+
+        supabaseClient.auth.onAuthStateChange((event, session) => {
+          supabaseSession = session || null;
+          updateSupabaseUI();
+        });
+
+        updateSupabaseUI();
+        return true;
+      } catch (error) {
+        console.error("Supabase initialisation failed:", error);
+        supabaseReady = false;
+        setSupabaseStatus(
+          "The cross-device account database could not be reached. On-device data remains available.",
+          "warning"
+        );
+        return false;
+      }
+    }
+
+    async function resolveSupabaseLoginEmail(identifier) {
+      const normalized = normalizeIdentifier(identifier);
+      if (!normalized) return null;
+
+      if (normalized.includes("@")) {
+        return normalizeEmail(normalized);
+      }
+
+      if (!supabaseClient) return null;
+
+      const usernameHash = await hashUsername(normalized);
+      const { data, error } = await supabaseClient.rpc(
+        "watchlog_resolve_username",
+        { p_username_hash: usernameHash }
+      );
+
+      if (error) {
+        console.warn("Username-to-email cloud lookup failed:", error);
+        return null;
+      }
+
+      if (typeof data === "string" && data.includes("@")) {
+        return normalizeEmail(data);
+      }
+
+      if (Array.isArray(data) && data[0]) {
+        const candidate = typeof data[0] === "string" ? data[0] : data[0].email;
+        return normalizeEmail(candidate);
+      }
+
+      return null;
+    }
+
+    async function getSupabaseProfile(authUserId) {
+      if (!supabaseClient || !authUserId) return null;
+
+      const { data, error } = await supabaseClient
+        .from("watchlog_profiles")
+        .select("user_id, username, username_hash, email, name, updated_at")
+        .eq("user_id", authUserId)
+        .maybeSingle();
+
+      if (error) {
+        console.warn("Unable to fetch WatchLog cloud profile:", error);
+        return null;
+      }
+
+      return data || null;
+    }
+
+    async function ensureSupabaseProfile(authUser, fallback = {}) {
+      if (!authUser?.id || !supabaseClient) {
+        throw new Error("CLOUD_PROFILE_UNAVAILABLE");
+      }
+
+      const existing = await getSupabaseProfile(authUser.id);
+      if (existing) return existing;
+
+      const email = normalizeEmail(authUser.email || fallback.email);
+      const metadata = authUser.user_metadata || {};
+
+      let baseUsername = normalizeUsername(
+        fallback.username ||
+        metadata.username ||
+        (email ? email.split("@")[0] : "user")
+      )
+        .replace(/[^a-z0-9._-]/g, "")
+        .slice(0, 24);
+
+      if (baseUsername.length < 3) {
+        baseUsername = `user${String(authUser.id).replace(/-/g, "").slice(0, 8)}`;
+      }
+
+      let username = baseUsername;
+      let lastError = null;
+
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        if (attempt > 0) {
+          username = `${baseUsername}${String(authUser.id).replace(/-/g, "").slice(0, 4 + attempt)}`.slice(0, 30);
+        }
+
+        const usernameHash = await hashUsername(username);
+        const payload = {
+          user_id: authUser.id,
+          username,
+          username_hash: usernameHash,
+          email,
+          name: String(fallback.name || metadata.name || "User").trim() || "User",
+          updated_at: nowISO()
+        };
+
+        const { data, error } = await supabaseClient
+          .from("watchlog_profiles")
+          .insert(payload)
+          .select("user_id, username, username_hash, email, name, updated_at")
+          .single();
+
+        if (!error && data) return data;
+        lastError = error;
+
+        /* 23505 = unique violation, normally username_hash already taken. */
+        if (String(error?.code || "") !== "23505") break;
+      }
+
+      console.error("Unable to create WatchLog cloud profile:", lastError);
+      throw new Error("CLOUD_PROFILE_SAVE_FAILED");
+    }
+
+    async function cacheSupabaseAccountLocally(authUser, cloudProfile, password = null) {
+      const username = normalizeUsername(cloudProfile.username);
+      const email = normalizeEmail(cloudProfile.email || authUser.email);
+      const usernameHash = await hashUsername(username);
+      const emailHash = await hashEmail(email);
+
+      /*
+        The same username+email combination produces the same hashed userKey on
+        every device, while the cloud auth UUID remains the authoritative
+        cross-device identity.
+      */
+      let userKey = await createUserKey(usernameHash, emailHash);
+
+      const existingByEmail = await authGetByIndex("emailHash", emailHash);
+      const existingByUsername = await authGetByIndex("usernameHash", usernameHash);
+      const existing = existingByEmail || existingByUsername;
+      if (existing?.userKey) userKey = existing.userKey;
+
+      let passwordRecord = null;
+      if (password) {
+        passwordRecord = await derivePasswordRecord(password);
+      } else if (existing?.passwordHash && existing?.passwordSalt) {
+        passwordRecord = {
+          passwordHash: existing.passwordHash,
+          passwordSalt: existing.passwordSalt,
+          passwordIterations: Number(existing.passwordIterations || PASSWORD_ITERATIONS),
+          passwordVersion: Number(existing.passwordVersion || 2)
+        };
+      }
+
+      const account = {
+        ...(existing || {}),
+        userKey,
+        usernameHash,
+        emailHash,
+        cloudAuthUserId: authUser.id,
+        ...(passwordRecord || {}),
+        createdAt: existing?.createdAt || nowISO(),
+        updatedAt: nowISO(),
+        schemaVersion: 5
+      };
+
+      await authPut(account);
+      await openUserDatabase(userKey);
+
+      const profile = await saveProfile({
+        userKey,
+        cloudAuthUserId: authUser.id,
+        username,
+        email,
+        name: String(cloudProfile.name || "User").trim() || "User"
+      });
+
+      currentAccountRecord = account;
+      currentUser = profile;
+      saveSession(userKey);
+
+      return profile;
+    }
+
+    async function fetchSupabaseLibrary() {
+      if (!supabaseClient || !supabaseSession?.user?.id) return null;
+
+      const { data, error } = await supabaseClient
+        .from("watchlog_libraries")
+        .select("user_id, payload, integrity_hash, updated_at")
+        .eq("user_id", supabaseSession.user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.warn("Unable to fetch cloud WatchLog library:", error);
+        return null;
+      }
+
+      if (!data) return null;
+
+      return {
+        userId: data.user_id,
+        items: Array.isArray(data.payload) ? data.payload : [],
+        integrityHash: data.integrity_hash || "",
+        updatedAt: data.updated_at || ""
+      };
+    }
+
+    async function uploadSupabaseLibrary(items = mediaItems, updatedAt = currentLibraryUpdatedAt || nowISO()) {
+      if (!supabaseClient || !supabaseSession?.user?.id || !currentUser?.userKey) {
+        return false;
+      }
+
+      const cleanItems = Array.isArray(items) ? items : [];
+      const integrityHash = await computeLibraryIntegrityHash(currentUser.userKey, cleanItems);
+
+      const { error } = await supabaseClient
+        .from("watchlog_libraries")
+        .upsert(
+          {
+            user_id: supabaseSession.user.id,
+            payload: cleanItems,
+            integrity_hash: integrityHash,
+            updated_at: updatedAt || nowISO()
+          },
+          { onConflict: "user_id" }
+        );
+
+      if (error) {
+        console.error("Cloud library upload failed:", error);
+        return false;
+      }
+
+      return true;
+    }
+
+    async function syncSupabaseLibrary() {
+      if (!supabaseReady || !supabaseSession?.user || !currentUser?.userKey || !userDB) {
+        return false;
+      }
+
+      const localRecord = await userDBGet(USER_LIBRARY_STORE, "library");
+      const cloudRecord = await fetchSupabaseLibrary();
+
+      if (!localRecord && !cloudRecord) {
+        const items = [];
+        const updatedAt = nowISO();
+        const integrityHash = await computeLibraryIntegrityHash(currentUser.userKey, items);
+        await userDBPut(USER_LIBRARY_STORE, {
+          key: "library",
+          items,
+          integrityHash,
+          updatedAt
+        });
+        mediaItems = [];
+        currentLibraryUpdatedAt = updatedAt;
+        await uploadSupabaseLibrary(items, updatedAt);
+        render();
+        return true;
+      }
+
+      if (!localRecord && cloudRecord) {
+        const expectedCloudHash = await computeLibraryIntegrityHash(currentUser.userKey, cloudRecord.items);
+        if (cloudRecord.integrityHash && expectedCloudHash !== cloudRecord.integrityHash) {
+          throw new Error("CLOUD_LIBRARY_INTEGRITY_FAILED");
+        }
+
+        await userDBPut(USER_LIBRARY_STORE, {
+          key: "library",
+          items: cloudRecord.items,
+          integrityHash: expectedCloudHash,
+          updatedAt: cloudRecord.updatedAt || nowISO()
+        });
+
+        mediaItems = cloudRecord.items;
+        currentLibraryUpdatedAt = cloudRecord.updatedAt || nowISO();
+        render();
+        return true;
+      }
+
+      if (localRecord && !cloudRecord) {
+        mediaItems = Array.isArray(localRecord.items) ? localRecord.items : [];
+        currentLibraryUpdatedAt = localRecord.updatedAt || nowISO();
+        await uploadSupabaseLibrary(mediaItems, currentLibraryUpdatedAt);
+        render();
+        return true;
+      }
+
+      const localTime = timestampValue(localRecord.updatedAt);
+      const cloudTime = timestampValue(cloudRecord.updatedAt);
+
+      if (cloudTime > localTime) {
+        const expectedCloudHash = await computeLibraryIntegrityHash(currentUser.userKey, cloudRecord.items);
+        if (cloudRecord.integrityHash && expectedCloudHash !== cloudRecord.integrityHash) {
+          throw new Error("CLOUD_LIBRARY_INTEGRITY_FAILED");
+        }
+
+        await userDBPut(USER_LIBRARY_STORE, {
+          key: "library",
+          items: cloudRecord.items,
+          integrityHash: expectedCloudHash,
+          updatedAt: cloudRecord.updatedAt || nowISO()
+        });
+
+        mediaItems = cloudRecord.items;
+        currentLibraryUpdatedAt = cloudRecord.updatedAt || nowISO();
+        render();
+        return true;
+      }
+
+      mediaItems = Array.isArray(localRecord.items) ? localRecord.items : [];
+      currentLibraryUpdatedAt = localRecord.updatedAt || nowISO();
+      await uploadSupabaseLibrary(mediaItems, currentLibraryUpdatedAt);
+      render();
+      return true;
+    }
+
+    function queueSupabaseSync() {
+      if (!supabaseReady || !supabaseSession?.user || !currentUser) return;
+
+      clearTimeout(supabaseSyncTimer);
+      supabaseSyncTimer = setTimeout(async () => {
+        try {
+          const ok = await uploadSupabaseLibrary(mediaItems, currentLibraryUpdatedAt || nowISO());
+          if (ok) updateSupabaseUI();
+        } catch (error) {
+          console.error("Deferred cloud sync failed:", error);
+          setSupabaseStatus("Saved on this device, but cloud sync needs to be retried.", "warning");
+        }
+      }, 500);
+    }
+
+    async function loginWithSupabase(identifier, password) {
+      if (!supabaseReady || !supabaseClient) throw new Error("CLOUD_NOT_CONFIGURED");
+
+      const email = await resolveSupabaseLoginEmail(identifier);
+      if (!email) {
+        if (!normalizeIdentifier(identifier).includes("@")) {
+          throw new Error("CLOUD_USERNAME_NOT_FOUND");
+        }
+        throw new Error("CLOUD_ACCOUNT_NOT_FOUND");
+      }
+
+      const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error || !data?.user || !data?.session) {
+        console.warn("Cloud login rejected:", error);
+        throw new Error("CLOUD_LOGIN_REJECTED");
+      }
+
+      supabaseSession = data.session;
+      const profile = await ensureSupabaseProfile(data.user, { email });
+      await cacheSupabaseAccountLocally(data.user, profile, password);
+      await syncSupabaseLibrary();
+      updateSupabaseUI();
+      return currentUser;
+    }
+
+    async function createSupabaseAccount({ username, email, password, name }) {
+      if (!supabaseReady || !supabaseClient) return { configured: false, session: null, user: null };
+
+      const { data, error } = await supabaseClient.auth.signUp({
+        email: normalizeEmail(email),
+        password,
+        options: {
+          data: {
+            username: normalizeUsername(username),
+            name: String(name || "User").trim() || "User"
+          }
+        }
+      });
+
+      if (error) {
+        console.error("Cloud account signup failed:", error);
+        throw new Error("CLOUD_SIGNUP_FAILED");
+      }
+
+      if (!data?.user) throw new Error("CLOUD_SIGNUP_FAILED");
+      if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        throw new Error("CLOUD_ACCOUNT_ALREADY_EXISTS");
+      }
+
+      supabaseSession = data.session || null;
+
+      /*
+        If email confirmation is enabled, Supabase can create the auth user but
+        not issue a session yet. The metadata is already stored on the auth
+        user; the public profile row is created on the first confirmed login.
+      */
+      if (data.session) {
+        const profile = await ensureSupabaseProfile(data.user, {
+          username,
+          email,
+          name
+        });
+        await cacheSupabaseAccountLocally(data.user, profile, password);
+      }
+
+      updateSupabaseUI();
+      return { configured: true, session: data.session || null, user: data.user };
+    }
+
+    async function promoteCurrentLocalAccountToSupabase(password) {
+      if (!supabaseReady || !supabaseClient || !currentUser?.email) return false;
+
+      /* First try to sign into an existing cloud account with the same credentials. */
+      const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({
+        email: normalizeEmail(currentUser.email),
+        password
+      });
+
+      if (!signInError && signInData?.session && signInData?.user) {
+        supabaseSession = signInData.session;
+        const profile = await ensureSupabaseProfile(signInData.user, currentUser);
+        await cacheSupabaseAccountLocally(signInData.user, profile, password);
+        await syncSupabaseLibrary();
+        return true;
+      }
+
+      /* No matching cloud login: create one from the verified legacy/local account. */
+      const { data, error } = await supabaseClient.auth.signUp({
+        email: normalizeEmail(currentUser.email),
+        password,
+        options: {
+          data: {
+            username: normalizeUsername(currentUser.username),
+            name: currentUser.name || "User"
+          }
+        }
+      });
+
+      if (error || !data?.user) {
+        console.warn("Could not promote local WatchLog account to cloud:", error);
+        return false;
+      }
+
+      if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        setSupabaseStatus(
+          "A cloud account already exists for this email, but its password did not match this older local account. Use the cloud account password or reset it in Supabase Auth.",
+          "warning"
+        );
+        return false;
+      }
+
+      if (!data.session) {
+        setSupabaseStatus(
+          "Your local account was submitted to the cloud database. Confirm the Supabase verification email, then log in again to finish cross-device sync.",
+          "warning"
+        );
+        return false;
+      }
+
+      supabaseSession = data.session;
+      const profile = await ensureSupabaseProfile(data.user, currentUser);
+      await cacheSupabaseAccountLocally(data.user, profile, password);
+      await uploadSupabaseLibrary(mediaItems, currentLibraryUpdatedAt || nowISO());
+      updateSupabaseUI();
+      return true;
+    }
+
+    async function restoreFromSupabaseSession() {
+      if (!supabaseReady || !supabaseSession?.user) return false;
+
+      try {
+        const profile = await ensureSupabaseProfile(supabaseSession.user, {
+          email: supabaseSession.user.email,
+          username: supabaseSession.user.user_metadata?.username,
+          name: supabaseSession.user.user_metadata?.name
+        });
+
+        await cacheSupabaseAccountLocally(supabaseSession.user, profile, null);
+        await syncSupabaseLibrary();
+        return true;
+      } catch (error) {
+        console.error("Unable to restore cloud WatchLog session:", error);
+        return false;
+      }
+    }
+
+    /* =========================================================
        CREATE ACCOUNT
        ========================================================= */
 
@@ -1421,7 +2086,7 @@
         ...passwordRecord,
         createdAt: nowISO(),
         updatedAt: nowISO(),
-        schemaVersion: 4
+        schemaVersion: 5
       };
 
       await authPut(account);
@@ -1595,13 +2260,57 @@
         const password = document.getElementById("auth-password").value;
 
         if (isSignUpMode) {
-          const username = document.getElementById("auth-username").value;
-          const email = document.getElementById("auth-email").value;
+          const username = normalizeUsername(document.getElementById("auth-username").value);
+          const email = normalizeEmail(document.getElementById("auth-email").value);
           const name = document.getElementById("auth-name").value;
 
+          if (username.length < 3) throw new Error("USERNAME_SHORT");
+          if (!email || !email.includes("@")) throw new Error("EMAIL_INVALID");
+          if (password.length < 6) throw new Error("PASSWORD_SHORT");
+
+          /* Check local hashed registry before creating a remote auth account. */
+          if (await authGetByIndex("usernameHash", await hashUsername(username))) {
+            throw new Error("USERNAME_EXISTS");
+          }
+          if (await authGetByIndex("emailHash", await hashEmail(email))) {
+            throw new Error("EMAIL_EXISTS");
+          }
+
+          if (isSupabaseConfigured() && supabaseReady) {
+            const cloudSignup = await createSupabaseAccount({ username, email, password, name });
+
+            if (cloudSignup.session) {
+              /* Cross-device account is live immediately. */
+              await syncSupabaseLibrary();
+              authForm.reset();
+              await checkAuth();
+              showAuthMessage("Account created in the cross-device database and on this device.", "success");
+              if (cloudIdentity) await syncCurrentUserWithICloud();
+              return;
+            }
+
+            /*
+              Email confirmation is enabled. Keep a verified local copy so the
+              user does not lose the account while waiting to confirm email.
+            */
+            await createAccount({ username, email, password, name });
+            setSupabaseStatus(
+              "Cloud account created, but email confirmation is required before another device can log in. Confirm the Supabase email and then log in again.",
+              "warning"
+            );
+            authForm.reset();
+            await checkAuth();
+            return;
+          }
+
+          /* No cloud database configured: this account is device-only. */
           await createAccount({ username, email, password, name });
           authForm.reset();
           await checkAuth();
+          showAuthMessage(
+            "Account created on this device. Configure SUPABASE_CONFIG to make the same login work on other devices.",
+            "info"
+          );
           if (cloudIdentity) await syncCurrentUserWithICloud();
           return;
         }
@@ -1612,10 +2321,55 @@
           return;
         }
 
-        await loginWithIdentifier(identifier, password);
-        authForm.reset();
-        await checkAuth();
-        if (cloudIdentity) await syncCurrentUserWithICloud();
+        let cloudLoginError = null;
+
+        /*
+          Cross-device login is authoritative when configured. A fresh device
+          has no local account registry, so this must be attempted first.
+        */
+        if (isSupabaseConfigured() && supabaseReady) {
+          try {
+            await loginWithSupabase(identifier, password);
+            authForm.reset();
+            await checkAuth();
+            if (cloudIdentity) await syncCurrentUserWithICloud();
+            return;
+          } catch (error) {
+            cloudLoginError = error;
+            console.warn("Cross-device login did not succeed; checking legacy/on-device account:", error);
+          }
+        }
+
+        /*
+          Legacy/local recovery. This preserves all accounts made before the
+          cross-device database was added.
+        */
+        try {
+          await loginWithIdentifier(identifier, password);
+          authForm.reset();
+          await checkAuth();
+
+          /* Promote the verified old/local account to the cloud automatically. */
+          if (isSupabaseConfigured() && supabaseReady) {
+            try {
+              await promoteCurrentLocalAccountToSupabase(password);
+            } catch (error) {
+              console.warn("Local account login worked but cloud promotion failed:", error);
+              setSupabaseStatus(
+                "Logged in on this device, but the account could not yet be linked to the cross-device database.",
+                "warning"
+              );
+            }
+          }
+
+          if (cloudIdentity) await syncCurrentUserWithICloud();
+          return;
+        } catch (localError) {
+          console.warn("Local/legacy login also failed:", localError);
+
+          if (cloudLoginError) throw cloudLoginError;
+          throw localError;
+        }
 
       } catch (error) {
         console.error("Authentication error:", error);
@@ -1625,13 +2379,24 @@
           EMAIL_INVALID: "Enter a valid email address.",
           PASSWORD_SHORT: "Password must contain at least 6 characters.",
           USERNAME_EXISTS: "That username is already registered on this device.",
-          EMAIL_EXISTS: "An account using that email already exists.",
-          ACCOUNT_NOT_FOUND: "No saved WatchLog account matches that username or email.",
-          PASSWORD_INCORRECT: "The account was found, but the password does not match the saved password hash.",
-          PROFILE_MISSING: "The login is valid, but this account's on-device profile database is missing. Use iCloud Recovery if you previously enabled it."
+          EMAIL_EXISTS: "An account using that email already exists on this device.",
+          ACCOUNT_NOT_FOUND: "No saved WatchLog account matches that username or email on this device.",
+          PASSWORD_INCORRECT: "The local account was found, but the password does not match its saved password hash.",
+          PROFILE_MISSING: "The login verifier exists, but this account's local profile database is missing.",
+          CLOUD_NOT_CONFIGURED: "The cross-device account database is not configured.",
+          CLOUD_USERNAME_NOT_FOUND: "That username is not present in the cross-device account database. If this is an older account, try the account email once so WatchLog can link it.",
+          CLOUD_ACCOUNT_NOT_FOUND: "That account is not present in the cross-device account database.",
+          CLOUD_LOGIN_REJECTED: "The cross-device account was found or checked, but the email/username and password combination was not accepted.",
+          CLOUD_SIGNUP_FAILED: "The cross-device account could not be created. If the email already has a cloud account, switch to Log In.",
+          CLOUD_ACCOUNT_ALREADY_EXISTS: "A cross-device account already exists for that email. Switch to Log In instead of creating it again.",
+          CLOUD_PROFILE_UNAVAILABLE: "The cloud login succeeded but the WatchLog profile could not be opened.",
+          CLOUD_PROFILE_SAVE_FAILED: "The cloud login succeeded but the WatchLog profile row could not be created. Check the Supabase SQL/RLS setup."
         };
 
-        showAuthMessage(messages[error.message] || "WatchLog could not complete the account check. Existing saved data was not deleted.");
+        showAuthMessage(
+          messages[error.message] ||
+          "WatchLog could not complete the account check. Existing saved data was not deleted."
+        );
       } finally {
         authSubmitBtn.disabled = false;
         authSubmitBtn.innerText = isSignUpMode ? "Sign Up" : "Log In";
@@ -1654,11 +2419,18 @@
       profileAvatarIcon.innerText = String(currentUser.name || currentUser.username || "U").charAt(0).toUpperCase();
       deviceStorageStatus.innerText = `Stored in ${getUserDatabaseName(currentUser.userKey)} with a SHA-256 integrity check on the library.`;
       render();
+      updateSupabaseUI();
       updateICloudUI();
     }
 
     async function clearCurrentSession() {
       clearSessionStorage();
+
+      if (supabaseClient && supabaseSession) {
+        try { await supabaseClient.auth.signOut(); }
+        catch (error) { console.warn("Cloud sign-out failed:", error); }
+      }
+      supabaseSession = null;
       if (userDB) {
         try { userDB.close(); } catch (_) {}
       }
@@ -1674,6 +2446,26 @@
       switchTab("library");
       render();
       await checkAuth();
+    }
+
+    if (cloudSyncNowBtn) {
+      cloudSyncNowBtn.onclick = async () => {
+        cloudSyncNowBtn.disabled = true;
+        cloudSyncNowBtn.innerText = "Syncing…";
+        try {
+          const ok = await syncSupabaseLibrary();
+          setSupabaseStatus(
+            ok ? "Account and library are synced across devices." : "Cloud sync is not available for this session.",
+            ok ? "ok" : "warning"
+          );
+        } catch (error) {
+          console.error("Manual cross-device sync failed:", error);
+          setSupabaseStatus("Cross-device sync failed. The on-device copy remains saved.", "warning");
+        } finally {
+          cloudSyncNowBtn.disabled = !supabaseSession?.user;
+          cloudSyncNowBtn.innerText = "Sync Account & Library";
+        }
+      };
     }
 
     logoutBtn.onclick = clearCurrentSession;
@@ -1846,7 +2638,27 @@
       }
 
       /*
-        Check C: a candidate is rejected if ANY episode in that same season
+        Check C: TVMaze may have an ANNOUNCED season record before it has an
+        exact premiere date or a next-episode entry. If an exact season record
+        exists above the latest aired season and none of that season's episodes
+        have aired, that exact record is an upcoming season. Again, no +1.
+      */
+      if (!candidate) {
+        const announcedHigherSeasons = seasons.filter(season => {
+          const isAboveAired = latestAiredSeason === null || season.number > latestAiredSeason;
+          const hasAiredEpisode = airedEpisodes.some(
+            episode => Number(episode.season) === Number(season.number)
+          );
+          return isAboveAired && !hasAiredEpisode;
+        });
+
+        if (announcedHigherSeasons.length) {
+          candidate = announcedHigherSeasons.sort((a, b) => a.number - b.number)[0];
+        }
+      }
+
+      /*
+        Check D: a candidate is rejected if ANY episode in that same season
         has already aired. That means it is a current season, not an upcoming one.
       */
       if (candidate) {
@@ -1857,7 +2669,7 @@
       }
 
       /*
-        Check D: exact membership guard. This makes an invented season impossible.
+        Check E: exact membership guard. This makes an invented season impossible.
       */
       if (candidate && !knownSeasonSet.has(candidate.number)) {
         candidate = null;
@@ -1959,6 +2771,78 @@
       }
 
       return { valid: true, correctedSeason: String(actual.number), correctedDate: null };
+    }
+
+    async function findExactTVMazeShowIdByTitle(showTitle) {
+      const title = String(showTitle || "").trim();
+      if (!title) return null;
+
+      try {
+        const response = await fetch(
+          `https://api.tvmaze.com/search/shows?q=${encodeURIComponent(title)}`
+        );
+        if (!response.ok) return null;
+        const results = await response.json();
+        if (!Array.isArray(results)) return null;
+
+        const normalizedTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+        const exact = results.find(result => {
+          const candidate = String(result?.show?.name || "")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, " ")
+            .trim();
+          return candidate === normalizedTitle;
+        });
+
+        return exact?.show?.id ? String(exact.show.id) : null;
+      } catch (error) {
+        console.warn("Unable to resolve old WatchLog title against TVMaze:", error);
+        return null;
+      }
+    }
+
+    async function refreshVerifiedSeasonMetadata(showId, showTitle) {
+      if (!showId || !showTitle) return null;
+
+      const result = await resolveConfirmedUpcomingSeason(showId, showTitle);
+
+      /*
+        Known / Announced Seasons ALWAYS comes directly from TVMaze's exact
+        season records. For Black Mirror today this is 8, because TVMaze has a
+        real Season 8 record. It is never calculated from aired episode count.
+      */
+      document.getElementById("total-seasons").value = result.highestKnownSeason ?? "";
+
+      const upcoming = result.upcomingSeason;
+      if (!upcoming) {
+        document.getElementById("next-season-num").value = "";
+        document.getElementById("next-season-date").value = "";
+        return result;
+      }
+
+      const exactExists = result.knownSeasonNumbers.includes(Number(upcoming.number));
+      if (!exactExists || Number(upcoming.number) > Number(result.highestKnownSeason)) {
+        document.getElementById("next-season-num").value = "";
+        document.getElementById("next-season-date").value = "";
+        return { ...result, upcomingSeason: null };
+      }
+
+      document.getElementById("next-season-num").value = String(upcoming.number);
+
+      const nextEpisode = result.nextEpisode;
+      if (
+        nextEpisode &&
+        Number(nextEpisode.season) === Number(upcoming.number) &&
+        nextEpisode.airstamp
+      ) {
+        document.getElementById("next-season-date").value = toLocalDatetimeInput(nextEpisode.airstamp);
+      } else if (upcoming.premiereDate) {
+        document.getElementById("next-season-date").value = dateOnlyToLocalInput(upcoming.premiereDate);
+      } else {
+        document.getElementById("next-season-date").value = "";
+      }
+
+      return result;
     }
 
     /* =========================================================
@@ -2170,7 +3054,7 @@
       modal.classList.remove("hidden");
     }
 
-    function openEditModal(id) {
+    async function openEditModal(id) {
       const item = mediaItems.find(mediaItem => mediaItem.id === id);
       if (!item) return;
 
@@ -2194,6 +3078,27 @@
       document.getElementById("modal-title").innerText = "Edit Title";
       deleteBtn.classList.remove("hidden");
       modal.classList.remove("hidden");
+
+      /*
+        Repair stale season metadata immediately when an old saved show is
+        opened. Only the catalogue metadata fields are refreshed; watched
+        seasons/current episode are deliberately left as the user's own data.
+      */
+      if (!isFilm && item.title) {
+        try {
+          let showId = item.tvmazeShowId || "";
+          if (!showId) {
+            showId = await findExactTVMazeShowIdByTitle(item.title) || "";
+            if (showId) document.getElementById("tvmaze-show-id").value = showId;
+          }
+
+          if (showId) {
+            await refreshVerifiedSeasonMetadata(showId, item.title);
+          }
+        } catch (error) {
+          console.warn("Saved show's season metadata could not be refreshed:", error);
+        }
+      }
     }
 
     mediaForm.onsubmit = async event => {
@@ -2205,7 +3110,7 @@
 
       try {
         const id = document.getElementById("item-id").value;
-        const tvmazeShowId = document.getElementById("tvmaze-show-id").value;
+        let tvmazeShowId = document.getElementById("tvmaze-show-id").value;
         const title = document.getElementById("title").value.trim();
         const type = document.getElementById("type").value;
 
@@ -2219,6 +3124,12 @@
           if (raw === "") return null;
           const value = Number.parseInt(raw, 10);
           return Number.isFinite(value) ? value : null;
+        }
+
+        /* Older records may pre-date tvmazeShowId. Resolve an exact title before validation. */
+        if (type !== "Film" && !tvmazeShowId) {
+          tvmazeShowId = await findExactTVMazeShowIdByTitle(title) || "";
+          if (tvmazeShowId) document.getElementById("tvmaze-show-id").value = tvmazeShowId;
         }
 
         let nextSeasonNum = type === "Film" ? "" : document.getElementById("next-season-num").value;
@@ -2706,9 +3617,10 @@
 
     async function bootstrapWatchLog() {
       updateAuthModeUI();
+      updateSupabaseUI();
 
       if (!("indexedDB" in window)) {
-        showAuthMessage("This browser does not support the on-device database required by this WatchLog version.");
+        showAuthMessage("This browser does not support the on-device database required by WatchLog.");
         return;
       }
 
@@ -2716,14 +3628,30 @@
         await openAuthDatabase();
         await migrateLegacyAccounts();
 
-        const restored = await restoreSession();
-        if (restored) await checkAuth();
-        else await checkAuth();
+        /*
+          Initialise the real cross-device auth/database before restoring a
+          local session. If Supabase already has a valid persisted session,
+          that cloud identity wins and its library is pulled onto this device.
+        */
+        await initializeSupabase();
+
+        let restored = false;
+        if (supabaseReady && supabaseSession?.user) {
+          restored = await restoreFromSupabaseSession();
+        }
+
+        if (!restored) {
+          restored = await restoreSession();
+        }
+
+        await checkAuth();
       } catch (error) {
         console.error("WatchLog startup failed:", error);
         clearSessionStorage();
         currentUser = null;
-        showAuthMessage("WatchLog could not open its account database. Existing browser data was not deleted.");
+        showAuthMessage(
+          "WatchLog could not open its account database. Existing browser data was not deleted."
+        );
         authScreen.classList.remove("hidden");
       }
 
