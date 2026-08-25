@@ -29,16 +29,16 @@
 <body>
   <div id="auth-screen" class="auth-overlay">
     <div class="auth-card">
-      <div class="auth-header"><h2 id="auth-title">Welcome Back</h2><p id="auth-sub">Use the same email and password on every device.</p></div>
+      <div class="auth-header"><h2 id="auth-title">Welcome Back</h2><p id="auth-sub">Use the same email and 4-digit PIN on any device.</p></div>
       <div id="auth-message" class="message info hidden"></div>
       <form id="auth-form">
         <div id="auth-name-group" class="form-group hidden"><label for="auth-name">Name</label><input id="auth-name" type="text" autocomplete="name" placeholder="Your name" /></div>
         <div class="form-group"><label for="auth-email">Email</label><input id="auth-email" type="email" autocomplete="email" required placeholder="name@example.com" /></div>
-        <div class="form-group"><label for="auth-password">Password</label><input id="auth-password" type="password" autocomplete="current-password" required placeholder="••••••••" /></div>
+        <div class="form-group"><label for="auth-pin">4-digit PIN</label><input id="auth-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" required placeholder="••••" /></div>
         <button id="auth-submit" class="btn btn-primary btn-full" type="submit">Log In</button>
       </form>
-      <div id="auth-toggle" class="auth-toggle">Don't have an account? Sign Up</div>
-      <div class="message info">Local-only mode: accounts and libraries stay in this browser on this device. No email is sent and there are no recovery links.</div>
+      <div id="auth-toggle" class="auth-toggle">Don't have an account? Create PIN Account</div>
+      <div class="message info">Your email is the account ID and your library syncs through WatchLog cloud storage. No verification or reset emails are sent. The PIN cannot be recovered by email.</div>
     </div>
   </div>
 
@@ -52,7 +52,7 @@
 
   <main class="container">
     <div id="library-view"><div id="list-label" class="section-label">Titles</div><div id="media-list" class="titles-group"></div><div id="empty-state" class="hidden" style="text-align:center;margin-top:40px;color:var(--muted)">No titles found. Tap <strong>+</strong> to start.</div></div>
-    <div id="settings-view" class="hidden"><div class="section-label">Local Account</div><div class="profile-card"><div class="profile-header"><div id="avatar" class="avatar">U</div><div class="profile-info"><h3 id="profile-name">User</h3><p id="profile-email"></p></div></div><div class="sync-box"><div class="sync-title"><div id="sync-dot" class="sync-dot ok"></div>Stored on this device</div><div id="sync-status" class="sync-text">This account and its library are stored only in this browser. No cloud account, SMTP, email verification or password-reset service is used.</div><button id="reload-local" class="btn btn-secondary btn-full" type="button">Reload Local Data</button></div><button id="logout-btn" class="btn btn-danger btn-full">Log Out</button></div></div>
+    <div id="settings-view" class="hidden"><div class="section-label">Account & Sync</div><div class="profile-card"><div class="profile-header"><div id="avatar" class="avatar">U</div><div class="profile-info"><h3 id="profile-name">User</h3><p id="profile-email"></p></div></div><div class="sync-box"><div class="sync-title"><div id="sync-dot" class="sync-dot ok"></div>WatchLog Cloud Sync</div><div id="sync-status" class="sync-text">Your library is linked to this email account and can be loaded on another device with the same 4-digit PIN.</div><button id="sync-now" class="btn btn-secondary btn-full" type="button">Sync Now</button></div><div class="sync-box"><div class="sync-title">Change 4-digit PIN</div><div class="form-group"><label for="new-pin">New PIN</label><input id="new-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="••••" /></div><button id="change-pin" class="btn btn-secondary btn-full" type="button">Change PIN</button><div class="small-note">PIN changes apply to every device. Five incorrect PIN attempts temporarily lock sign-in for 15 minutes.</div></div><button id="logout-btn" class="btn btn-danger btn-full">Log Out</button></div></div>
   </main>
 
   <nav class="bottom-tabs">
@@ -68,30 +68,27 @@
   "use strict";
 
   /* =========================================================
-     LOCAL-ONLY ACCOUNT STORAGE
+     EMAIL + 4-DIGIT PIN CLOUD ACCOUNTS
      ---------------------------------------------------------
-     No Supabase, AWS SES, SMTP, email verification, recovery
-     links, CloudKit, or remote account service is used.
-
-     The local account registry stores:
-       - a SHA-256 email lookup hash
-       - a salted PBKDF2 password verifier
-       - a random local account id
-
-     Each account's readable profile and library are stored in a
-     separate IndexedDB database derived from that random account
-     id. The registry never stores the plaintext password.
+     Supabase Auth/email is NOT used. No SMTP, verification or
+     password-reset email is required. The browser talks only to
+     WatchLog's custom PIN API. The API stores a salted PBKDF2 PIN
+     verifier, rate-limits failed PIN attempts, and returns an
+     opaque session token. Libraries are stored per account and
+     also cached locally for offline use.
      ========================================================= */
 
   const IMDB_VERIFY_ENDPOINT = "";
-  const LOCAL_ACCOUNTS_KEY = "watchlog_local_accounts_v1";
-  const LOCAL_SESSION_KEY = "watchlog_local_session_v1";
-  const PASSWORD_ITERATIONS = 150000;
+  const PIN_API = "https://okkwteywtgfsnlrjdyhv.supabase.co/functions/v1/watchlog-pin";
+  const PIN_SESSION_KEY = "watchlog_pin_session_v1";
+  const LEGACY_LOCAL_ACCOUNTS_KEY = "watchlog_local_accounts_v1";
+  const LEGACY_LOCAL_SESSION_KEY = "watchlog_local_session_v1";
 
   let currentUser = null;
   let currentProfile = null;
   let mediaItems = [];
   let cacheDB = null;
+  let cloudSessionToken = "";
   let isSignUp = false;
   let activeFilter = "All";
   let currentTab = "library";
@@ -99,8 +96,8 @@
   let searchTimer = null;
 
   const $ = id => document.getElementById(id);
-  const authScreen = $("auth-screen"), authForm = $("auth-form"), authTitle = $("auth-title"), authSub = $("auth-sub"), authNameGroup = $("auth-name-group"), authEmail = $("auth-email"), authPassword = $("auth-password"), authName = $("auth-name"), authSubmit = $("auth-submit"), authToggle = $("auth-toggle"), authMessage = $("auth-message");
-  const navName = $("nav-name"), userPill = $("user-pill"), libraryView = $("library-view"), settingsView = $("settings-view"), profileName = $("profile-name"), profileEmail = $("profile-email"), avatar = $("avatar"), syncDot = $("sync-dot"), syncStatus = $("sync-status"), reloadLocal = $("reload-local"), logoutBtn = $("logout-btn");
+  const authScreen = $("auth-screen"), authForm = $("auth-form"), authTitle = $("auth-title"), authSub = $("auth-sub"), authNameGroup = $("auth-name-group"), authEmail = $("auth-email"), authPin = $("auth-pin"), authName = $("auth-name"), authSubmit = $("auth-submit"), authToggle = $("auth-toggle"), authMessage = $("auth-message");
+  const navName = $("nav-name"), userPill = $("user-pill"), libraryView = $("library-view"), settingsView = $("settings-view"), profileName = $("profile-name"), profileEmail = $("profile-email"), avatar = $("avatar"), syncDot = $("sync-dot"), syncStatus = $("sync-status"), syncNowBtn = $("sync-now"), changePinBtn = $("change-pin"), newPinInput = $("new-pin"), logoutBtn = $("logout-btn");
   const mediaList = $("media-list"), emptyState = $("empty-state"), searchInput = $("search-input"), modal = $("modal"), addBtn = $("add-btn"), closeModal = $("close-modal"), mediaForm = $("media-form"), deleteBtn = $("delete-btn"), saveBtn = $("save-btn"), typeSelect = $("type"), seriesSection = $("series-section"), upcomingSection = $("upcoming-section"), titleInput = $("title"), suggestList = $("suggest-list");
   const pillBtns = document.querySelectorAll(".pill-btn"), tabBtns = document.querySelectorAll(".tab-btn");
 
@@ -112,34 +109,22 @@
   function toMillis(v){const n=new Date(v||0).getTime();return Number.isFinite(n)?n:0;}
   function isEmail(v){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||"").trim());}
   function normalizeEmail(v){return String(v||"").trim().toLowerCase();}
+  function validPin(v){return /^\d{4}$/.test(String(v||""));}
   function safeReadJSON(key,fallback){try{const raw=localStorage.getItem(key);return raw===null?fallback:JSON.parse(raw);}catch(e){console.warn(`Could not read ${key}`,e);return fallback;}}
   function safeWriteJSON(key,value){try{localStorage.setItem(key,JSON.stringify(value));return true;}catch(e){console.error(`Could not write ${key}`,e);return false;}}
+  async function sha256(value){const bytes=new TextEncoder().encode(String(value));const digest=await crypto.subtle.digest("SHA-256",bytes);return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");}
 
-  function bytesToBase64(bytes){let s="";for(const b of bytes)s+=String.fromCharCode(b);return btoa(s);}
-  function base64ToBytes(value){const s=atob(value);const out=new Uint8Array(s.length);for(let i=0;i<s.length;i++)out[i]=s.charCodeAt(i);return out;}
-
-  async function sha256(value){
-    const bytes=new TextEncoder().encode(String(value));
-    const digest=await crypto.subtle.digest("SHA-256",bytes);
-    return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");
+  async function pinApi(action,payload={},token=cloudSessionToken){
+    const headers={"Content-Type":"application/json"};
+    if(token)headers["X-WatchLog-Session"]=token;
+    let response;
+    try{response=await fetch(PIN_API,{method:"POST",headers,body:JSON.stringify({action,...payload})});}
+    catch(e){const err=new Error("Could not reach WatchLog cloud. Check your connection.");err.code="network";throw err;}
+    let data={};
+    try{data=await response.json();}catch(_){}
+    if(!response.ok){const err=new Error(data.error||`WatchLog cloud error (${response.status})`);err.code=data.code||"api_error";err.status=response.status;err.retryAfter=data.retryAfter;throw err;}
+    return data;
   }
-
-  async function createPasswordRecord(password,existingSalt=null){
-    const salt=existingSalt?base64ToBytes(existingSalt):crypto.getRandomValues(new Uint8Array(16));
-    const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),"PBKDF2",false,["deriveBits"]);
-    const bits=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:PASSWORD_ITERATIONS,hash:"SHA-256"},material,256);
-    return {passwordHash:bytesToBase64(new Uint8Array(bits)),passwordSalt:bytesToBase64(salt),passwordVersion:1};
-  }
-
-  async function passwordMatches(account,password){
-    if(!account?.passwordHash||!account?.passwordSalt)return false;
-    const candidate=await createPasswordRecord(password,account.passwordSalt);
-    return candidate.passwordHash===account.passwordHash;
-  }
-
-  async function emailLookupHash(email){return sha256(`watchlog-email:${normalizeEmail(email)}`);}
-  function readAccounts(){const accounts=safeReadJSON(LOCAL_ACCOUNTS_KEY,[]);return Array.isArray(accounts)?accounts:[];}
-  function writeAccounts(accounts){if(!safeWriteJSON(LOCAL_ACCOUNTS_KEY,accounts))throw new Error("This browser could not save the local account.");}
 
   function cacheName(userIdHash){return `WatchLogLocal_${userIdHash.slice(0,48)}`;}
   async function openCache(userId){
@@ -155,284 +140,179 @@
   function cachePut(value){return new Promise((resolve,reject)=>{if(!cacheDB)return resolve(false);const tx=cacheDB.transaction("data","readwrite");tx.objectStore("data").put(value);tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);});}
   function cacheGet(key){return new Promise((resolve,reject)=>{if(!cacheDB)return resolve(null);const tx=cacheDB.transaction("data","readonly");const r=tx.objectStore("data").get(key);r.onsuccess=()=>resolve(r.result||null);r.onerror=()=>reject(r.error);});}
   async function saveCache(items){if(!currentUser)return;await cachePut({key:"library",userId:currentUser.id,items,updatedAt:nowISO()});}
-  async function loadCache(){if(!currentUser)return[];const r=await cacheGet("library");return r?.userId===currentUser.id&&Array.isArray(r.items)?r.items:[];}
+  async function loadCacheRecord(){if(!currentUser)return null;const r=await cacheGet("library");return r?.userId===currentUser.id?r:null;}
+  async function loadCache(){const r=await loadCacheRecord();return Array.isArray(r?.items)?r.items:[];}
   async function saveProfile(profile){if(!currentUser)return;await cachePut({key:"profile",userId:currentUser.id,profile,updatedAt:nowISO()});}
   async function loadProfile(){if(!currentUser)return null;const r=await cacheGet("profile");return r?.userId===currentUser.id?r.profile||null:null;}
-
+  function pendingKey(){return currentUser?`watchlog_pin_pending_${currentUser.id}`:"";}
+  function markPending(value){const key=pendingKey();if(!key)return;if(value)localStorage.setItem(key,"1");else localStorage.removeItem(key);}
+  function hasPending(){const key=pendingKey();return !!key&&localStorage.getItem(key)==="1";}
   function setSync(text,state="ok"){syncStatus.textContent=text;syncDot.className=`sync-dot ${state==="ok"?"ok":state==="warn"?"warn":""}`;}
 
-  async function migrateLegacyForCurrentUser(){
-    if(!currentProfile?.email||!currentUser)return;
-    const marker=`watchlog_local_migrated_${currentUser.id}`;
-    if(localStorage.getItem(marker)==="1")return;
-
-    const email=normalizeEmail(currentProfile.email);
-    const collections=[];
-
-    try{
-      const direct=safeReadJSON(`watchlog_records_${email}`,[]);
-      if(Array.isArray(direct))collections.push(direct);
-    }catch(_){}
-
-    try{
-      const users=safeReadJSON("watchlog_auth_users",[]);
-      if(Array.isArray(users)){
-        for(const u of users){
-          if(normalizeEmail(u?.email)===email&&u?.id){
-            const records=safeReadJSON(`watchlog_records_user_${u.id}`,[]);
-            if(Array.isArray(records))collections.push(records);
-          }
-        }
-      }
-    }catch(_){}
-
-    /*
-     * One-time local migration from the previous remote-account
-     * build's on-device cache. This never contacts a server.
-     * It only imports a cache when its saved session email exactly
-     * matches the local account currently being opened.
-     */
-    try{
-      const oldSessions=[];
-      for(let i=0;i<localStorage.length;i++){
-        const key=localStorage.key(i);
-        if(!key||!key.startsWith("sb-")||!key.includes("auth-token"))continue;
-        const value=safeReadJSON(key,null);
-        const candidates=[value,value?.currentSession,value?.session,Array.isArray(value)?value[0]:null];
-        for(const candidate of candidates){
-          const user=candidate?.user;
-          if(user?.id&&normalizeEmail(user?.email)===email)oldSessions.push({id:String(user.id),email:normalizeEmail(user.email)});
-        }
-      }
-
-      for(const oldSession of oldSessions){
-        const oldHash=await sha256(`watchlog:${oldSession.id}`);
-        const oldDBName=`WatchLogCache_${oldHash.slice(0,48)}`;
-        const oldLibrary=await new Promise(resolve=>{
-          let request;
-          try{request=indexedDB.open(oldDBName);}catch(_){resolve(null);return;}
-          request.onerror=()=>resolve(null);
-          request.onupgradeneeded=()=>{try{request.transaction.abort();}catch(_){} resolve(null);};
-          request.onsuccess=()=>{
-            const db=request.result;
-            if(!db.objectStoreNames.contains("data")){db.close();resolve(null);return;}
-            const tx=db.transaction("data","readonly");
-            const get=tx.objectStore("data").get("library");
-            get.onsuccess=()=>{const record=get.result;db.close();resolve(record?.userId===oldSession.id&&Array.isArray(record?.items)?record.items:null);};
-            get.onerror=()=>{db.close();resolve(null);};
-          };
-        });
-        if(Array.isArray(oldLibrary))collections.push(oldLibrary);
-      }
-    }catch(e){console.warn("Previous local cache migration skipped",e);}
-
-    if(collections.length){
-      const merged=new Map(mediaItems.map(item=>[String(item.id),item]));
-      for(const list of collections){
-        for(const raw of list){
-          if(!raw?.title)continue;
-          const id=String(raw.id||uuid());
-          const previous=merged.get(id);
-          if(!previous||toMillis(raw.updatedAt||raw.date)>=toMillis(previous.updatedAt||previous.date)){
-            merged.set(id,{...raw,id,updatedAt:raw.updatedAt||nowISO()});
-          }
-        }
-      }
-      mediaItems=Array.from(merged.values()).sort((a,b)=>toMillis(b.updatedAt)-toMillis(a.updatedAt));
-      await saveCache(mediaItems);
-    }
-    localStorage.setItem(marker,"1");
-  }
-
-  async function findLegacyAccount(email,password){
-    const normalized=normalizeEmail(email);
-    const users=safeReadJSON("watchlog_auth_users",[]);
-    if(!Array.isArray(users))return null;
-    for(const user of users){
-      if(normalizeEmail(user?.email)!==normalized)continue;
-      if(typeof user.password==="string"&&user.password===password)return user;
-      if(user.passwordHash&&user.passwordSalt){
-        try{
-          const candidate=await createPasswordRecord(password,user.passwordSalt);
-          if(candidate.passwordHash===user.passwordHash)return user;
-        }catch(_){}
-      }
-    }
-    return null;
-  }
-
-  async function createLocalAccount(name,email,password,{fromLegacy=false}={}){
-    const normalized=normalizeEmail(email);
-    const lookup=await emailLookupHash(normalized);
-    const accounts=readAccounts();
-    if(accounts.some(a=>a.emailHash===lookup))throw new Error("A local account with that email already exists on this device.");
-
-    const id=uuid();
-    const verifier=await createPasswordRecord(password);
-    accounts.push({
-      id,
-      emailHash:lookup,
-      passwordHash:verifier.passwordHash,
-      passwordSalt:verifier.passwordSalt,
-      passwordVersion:verifier.passwordVersion,
-      createdAt:nowISO()
+  async function readLegacyLocalSnapshotById(id){
+    if(!id)return null;
+    const h=await sha256(`watchlog-local:${id}`),dbName=cacheName(h);
+    return new Promise(resolve=>{
+      let req,created=false;
+      try{req=indexedDB.open(dbName);}catch(_){resolve(null);return;}
+      req.onupgradeneeded=()=>{created=true;try{req.transaction.abort();}catch(_){}};
+      req.onerror=()=>resolve(null);
+      req.onsuccess=()=>{
+        const db=req.result;
+        if(created||!db.objectStoreNames.contains("data")){try{db.close();}catch(_){}resolve(null);return;}
+        const tx=db.transaction("data","readonly"),store=tx.objectStore("data"),pr=store.get("profile"),lr=store.get("library");
+        tx.oncomplete=()=>{const profile=pr.result?.profile||null,items=Array.isArray(lr.result?.items)?lr.result.items:[];db.close();resolve({profile,items});};
+        tx.onerror=()=>{db.close();resolve(null);};
+      };
     });
-    writeAccounts(accounts);
-
-    currentUser={id,email:normalized};
-    currentProfile={display_name:String(name||"User").trim()||"User",email:normalized};
-    await openCache(id);
-    await saveProfile(currentProfile);
-    mediaItems=[];
-    await saveCache(mediaItems);
-    safeWriteJSON(LOCAL_SESSION_KEY,{userId:id});
-
-    if(fromLegacy)await migrateLegacyForCurrentUser();
-    await enterAccount();
   }
 
-  async function loginLocalAccount(email,password){
-    const normalized=normalizeEmail(email);
-    const lookup=await emailLookupHash(normalized);
-    const accounts=readAccounts();
-    const account=accounts.find(a=>a.emailHash===lookup);
+  async function readOldSupabaseCache(userId){
+    if(!userId)return[];
+    const h=await sha256(`watchlog:${userId}`),dbName=`WatchLogCache_${h.slice(0,48)}`;
+    return new Promise(resolve=>{
+      let req,created=false;try{req=indexedDB.open(dbName);}catch(_){resolve([]);return;}
+      req.onupgradeneeded=()=>{created=true;try{req.transaction.abort();}catch(_){}};
+      req.onerror=()=>resolve([]);
+      req.onsuccess=()=>{const db=req.result;if(created||!db.objectStoreNames.contains("data")){db.close();resolve([]);return;}const tx=db.transaction("data","readonly"),r=tx.objectStore("data").get("library");r.onsuccess=()=>{const rec=r.result;db.close();resolve(rec?.userId===userId&&Array.isArray(rec.items)?rec.items:[]);};r.onerror=()=>{db.close();resolve([]);};};
+    });
+  }
 
-    if(!account){
-      const legacy=await findLegacyAccount(normalized,password);
-      if(legacy){
-        await createLocalAccount(legacy.name||legacy.displayName||"User",normalized,password,{fromLegacy:true});
-        return true;
+  function mergeLibraries(...lists){
+    const map=new Map();
+    for(const list of lists){for(const raw of (Array.isArray(list)?list:[])){if(!raw?.title)continue;const id=String(raw.id||uuid()),prev=map.get(id);if(!prev||toMillis(raw.updatedAt||raw.date)>=toMillis(prev.updatedAt||prev.date))map.set(id,{...raw,id,updatedAt:raw.updatedAt||nowISO()});}}
+    return Array.from(map.values()).sort((a,b)=>toMillis(b.updatedAt)-toMillis(a.updatedAt));
+  }
+
+  async function collectPreviousLocalItems(email){
+    const normalized=normalizeEmail(email),collections=[];
+    const direct=safeReadJSON(`watchlog_records_${normalized}`,[]);if(Array.isArray(direct))collections.push(direct);
+
+    const legacyAccounts=safeReadJSON(LEGACY_LOCAL_ACCOUNTS_KEY,[]);
+    if(Array.isArray(legacyAccounts)){
+      const lookup=await sha256(`watchlog-email:${normalized}`);
+      for(const acct of legacyAccounts){if(acct?.id&&acct.emailHash===lookup){const snap=await readLegacyLocalSnapshotById(acct.id);if(snap&&normalizeEmail(snap.profile?.email)===normalized&&Array.isArray(snap.items))collections.push(snap.items);}}
+    }
+
+    const oldUsers=safeReadJSON("watchlog_auth_users",[]);
+    if(Array.isArray(oldUsers))for(const u of oldUsers){if(normalizeEmail(u?.email)===normalized&&u?.id){const rows=safeReadJSON(`watchlog_records_user_${u.id}`,[]);if(Array.isArray(rows))collections.push(rows);}}
+
+    try{
+      for(let i=0;i<localStorage.length;i++){
+        const key=localStorage.key(i);if(!key||!key.startsWith("sb-")||!key.includes("auth-token"))continue;
+        const value=safeReadJSON(key,null),candidates=[value,value?.currentSession,value?.session,Array.isArray(value)?value[0]:null];
+        for(const candidate of candidates){const user=candidate?.user;if(user?.id&&normalizeEmail(user?.email)===normalized)collections.push(await readOldSupabaseCache(String(user.id)));}
       }
-      return false;
+    }catch(e){console.warn("Old cloud cache scan skipped",e);}
+
+    return mergeLibraries(...collections);
+  }
+
+  async function prefillLegacyAccount(){
+    const saved=safeReadJSON(LEGACY_LOCAL_SESSION_KEY,null),id=saved?.userId;if(!id)return;
+    const snap=await readLegacyLocalSnapshotById(id);if(!snap?.profile)return;
+    if(!authEmail.value&&snap.profile.email)authEmail.value=snap.profile.email;
+    if(!authName.value&&snap.profile.display_name)authName.value=snap.profile.display_name;
+    if(Array.isArray(snap.items)&&snap.items.length)showMessage(`Found ${snap.items.length} title(s) from the previous on-device WatchLog account. Creating a PIN account with this email will carry them into cloud sync.`,"info");
+  }
+
+  async function persistLibrary(items){
+    await saveCache(items);
+    if(!cloudSessionToken)return;
+    markPending(true);setSync("Saving to this device and syncing…","warn");
+    try{await pinApi("save",{items});markPending(false);setSync("Synced. This library is available on your other devices.","ok");}
+    catch(e){console.warn(e);setSync("Saved on this device, but cloud sync is pending. Tap Sync Now when online.","warn");}
+  }
+
+  function storePinSession(account,token,expiresAt){safeWriteJSON(PIN_SESSION_KEY,{token,expiresAt,account});}
+  function applyAccount(account){
+    currentUser={id:account.id,email:normalizeEmail(account.email)};
+    currentProfile={display_name:account.displayName||account.display_name||"User",email:normalizeEmail(account.email)};
+    profileName.textContent=currentProfile.display_name;profileEmail.textContent=currentProfile.email;navName.textContent=currentProfile.display_name||currentProfile.email;avatar.textContent=String(currentProfile.display_name||currentProfile.email||"U").charAt(0).toUpperCase();
+  }
+  async function enterAccount(items,{syncText="Synced. This library is available on your other devices.",syncState="ok"}={}){
+    hideMessage();authScreen.classList.add("hidden");mediaItems=Array.isArray(items)?items:[];render();setSync(syncText,syncState);
+  }
+
+  async function establishCloudSession(result,items){
+    cloudSessionToken=result.sessionToken||cloudSessionToken;
+    applyAccount(result.account);
+    await openCache(currentUser.id);await saveProfile(currentProfile);mediaItems=Array.isArray(items)?items:[];await saveCache(mediaItems);
+    storePinSession({id:currentUser.id,email:currentProfile.email,displayName:currentProfile.display_name},cloudSessionToken,result.expiresAt||null);
+    markPending(false);await enterAccount(mediaItems);
+  }
+
+  async function registerPinAccount(name,email,pin){
+    const localItems=await collectPreviousLocalItems(email);
+    const result=await pinApi("register",{displayName:name||"User",email,pin,items:localItems},"");
+    await establishCloudSession(result,localItems);
+  }
+
+  async function loginPinAccount(email,pin){
+    const result=await pinApi("login",{email,pin},"");
+    const legacy=await collectPreviousLocalItems(email);
+    const merged=mergeLibraries(result.items||[],legacy);
+    await establishCloudSession(result,merged);
+    if(JSON.stringify(merged)!==JSON.stringify(result.items||[]))await persistLibrary(merged);
+  }
+
+  async function restorePinSession(){
+    const saved=safeReadJSON(PIN_SESSION_KEY,null);if(!saved?.token||!saved?.account?.id)return false;
+    cloudSessionToken=saved.token;applyAccount(saved.account);await openCache(currentUser.id);currentProfile=await loadProfile()||currentProfile;
+    const cached=await loadCacheRecord();
+    try{
+      if(hasPending()&&cached?.items){await pinApi("save",{items:cached.items});markPending(false);}
+      const result=await pinApi("load");applyAccount(result.account);await saveProfile(currentProfile);mediaItems=Array.isArray(result.items)?result.items:[];await saveCache(mediaItems);storePinSession({id:currentUser.id,email:currentProfile.email,displayName:currentProfile.display_name},cloudSessionToken,saved.expiresAt||null);await enterAccount(mediaItems);return true;
+    }catch(e){
+      if(e.status===401){localStorage.removeItem(PIN_SESSION_KEY);cloudSessionToken="";currentUser=null;currentProfile=null;return false;}
+      if(cached?.items){mediaItems=cached.items;await enterAccount(mediaItems,{syncText:"Offline: showing the last library saved on this device. Cloud sync will resume when available.",syncState:"warn"});return true;}
+      throw e;
     }
-
-    if(!await passwordMatches(account,password))return false;
-
-    currentUser={id:account.id,email:normalized};
-    await openCache(account.id);
-    currentProfile=await loadProfile();
-    if(!currentProfile){
-      currentProfile={display_name:"User",email:normalized};
-      await saveProfile(currentProfile);
-    }else if(!currentProfile.email){
-      currentProfile.email=normalized;
-      await saveProfile(currentProfile);
-    }
-    safeWriteJSON(LOCAL_SESSION_KEY,{userId:account.id});
-    await enterAccount();
-    return true;
   }
 
-  async function restoreLocalSession(){
-    const saved=safeReadJSON(LOCAL_SESSION_KEY,null);
-    const id=saved?.userId;
-    if(!id)return false;
-    const account=readAccounts().find(a=>a.id===id);
-    if(!account){localStorage.removeItem(LOCAL_SESSION_KEY);return false;}
-
-    currentUser={id,email:""};
-    await openCache(id);
-    currentProfile=await loadProfile();
-    if(!currentProfile){
-      localStorage.removeItem(LOCAL_SESSION_KEY);
-      currentUser=null;
-      return false;
-    }
-    currentUser.email=currentProfile.email||"";
-    await enterAccount();
-    return true;
-  }
-
-  async function loadLocalLibrary(){
-    if(!currentUser)return;
-    mediaItems=await loadCache();
-    await migrateLegacyForCurrentUser();
-    render();
-    setSync("Stored only on this device/browser. Each local account has its own separate library.","ok");
-  }
-
-  async function enterAccount(){
-    if(!currentUser)return showAuth();
-    hideMessage();
-    if(!cacheDB)await openCache(currentUser.id);
-    if(!currentProfile)currentProfile=await loadProfile();
-    currentProfile=currentProfile||{display_name:"User",email:currentUser.email||""};
-
-    profileName.textContent=currentProfile.display_name||"User";
-    profileEmail.textContent=currentProfile.email||"";
-    navName.textContent=currentProfile.display_name||currentProfile.email||"User";
-    avatar.textContent=String(currentProfile.display_name||currentProfile.email||"U").charAt(0).toUpperCase();
-
-    authScreen.classList.add("hidden");
-    await loadLocalLibrary();
-  }
-
-  async function clearUserState(){
-    mediaItems=[];
-    currentProfile=null;
-    currentUser=null;
-    if(cacheDB){try{cacheDB.close();}catch(_){}}
-    cacheDB=null;
-    render();
-  }
-
+  async function clearUserState(){mediaItems=[];currentProfile=null;currentUser=null;cloudSessionToken="";if(cacheDB){try{cacheDB.close();}catch(_){}}cacheDB=null;render();}
   function showAuth(){authScreen.classList.remove("hidden");}
-
   function updateAuthMode(){
-    hideMessage();
-    authNameGroup.classList.toggle("hidden",!isSignUp);
-    authTitle.textContent=isSignUp?"Create Local Account":"Welcome Back";
-    authSub.textContent=isSignUp
-      ?"Creates a separate account only in this browser. No verification email is sent."
-      :"Sign in to an account saved on this device. Nothing is checked online.";
-    authSubmit.textContent=isSignUp?"Create Local Account":"Log In";
-    authToggle.textContent=isSignUp?"Already have a local account? Log In":"Don't have a local account? Sign Up";
-    authPassword.setAttribute("autocomplete",isSignUp?"new-password":"current-password");
+    hideMessage();authNameGroup.classList.toggle("hidden",!isSignUp);
+    authTitle.textContent=isSignUp?"Create PIN Account":"Welcome Back";
+    authSub.textContent=isSignUp?"Create one email + 4-digit PIN account. Your existing on-device titles can be carried into cloud sync.":"Use the same email and 4-digit PIN to load your library on any device.";
+    authSubmit.textContent=isSignUp?"Create PIN Account":"Log In";
+    authToggle.textContent=isSignUp?"Already have a PIN account? Log In":"Don't have an account? Create PIN Account";
   }
-
-  authToggle.onclick=()=>{isSignUp=!isSignUp;authForm.reset();updateAuthMode();};
+  authToggle.onclick=()=>{isSignUp=!isSignUp;authPin.value="";updateAuthMode();if(isSignUp)prefillLegacyAccount().catch(console.warn);};
 
   authForm.onsubmit=async e=>{
-    e.preventDefault();
-    hideMessage();
-    const email=normalizeEmail(authEmail.value);
-    const password=authPassword.value;
-
-    if(!isEmail(email)){showMessage("Enter a valid email address. It is used only as the local login name and is not emailed.");return;}
-    if(password.length<6){showMessage("Password must be at least 6 characters.");return;}
-
-    authSubmit.disabled=true;
-    authSubmit.textContent=isSignUp?"Creating…":"Logging In…";
-
-    try{
-      if(isSignUp){
-        await createLocalAccount(authName.value.trim()||"User",email,password);
-      }else{
-        const ok=await loginLocalAccount(email,password);
-        if(!ok)showMessage("Email or password is incorrect for a local account on this device.","error");
-      }
-    }catch(err){
-      console.error(err);
-      showMessage(err.message||"Local account operation failed.","error");
-    }finally{
-      authSubmit.disabled=false;
-      authSubmit.textContent=isSignUp?"Create Local Account":"Log In";
-    }
+    e.preventDefault();hideMessage();const email=normalizeEmail(authEmail.value),pin=authPin.value;
+    if(!isEmail(email)){showMessage("Enter a valid email address.");return;}
+    if(!validPin(pin)){showMessage("PIN must be exactly 4 digits.");return;}
+    authSubmit.disabled=true;authSubmit.textContent=isSignUp?"Creating…":"Logging In…";
+    try{if(isSignUp)await registerPinAccount(authName.value.trim()||"User",email,pin);else await loginPinAccount(email,pin);}
+    catch(err){console.error(err);showMessage(err.message||"PIN account operation failed.","error");}
+    finally{authSubmit.disabled=false;authSubmit.textContent=isSignUp?"Create PIN Account":"Log In";}
   };
 
   logoutBtn.onclick=async()=>{
-    localStorage.removeItem(LOCAL_SESSION_KEY);
-    await clearUserState();
-    authForm.reset();
-    isSignUp=false;
-    updateAuthMode();
-    showAuth();
+    try{if(cloudSessionToken)await pinApi("logout");}catch(_){}
+    localStorage.removeItem(PIN_SESSION_KEY);await clearUserState();authPin.value="";isSignUp=false;updateAuthMode();showAuth();
   };
 
-  reloadLocal.onclick=()=>loadLocalLibrary().catch(e=>{
-    console.error(e);
-    setSync("Could not reload this account's local data.","warn");
-  });
+  syncNowBtn.onclick=async()=>{
+    if(!currentUser||!cloudSessionToken)return;syncNowBtn.disabled=true;setSync("Syncing…","warn");
+    try{
+      const cached=await loadCacheRecord();
+      if(hasPending()&&cached?.items){await pinApi("save",{items:cached.items});markPending(false);}
+      const result=await pinApi("load");mediaItems=Array.isArray(result.items)?result.items:[];applyAccount(result.account);await saveProfile(currentProfile);await saveCache(mediaItems);render();setSync("Synced. This library is available on your other devices.","ok");
+    }catch(e){console.error(e);setSync(e.message||"Sync failed.","warn");}
+    finally{syncNowBtn.disabled=false;}
+  };
+
+  changePinBtn.onclick=async()=>{
+    const pin=newPinInput.value;if(!validPin(pin)){setSync("New PIN must be exactly 4 digits.","warn");return;}
+    changePinBtn.disabled=true;
+    try{await pinApi("change_pin",{pin});newPinInput.value="";setSync("PIN changed. Use the new PIN when signing in on other devices.","ok");}
+    catch(e){console.error(e);setSync(e.message||"Could not change PIN.","warn");}
+    finally{changePinBtn.disabled=false;}
+  };
 
   userPill.onclick=()=>switchTab("settings");
 
@@ -889,17 +769,20 @@
       let total=$("total-seasons").value?Number($("total-seasons").value):null,nextNum=$("next-season-num").value?Number($("next-season-num").value):"",nextDate=$("next-season-date").value||"";
       if(type!=="Film"&&sid){const r=await verifiedSeasonData(sid,title);total=r.highest??null;if(r.upcoming){nextNum=r.upcoming.number;if(r.nextEpisode&&Number(r.nextEpisode.season)===r.upcoming.number&&r.nextEpisode.airstamp)nextDate=toLocalInput(r.nextEpisode.airstamp);else nextDate=r.upcoming.premiereDate?dateOnlyInput(r.upcoming.premiereDate):"";}else{nextNum="";nextDate="";}$("total-seasons").value=total??"";$("next-season-num").value=nextNum;$("next-season-date").value=nextDate;}
       const previous=mediaItems.find(x=>String(x.id)===String(id));const numOrNull=x=>$(x).value===""?null:Number.parseInt($(x).value,10);const item={id,title,type,status:$("status").value,tvmazeShowId:sid||"",imdbId:$("imdb-id").value||"",totalSeasons:type==="Film"?null:total,watchedSeasons:type==="Film"?null:numOrNull("watched-seasons"),curSeason:type==="Film"?null:numOrNull("cur-season"),curEp:type==="Film"?null:numOrNull("cur-ep"),nextSeasonNum:type==="Film"?"":nextNum,nextSeasonDate:type==="Film"?"":nextDate,platform:$("platform").value.trim(),date:new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}),createdAt:previous?.createdAt||nowISO(),updatedAt:nowISO()};
-      const idx=mediaItems.findIndex(x=>String(x.id)===String(id));if(idx>=0)mediaItems[idx]=item;else mediaItems.unshift(item);await saveCache(mediaItems);render();modal.classList.add("hidden");setSync("Saved locally to this account on this device.","ok");
+      const idx=mediaItems.findIndex(x=>String(x.id)===String(id));if(idx>=0)mediaItems[idx]=item;else mediaItems.unshift(item);await persistLibrary(mediaItems);render();modal.classList.add("hidden");
     }catch(err){console.error(err);alert(err.message||"Save failed.");}
     finally{saveBtn.disabled=false;saveBtn.textContent="Save to Log";}
   };
-  deleteBtn.onclick=async()=>{const id=$("item-id").value;if(!id)return;try{mediaItems=mediaItems.filter(x=>String(x.id)!==String(id));await saveCache(mediaItems);render();modal.classList.add("hidden");}catch(e){console.error(e);alert("Delete failed.");}};
+  deleteBtn.onclick=async()=>{const id=$("item-id").value;if(!id)return;try{mediaItems=mediaItems.filter(x=>String(x.id)!==String(id));await persistLibrary(mediaItems);render();modal.classList.add("hidden");}catch(e){console.error(e);alert("Delete failed.");}};
 
   async function start(){
     updateAuthMode();
-    if(!await restoreLocalSession())showAuth();
+    if(!await restorePinSession()){
+      showAuth();
+      await prefillLegacyAccount();
+    }
   }
-  start().catch(err=>{console.error(err);showMessage(`WatchLog could not start: ${err.message||err}`);});
+  start().catch(err=>{console.error(err);showAuth();showMessage(`WatchLog could not start: ${err.message||err}`);});
   </script>
 </body>
 </html>
