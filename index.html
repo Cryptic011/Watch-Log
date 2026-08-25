@@ -476,31 +476,64 @@
     return normalizeTitle(value).split(" ").filter(Boolean);
   }
 
+  function levenshtein(a,b){
+    a=normalizeTitle(a);b=normalizeTitle(b);
+    if(a===b)return 0;
+    if(!a.length)return b.length;
+    if(!b.length)return a.length;
+    const prev=Array.from({length:b.length+1},(_,i)=>i),cur=new Array(b.length+1);
+    for(let i=1;i<=a.length;i++){
+      cur[0]=i;
+      for(let j=1;j<=b.length;j++){
+        const cost=a[i-1]===b[j-1]?0:1;
+        cur[j]=Math.min(cur[j-1]+1,prev[j]+1,prev[j-1]+cost);
+      }
+      for(let j=0;j<=b.length;j++)prev[j]=cur[j];
+    }
+    return prev[b.length];
+  }
+
   function suggestionScore(item,query){
     const q=normalizeTitle(query),t=normalizeTitle(item.title);
     if(!q||!t)return 0;
     let score=0;
-    if(t===q)score+=1200;
-    else if(t.startsWith(q))score+=850;
-    else if(t.includes(q))score+=650;
+    if(t===q)score+=1600;
+    else if(t.startsWith(q))score+=1100;
+    else if(t.includes(q))score+=900;
+    else if(q.includes(t))score+=650;
 
-    const qTokens=titleTokens(query),tTokens=new Set(titleTokens(item.title));
-    const matched=qTokens.filter(token=>tTokens.has(token)).length;
-    score+=matched*95;
-    if(qTokens.length&&matched===qTokens.length)score+=180;
+    const qTokens=titleTokens(query),tTokens=titleTokens(item.title),tSet=new Set(tTokens);
+    const matched=qTokens.filter(token=>tSet.has(token)).length;
+    score+=matched*120;
+    if(qTokens.length&&matched===qTokens.length)score+=260;
+
+    const meaningful=qTokens.filter(x=>!new Set(["the","a","an","and","of","for","to","in","on","with"]).has(x));
+    const meaningfulMatched=meaningful.filter(token=>tSet.has(token)).length;
+    score+=meaningfulMatched*85;
+    if(meaningful.length&&meaningfulMatched===meaningful.length)score+=220;
+
+    const distance=levenshtein(q,t);
+    const maxLen=Math.max(q.length,t.length);
+    if(maxLen){
+      const similarity=1-(distance/maxLen);
+      if(similarity>=.85)score+=500;
+      else if(similarity>=.7)score+=260;
+      else if(similarity>=.55)score+=100;
+    }
 
     const currentYear=new Date().getFullYear();
     const year=Number(item.year||0);
-    if(year===currentYear)score+=95;
-    else if(year===currentYear-1||year===currentYear+1)score+=55;
+    if(year===currentYear)score+=140;
+    else if(year===currentYear-1||year===currentYear+1)score+=80;
 
-    if(item.source==="imdb")score+=90;
-    if(item.source==="apple")score+=40;
-    if(item.source==="tvmaze")score+=35;
+    /* Apple is the authoritative film catalogue in this build. */
+    if(item.source==="apple")score+=item.format==="Film"?260:60;
+    if(item.source==="imdb")score+=110;
+    if(item.source==="tvmaze")score+=item.format==="Series"?150:20;
     return score;
   }
 
-  function jsonp(url,timeout=6500){
+  function jsonp(url,timeout=7000){
     return new Promise((resolve,reject)=>{
       const callback=`watchlog_jsonp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
       const script=document.createElement("script");
@@ -513,43 +546,126 @@
     });
   }
 
+  const titleSearchCache=new Map();
+  function cacheGetSearch(key){
+    const v=titleSearchCache.get(key);
+    if(!v)return null;
+    if(Date.now()-v.time>10*60*1000){titleSearchCache.delete(key);return null;}
+    return v.value;
+  }
+  function cacheSetSearch(key,value){
+    titleSearchCache.set(key,{time:Date.now(),value});
+    if(titleSearchCache.size>80){
+      const first=titleSearchCache.keys().next().value;
+      titleSearchCache.delete(first);
+    }
+    return value;
+  }
+
   async function searchTVMaze(query){
+    const key=`tvmaze:${normalizeTitle(query)}`;
+    const cached=cacheGetSearch(key);if(cached)return cached;
     try{
       const r=await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`);
       if(!r.ok)return[];
       const data=await r.json();
-      return (Array.isArray(data)?data:[]).map(x=>{
+      return cacheSetSearch(key,(Array.isArray(data)?data:[]).map(x=>{
         const s=x.show||{};
-        return {
-          source:"tvmaze",
-          externalId:String(s.id||""),
-          title:s.name||"",
-          format:"Series",
-          year:s.premiered?.slice(0,4)||"",
-          platform:s.network?.name||s.webChannel?.name||"",
-          detail:s.type||"Series"
-        };
-      }).filter(x=>x.title);
+        return {source:"tvmaze",externalId:String(s.id||""),title:s.name||"",format:"Series",year:s.premiered?.slice(0,4)||"",platform:s.network?.name||s.webChannel?.name||"",detail:s.type||"Series"};
+      }).filter(x=>x.title));
     }catch(e){console.warn("TVMaze search failed",e);return[];}
   }
 
-  async function searchAppleMovies(query){
+  async function searchAppleMoviesOne(query,country){
+    const normalized=normalizeTitle(query);
+    const key=`apple:${country}:${normalized}`;
+    const cached=cacheGetSearch(key);if(cached)return cached;
+    if(normalized.length<2)return[];
     try{
-      const url=`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&country=gb&media=movie&entity=movie&limit=40`;
+      const url=`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&country=${encodeURIComponent(country)}&media=movie&entity=movie&attribute=movieTerm&limit=200&lang=en_us&explicit=Yes`;
       const data=await jsonp(url);
-      return (Array.isArray(data?.results)?data.results:[]).map(x=>({
+      const rows=(Array.isArray(data?.results)?data.results:[]).map(x=>({
         source:"apple",
         externalId:String(x.trackId||x.collectionId||""),
         title:x.trackName||x.collectionName||"",
         format:"Film",
         year:x.releaseDate?String(new Date(x.releaseDate).getFullYear()):"",
         platform:"",
-        detail:x.primaryGenreName||"Film"
+        detail:x.primaryGenreName||"Film",
+        country:country.toUpperCase(),
+        storeUrl:x.trackViewUrl||x.collectionViewUrl||""
       })).filter(x=>x.title);
-    }catch(e){console.warn("Apple movie search failed",e);return[];}
+      return cacheSetSearch(key,rows);
+    }catch(e){console.warn(`Apple movie search failed (${country})`,e);return[];}
+  }
+
+  function correctedCatalogueQuery(query){
+    let q=normalizeTitle(query);
+    q=q.replace(/\bmandolorian\b/g,"mandalorian");
+    if(/\bmandalorian\b/.test(q))q=q.replace(/\bgorge\b/g,"grogu");
+    q=q.replace(/\bsuper girl\b/g,"supergirl");
+    if(/\bmandalorian\b|\bstar wars\b/.test(q))q=q.replace(/\b(gorge|gorgu|grogoo|grogou)\b/g,"grogu");
+    return q;
+  }
+
+  function movieQueryVariants(query){
+    const corrected=correctedCatalogueQuery(query);
+    const tokens=titleTokens(corrected);
+    const stop=new Set(["the","a","an","and","of","for","to","in","on","with"]);
+    const strong=tokens.filter(t=>!stop.has(t)&&t.length>=3).join(" ");
+    const variants=[corrected];
+    if(strong&&strong!==corrected)variants.push(strong);
+
+    /* Franchise-aware aliasing for the common title people actually type. */
+    if(tokens.includes("mandalorian")||tokens.includes("grogu")){
+      variants.unshift("Star Wars The Mandalorian and Grogu");
+      variants.push("Mandalorian Grogu");
+      variants.push("Grogu");
+    }
+    return Array.from(new Set(variants.map(v=>String(v||"").trim()).filter(v=>v.length>=2))).slice(0,5);
+  }
+
+  function hasStrongMovieMatch(items,query){
+    const q=normalizeTitle(query);
+    const qTokens=titleTokens(q).filter(t=>!["the","a","an","and","of","for","to","in","on","with"].includes(t));
+    return items.some(item=>{
+      if(item.format!=="Film")return false;
+      const t=normalizeTitle(item.title),set=new Set(titleTokens(t));
+      if(t===q||t.includes(q)||q.includes(t))return true;
+      if(qTokens.length&&qTokens.every(token=>set.has(token)))return true;
+      return suggestionScore(item,q)>=1150;
+    });
+  }
+
+  async function searchAppleMovies(query){
+    const variants=movieQueryVariants(query);
+    let merged=[];
+
+    /* First pass: exact/corrected title in both storefronts. */
+    const first=variants[0]||query;
+    const firstPass=await Promise.allSettled([
+      searchAppleMoviesOne(first,"gb"),
+      searchAppleMoviesOne(first,"us")
+    ]);
+    merged.push(...firstPass.flatMap(r=>r.status==="fulfilled"?r.value:[]));
+
+    /* Only broaden if the exact search did not find a strong film match. */
+    if(!hasStrongMovieMatch(merged,first)){
+      for(const variant of variants.slice(1,4)){
+        const pass=await Promise.allSettled([
+          searchAppleMoviesOne(variant,"gb"),
+          searchAppleMoviesOne(variant,"us")
+        ]);
+        merged.push(...pass.flatMap(r=>r.status==="fulfilled"?r.value:[]));
+        if(hasStrongMovieMatch(merged,first))break;
+      }
+    }
+    return merged;
   }
 
   async function searchIMDbTitles(query){
+    const key=`imdb:${normalizeTitle(query)}`;
+    const cached=cacheGetSearch(key);if(cached)return cached;
     try{
       const cleaned=String(query||"").trim();
       if(cleaned.length<2)return[];
@@ -559,7 +675,7 @@
       const r=await fetch(url,{mode:"cors",credentials:"omit",cache:"no-store"});
       if(!r.ok)return[];
       const data=await r.json();
-      return (Array.isArray(data?.d)?data.d:[]).map(x=>{
+      const rows=(Array.isArray(data?.d)?data.d:[]).map(x=>{
         const id=String(x?.id||"");
         if(!id.startsWith("tt"))return null;
         const kind=String(x?.qid||x?.q||"").toLowerCase();
@@ -568,18 +684,9 @@
         else if(/movie|feature|film|tvmovie|tv movie/.test(kind))format="Film";
         else if(/video game|videogame|game/.test(kind))format="Game";
         else return null;
-        const year=Number.isFinite(Number(x?.y))?String(x.y):"";
-        const detail=String(x?.q||x?.qid||format).replace(/_/g," ");
-        return {
-          source:"imdb",
-          externalId:id,
-          title:String(x?.l||""),
-          format,
-          year,
-          platform:"",
-          detail:detail||format
-        };
+        return {source:"imdb",externalId:id,title:String(x?.l||""),format,year:Number.isFinite(Number(x?.y))?String(x.y):"",platform:"",detail:String(x?.q||x?.qid||format).replace(/_/g," ")||format};
       }).filter(x=>x?.title);
+      return cacheSetSearch(key,rows);
     }catch(e){console.warn("IMDb search failed",e);return[];}
   }
 
@@ -590,45 +697,34 @@
       const key=`${normalizeTitle(item.title)}|${item.format}|${item.year||""}`;
       const scored={...item,score:suggestionScore(item,query)};
       const existing=byKey.get(key);
-      if(!existing||scored.score>existing.score)byKey.set(key,scored);
+      if(!existing||scored.score>existing.score||(!existing.storeUrl&&scored.storeUrl))byKey.set(key,scored);
     }
     return Array.from(byKey.values())
       .sort((a,b)=>b.score-a.score||Number(b.year||0)-Number(a.year||0)||a.title.localeCompare(b.title))
-      .slice(0,45);
+      .slice(0,60);
   }
 
   let activeSuggestions=[];
 
-  function correctedCatalogueQuery(query){
-    let q=normalizeTitle(query);
-    q=q.replace(/\bmandolorian\b/g,"mandalorian");
-    if(/\bmandalorian\b/.test(q))q=q.replace(/\bgorge\b/g,"grogu");
-    q=q.replace(/\bsuper girl\b/g,"supergirl");
-    return q;
-  }
-
   async function searchAllTitles(query){
     const corrected=correctedCatalogueQuery(query);
-    const variants=[query];
-    if(corrected&&normalizeTitle(query)!==corrected)variants.push(corrected);
+    const tvQuery=corrected||query;
 
-    const primary=await Promise.allSettled(variants.flatMap(q=>[
-      searchIMDbTitles(q),
-      searchTVMaze(q),
-      searchAppleMovies(q)
-    ]));
+    /* Apple Movies is the authoritative film source. IMDb is supplementary,
+       while TVMaze remains authoritative for series/season metadata. */
+    const primary=await Promise.allSettled([
+      searchAppleMovies(tvQuery),
+      searchIMDbTitles(tvQuery),
+      searchTVMaze(tvQuery)
+    ]);
     let merged=primary.flatMap(r=>r.status==="fulfilled"?r.value:[]);
 
-    /* If a longer or misspelled query returns very little, retry the strongest
-       words separately. This catches catalogues that only index part of a title. */
-    if(merged.length<12){
-      const tokens=Array.from(new Set(variants.flatMap(titleTokens))).filter(t=>t.length>=5).slice(0,4);
-      const fallbacks=await Promise.allSettled(tokens.flatMap(token=>[
-        searchIMDbTitles(token),
-        searchAppleMovies(token)
-      ]));
-      merged=merged.concat(fallbacks.flatMap(r=>r.status==="fulfilled"?r.value:[]));
+    /* If IMDb/TV spelling differs, also try the user's literal input there. */
+    if(corrected&&normalizeTitle(query)!==corrected){
+      const literal=await Promise.allSettled([searchIMDbTitles(query),searchTVMaze(query)]);
+      merged=merged.concat(literal.flatMap(r=>r.status==="fulfilled"?r.value:[]));
     }
+
     return dedupeAndRankSuggestions(merged,corrected||query);
   }
 
@@ -640,7 +736,7 @@
       return;
     }
     suggestList.innerHTML=items.map((item,index)=>{
-      const sourceLabel=item.source==="imdb"?"IMDb":item.source==="apple"?"Film":item.source==="tvmaze"?"TV":"Media";
+      const sourceLabel=item.source==="imdb"?"IMDb":item.source==="apple"?"Apple Movies":item.source==="tvmaze"?"TVMaze":"Media";
       const meta=[item.year,item.format,item.detail&&item.detail!==item.format?item.detail:""] .filter(Boolean).join(" • ");
       return `<div class="suggest-item" data-suggestion-index="${index}"><div><div class="suggest-name">${esc(item.title)}</div><div class="suggest-meta">${esc(meta)}</div></div><span class="suggest-network">${esc(sourceLabel)}</span></div>`;
     }).join("");
@@ -680,7 +776,7 @@
     clearTimeout(searchTimer);
     const q=titleInput.value.trim();
     if(q.length<2){suggestList.classList.add("hidden");return;}
-    suggestList.innerHTML=`<div class="suggest-item" style="cursor:default"><div><div class="suggest-name">Searching films & series…</div><div class="suggest-meta">Checking IMDb, TV & movie catalogues</div></div></div>`;
+    suggestList.innerHTML=`<div class="suggest-item" style="cursor:default"><div><div class="suggest-name">Searching films & series…</div><div class="suggest-meta">Checking Apple Movies, IMDb & TV catalogues</div></div></div>`;
     suggestList.classList.remove("hidden");
     searchTimer=setTimeout(async()=>{
       try{
@@ -691,7 +787,7 @@
         console.warn(e);
         if(titleInput.value.trim()===q)suggestList.classList.add("hidden");
       }
-    },260);
+    },420);
   });
   document.addEventListener("click",e=>{if(!titleInput.contains(e.target)&&!suggestList.contains(e.target))suggestList.classList.add("hidden");});
   typeSelect.onchange=()=>{const film=typeSelect.value==="Film";seriesSection.style.display=film?"none":"flex";upcomingSection.style.display=film?"none":"flex";};
