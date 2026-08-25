@@ -62,7 +62,7 @@
     <button class="tab-btn" data-tab="settings"><div class="tab-icon"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58-1.92-3.32-2.39.96c-.5-.38-1.03-.7-1.62-.94L14.4 2.4h-4.8l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96-1.92 3.32 2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58 1.92 3.32 2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54h4.8l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96 1.92-3.32-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div><span>Settings</span></button>
   </nav>
 
-  <div id="modal" class="modal-overlay hidden"><div class="modal-content"><div class="modal-header"><h2 id="modal-title">Log Title</h2><button id="close-modal" class="close-btn" type="button">&times;</button></div><form id="media-form"><input id="item-id" type="hidden" /><input id="tvmaze-id" type="hidden" /><input id="imdb-id" type="hidden" /><input id="film-release-source" type="hidden" /><div class="form-group suggest-wrap"><label for="title">Title</label><input id="title" type="text" required autocomplete="off" placeholder="e.g. Black Mirror" /><div id="suggest-list" class="suggest-list hidden"></div></div><div class="form-row"><div class="form-group"><label for="type">Format</label><select id="type"><option>Series</option><option>Film</option><option>Anime</option><option>Game</option></select></div><div class="form-group"><label for="status">Status</label><select id="status"><option>Watched</option><option>Watching</option><option>Saved</option></select></div></div><div id="series-section" class="section-box"><span class="section-title">Seasons & Progress</span><div class="form-row"><div class="form-group"><label for="total-seasons">Known / Announced Seasons</label><input id="total-seasons" type="number" min="1" /></div><div class="form-group"><label for="watched-seasons">Watched Seasons</label><input id="watched-seasons" type="number" min="0" /></div></div><div class="form-row"><div class="form-group"><label for="cur-season">Current Season #</label><input id="cur-season" type="number" min="1" /></div><div class="form-group"><label for="cur-ep">Episode in Season</label><input id="cur-ep" type="number" min="0" /></div></div></div><div id="upcoming-section" class="section-box"><span class="section-title">🔔 Verified Upcoming Season</span><p id="season-verify-note" class="small-note">Season data is cross-checked with TVMaze and Wikipedia where available. Watched Logger only uses season numbers found in a real source; it never invents a season by adding 1.</p><div class="form-row"><div class="form-group"><label for="next-season-num">Upcoming Season #</label><input id="next-season-num" type="number" /></div><div class="form-group"><label for="next-season-date">Premiere Date / Time</label><input id="next-season-date" type="datetime-local" /></div></div></div><div id="film-section" class="section-box" style="display:none"><span class="section-title">🎬 Film Release</span><p class="small-note">When the film catalogue provides an exact scheduled release date, Watched Logger fills it automatically. You can also enter or change the date manually.</p><div class="form-group"><label for="film-release-date">Release Date</label><input id="film-release-date" type="date" /></div></div><div class="form-group"><label for="platform">Watched / Streaming Source</label><input id="platform" type="text" list="platform-options" placeholder="Theatre, Netflix, Apple TV+, etc." /><datalist id="platform-options"><option value="Theatre"></option><option value="Netflix"></option><option value="Disney+"></option><option value="Prime Video"></option><option value="Apple TV+"></option><option value="Max"></option><option value="Hulu"></option><option value="Paramount+"></option><option value="Peacock"></option><option value="BBC iPlayer"></option><option value="ITVX"></option><option value="Channel 4"></option><option value="Blu-ray"></option><option value="DVD"></option><option value="Digital Purchase"></option></datalist></div><div class="modal-actions"><button id="delete-btn" type="button" class="btn btn-danger hidden">Delete</button><button id="save-btn" type="submit" class="btn btn-primary">Save to Log</button></div></form></div></div>
+  <div id="modal" class="modal-overlay hidden"><div class="modal-content"><div class="modal-header"><h2 id="modal-title">Log Title</h2><button id="close-modal" class="close-btn" type="button">&times;</button></div><form id="media-form"><input id="item-id" type="hidden" /><input id="tvmaze-id" type="hidden" /><input id="imdb-id" type="hidden" /><input id="film-release-source" type="hidden" /><div class="form-group suggest-wrap"><label for="title">Title</label><input id="title" type="text" required autocomplete="off" placeholder="e.g. Black Mirror" /><div id="suggest-list" class="suggest-list hidden"></div></div><div class="form-row"><div class="form-group"><label for="type">Format</label><select id="type"><option>Series</option><option>Film</option><option>Anime</option><option>Game</option></select></div><div class="form-group"><label for="status">Status</label><select id="status"><option>Watched</option><option>Watching</option><option>Saved</option></select></div></div><div id="series-section" class="section-box"><span class="section-title">Seasons & Progress</span><div class="form-row"><div class="form-group"><label for="total-seasons">Known / Announced Seasons</label><input id="total-seasons" type="number" min="1" /></div><div class="form-group"><label for="watched-seasons">Watched Seasons</label><input id="watched-seasons" type="number" min="0" /></div></div><div class="form-row"><div class="form-group"><label for="cur-season">Current Season #</label><input id="cur-season" type="number" min="1" /></div><div class="form-group"><label for="cur-ep">Episode in Season</label><input id="cur-ep" type="number" min="0" /></div></div></div><div id="upcoming-section" class="section-box"><span class="section-title">🔔 Verified Upcoming Season</span><p id="season-verify-note" class="small-note">Season data is cross-checked with TVMaze and Wikipedia where available. Watched Logger only uses season numbers found in a real source; it never invents a season by adding 1.</p><div class="form-row"><div class="form-group"><label for="next-season-num">Upcoming Season #</label><input id="next-season-num" type="number" /></div><div class="form-group"><label for="next-season-date">Premiere Date / Time</label><input id="next-season-date" type="datetime-local" /></div></div></div><div id="film-section" class="section-box" style="display:none"><span class="section-title">🎬 Verified Film Release</span><p id="film-verify-note" class="small-note">Future film release dates are cross-checked with Apple Movies and Wikipedia, with IMDb title/year data used to make sure the date belongs to the correct film. If a real future date is found, Watched Logger fills it automatically.</p><div class="form-group"><label for="film-release-date">Release Date</label><input id="film-release-date" type="date" /></div></div><div class="form-group"><label for="platform">Watched / Streaming Source</label><input id="platform" type="text" list="platform-options" placeholder="Theatre, Netflix, Apple TV+, etc." /><datalist id="platform-options"><option value="Theatre"></option><option value="Netflix"></option><option value="Disney+"></option><option value="Prime Video"></option><option value="Apple TV+"></option><option value="Max"></option><option value="Hulu"></option><option value="Paramount+"></option><option value="Peacock"></option><option value="BBC iPlayer"></option><option value="ITVX"></option><option value="Channel 4"></option><option value="Blu-ray"></option><option value="DVD"></option><option value="Digital Purchase"></option></datalist></div><div class="modal-actions"><button id="delete-btn" type="button" class="btn btn-danger hidden">Delete</button><button id="save-btn" type="submit" class="btn btn-primary">Save to Log</button></div></form></div></div>
 
   <script>
   "use strict";
@@ -98,7 +98,7 @@
   const $ = id => document.getElementById(id);
   const authScreen = $("auth-screen"), authForm = $("auth-form"), authTitle = $("auth-title"), authSub = $("auth-sub"), authNameGroup = $("auth-name-group"), authEmail = $("auth-email"), authPin = $("auth-pin"), authName = $("auth-name"), authSubmit = $("auth-submit"), authToggle = $("auth-toggle"), authMessage = $("auth-message");
   const navName = $("nav-name"), userPill = $("user-pill"), libraryView = $("library-view"), settingsView = $("settings-view"), profileName = $("profile-name"), profileEmail = $("profile-email"), avatar = $("avatar"), syncDot = $("sync-dot"), syncStatus = $("sync-status"), syncNowBtn = $("sync-now"), changePinBtn = $("change-pin"), newPinInput = $("new-pin"), logoutBtn = $("logout-btn");
-  const mediaList = $("media-list"), emptyState = $("empty-state"), searchInput = $("search-input"), modal = $("modal"), addBtn = $("add-btn"), closeModal = $("close-modal"), mediaForm = $("media-form"), deleteBtn = $("delete-btn"), saveBtn = $("save-btn"), typeSelect = $("type"), seriesSection = $("series-section"), upcomingSection = $("upcoming-section"), seasonVerifyNote = $("season-verify-note"), filmSection = $("film-section"), filmReleaseDate = $("film-release-date"), filmReleaseSource = $("film-release-source"), titleInput = $("title"), suggestList = $("suggest-list");
+  const mediaList = $("media-list"), emptyState = $("empty-state"), searchInput = $("search-input"), modal = $("modal"), addBtn = $("add-btn"), closeModal = $("close-modal"), mediaForm = $("media-form"), deleteBtn = $("delete-btn"), saveBtn = $("save-btn"), typeSelect = $("type"), seriesSection = $("series-section"), upcomingSection = $("upcoming-section"), seasonVerifyNote = $("season-verify-note"), filmSection = $("film-section"), filmVerifyNote = $("film-verify-note"), filmReleaseDate = $("film-release-date"), filmReleaseSource = $("film-release-source"), titleInput = $("title"), suggestList = $("suggest-list");
   const pillBtns = document.querySelectorAll(".pill-btn"), tabBtns = document.querySelectorAll(".tab-btn");
 
   function nowISO(){return new Date().toISOString();}
@@ -406,7 +406,12 @@
       const m=text.match(rx);if(m)values.push(m[1]);
     }
     for(const value of values){
-      let m=value.match(/\{\{\s*(?:start date(?: and age)?|dts|date)\s*\|\s*(\d{4})\s*\|\s*(\d{1,2})\s*\|\s*(\d{1,2})/i);
+      /* Film infoboxes commonly use {{Film date|df=y|2026|5|22|...}}.
+         Pull the first complete Y/M/D tuple from that template before falling
+         back to the general date templates used by television pages. */
+      let m=value.match(/\{\{\s*film date\b[^}]*?\|\s*(19\d{2}|20\d{2})\s*\|\s*(\d{1,2})\s*\|\s*(\d{1,2})/i);
+      if(m){const y=Number(m[1]),mo=Number(m[2]),d=Number(m[3]);return `${String(y).padStart(4,"0")}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`;}
+      m=value.match(/\{\{\s*(?:start date(?: and age)?|dts|date)\s*\|\s*(\d{4})\s*\|\s*(\d{1,2})\s*\|\s*(\d{1,2})/i);
       if(m){const y=Number(m[1]),mo=Number(m[2]),d=Number(m[3]);return `${String(y).padStart(4,"0")}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`;}
       m=value.match(/\b(20\d{2}|19\d{2})-(\d{2})-(\d{2})\b/);
       if(m)return `${m[1]}-${m[2]}-${m[3]}`;
@@ -889,6 +894,160 @@
     return searches.flatMap(r=>r.status==="fulfilled"?r.value:[]);
   }
 
+  function isFutureDateOnly(value){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(String(value||"")))return false;
+    const t=new Date(`${value}T23:59:59`).getTime();
+    return Number.isFinite(t)&&t>Date.now();
+  }
+
+  function wikipediaImdbId(wikitext){
+    const m=String(wikitext||"").match(/\|\s*imdb_id\s*=\s*(?:tt)?(\d{5,12})/i);
+    return m?`tt${m[1]}`:"";
+  }
+
+  function wikipediaFilmCandidateScore(pageTitle,title,year=""){
+    const a=normalizeTitle(String(pageTitle||"").replace(/\s*\([^)]*film[^)]*\)\s*$/i,""));
+    const b=normalizeTitle(title);
+    let score=0;
+    if(a===b)score+=500;
+    else if(a.startsWith(b)||b.startsWith(a))score+=220;
+    const wanted=new Set(titleTokens(title));
+    const got=new Set(titleTokens(pageTitle));
+    score+=Array.from(wanted).filter(t=>got.has(t)).length*45;
+    if(/\bfilm\b/i.test(pageTitle))score+=100;
+    if(year&&new RegExp(`\\b${String(year).replace(/[^0-9]/g,"")}\\b`).test(pageTitle))score+=180;
+    return score;
+  }
+
+  async function wikipediaFindFilmPage(title,{year="",imdbId=""}={}){
+    const variants=[];
+    if(year)variants.push(`${title} (${year} film)`);
+    variants.push(`${title} (film)`,title);
+    const candidates=[];
+    try{
+      const data=await wikipediaApi({action:"query",prop:"info",redirects:1,titles:variants.join("|")});
+      for(const page of Object.values(data?.query?.pages||{})){
+        if(page?.title&&!Object.prototype.hasOwnProperty.call(page,"missing")&&!candidates.includes(page.title))candidates.push(page.title);
+      }
+    }catch(_){}
+    for(const q of [year?`"${title}" ${year} film`:null,`"${title}" film`,title].filter(Boolean)){
+      try{
+        const data=await wikipediaApi({action:"query",list:"search",srsearch:q,srnamespace:0,srlimit:8,srprop:""});
+        for(const row of data?.query?.search||[])if(row?.title&&!candidates.includes(row.title))candidates.push(row.title);
+      }catch(_){}
+      if(candidates.length>=12)break;
+    }
+    const pages=[];
+    for(const pageTitle of candidates.slice(0,12)){
+      const page=await wikipediaWikitext(pageTitle);
+      if(!page||!/\{\{\s*Infobox film/i.test(page.wikitext))continue;
+      const pageImdb=wikipediaImdbId(page.wikitext);
+      let score=wikipediaFilmCandidateScore(page.title,title,year);
+      if(imdbId&&pageImdb===imdbId)score+=1200;
+      else if(imdbId&&pageImdb&&pageImdb!==imdbId)score-=500;
+      pages.push({...page,imdbId:pageImdb,score});
+    }
+    pages.sort((a,b)=>b.score-a.score);
+    return pages[0]||null;
+  }
+
+  async function wikipediaFilmReleaseData(title,{year="",imdbId=""}={}){
+    const page=await wikipediaFindFilmPage(title,{year,imdbId});
+    if(!page)return {available:false,date:"",pageTitle:"",imdbId:"",imdbMatched:false};
+    const date=wikipediaDateFromWikitext(page.wikitext)||"";
+    return {
+      available:true,
+      date,
+      pageTitle:page.title,
+      imdbId:page.imdbId||"",
+      imdbMatched:Boolean(imdbId&&page.imdbId===imdbId)
+    };
+  }
+
+  function bestIMDbFilmMatch(rows,title,imdbId=""){
+    const films=(rows||[]).filter(x=>x?.format==="Film"&&x.title);
+    if(imdbId){const byId=films.find(x=>x.externalId===imdbId);if(byId)return byId;}
+    const exact=films.filter(x=>normalizeTitle(x.title)===normalizeTitle(title));
+    const pool=exact.length?exact:films;
+    return pool.sort((a,b)=>suggestionScore(b,title)-suggestionScore(a,title)||Number(b.year||0)-Number(a.year||0))[0]||null;
+  }
+
+  function bestAppleFilmMatch(rows,title,expectedYear=""){
+    const films=(rows||[]).filter(x=>x?.format==="Film"&&x.title);
+    const exact=films.filter(x=>normalizeTitle(x.title)===normalizeTitle(title));
+    const pool=exact.length?exact:films;
+    pool.sort((a,b)=>{
+      let as=suggestionScore(a,title),bs=suggestionScore(b,title);
+      if(expectedYear&&String(a.year)===String(expectedYear))as+=500;
+      if(expectedYear&&String(b.year)===String(expectedYear))bs+=500;
+      if(a.country==="GB")as+=30;if(b.country==="GB")bs+=30;
+      return bs-as;
+    });
+    return pool[0]||null;
+  }
+
+  async function verifiedFilmReleaseData(title,{imdbId="",seedDate="",seedSource=""}={}){
+    const [imdbResult,appleResult]=await Promise.allSettled([searchIMDbTitles(title),searchAppleMovies(title)]);
+    const imdbRows=imdbResult.status==="fulfilled"?imdbResult.value:[];
+    const appleRows=appleResult.status==="fulfilled"?appleResult.value:[];
+    const imdbMatch=bestIMDbFilmMatch(imdbRows,title,imdbId);
+    const resolvedImdbId=imdbId||imdbMatch?.externalId||"";
+    const expectedYear=imdbMatch?.year||"";
+    const appleMatch=bestAppleFilmMatch(appleRows,title,expectedYear);
+    let wiki={available:false,date:"",imdbMatched:false};
+    try{wiki=await wikipediaFilmReleaseData(title,{year:expectedYear,imdbId:resolvedImdbId});}
+    catch(e){console.warn("Wikipedia film release verification unavailable",e);}
+
+    const appleDate=isFutureDateOnly(appleMatch?.releaseDate)?appleMatch.releaseDate:"";
+    const wikiDate=isFutureDateOnly(wiki.date)?wiki.date:"";
+    const seedFuture=isFutureDateOnly(seedDate)?seedDate:"";
+    const sources=[];
+    if(imdbMatch)sources.push("IMDb");
+    if(appleMatch)sources.push("Apple Movies");
+    if(wiki.available)sources.push("Wikipedia");
+
+    let date="",source="",conflict=false;
+    if(appleDate&&wikiDate&&appleDate===wikiDate){date=appleDate;source="Apple Movies + Wikipedia";}
+    else if(appleDate&&wikiDate){
+      conflict=true;
+      /* If Wikipedia is tied to the same IMDb title, prefer its film-infobox
+         release date. Otherwise prefer the GB Apple catalogue result. */
+      if(wiki.imdbMatched){date=wikiDate;source="Wikipedia + IMDb";}
+      else{date=appleDate;source="Apple Movies";}
+    }else if(wikiDate){date=wikiDate;source=wiki.imdbMatched?"Wikipedia + IMDb":"Wikipedia";}
+    else if(appleDate){date=appleDate;source=imdbMatch?"Apple Movies + IMDb":"Apple Movies";}
+    else if(seedFuture){date=seedFuture;source=seedSource||"Film catalogue";}
+
+    return {date,source,sources:Array.from(new Set(sources)),imdbId:resolvedImdbId,year:expectedYear,conflict,appleDate,wikiDate};
+  }
+
+  function updateFilmVerifyNote(result){
+    if(!filmVerifyNote)return;
+    const sources=result?.sources?.length?result.sources.join(" + "):"Apple Movies, Wikipedia and IMDb";
+    if(result?.date){
+      const label=new Date(`${result.date}T12:00:00`).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+      filmVerifyNote.textContent=result.conflict
+        ?`Checked ${sources}. The sources list different future dates; Watched Logger selected ${label} using ${result.source}. You can override it manually.`
+        :`Checked ${sources}. This film is not out yet and its sourced release date is ${label} (${result.source}). Watched Logger filled it automatically.`;
+    }else{
+      filmVerifyNote.textContent=`Checked ${sources}. No exact future release date is currently confirmed, so Watched Logger has not invented one. You can enter a date manually.`;
+    }
+  }
+
+  async function fillFilmReleaseData(title,{imdbId="",seedDate="",seedSource="",preserveManual=false}={}){
+    if(preserveManual&&filmReleaseDate.value){
+      if(filmVerifyNote)filmVerifyNote.textContent="This release date was entered manually, so automatic film cross-checking will not overwrite it.";
+      return {date:filmReleaseDate.value,source:"Manual",sources:[]};
+    }
+    if(filmVerifyNote)filmVerifyNote.textContent="Cross-checking this film with IMDb, Apple Movies and Wikipedia…";
+    const result=await verifiedFilmReleaseData(title,{imdbId,seedDate,seedSource});
+    if(result.imdbId)$("imdb-id").value=result.imdbId;
+    filmReleaseDate.value=result.date||"";
+    filmReleaseSource.value=result.date?(result.source||"Verified sources"):"";
+    updateFilmVerifyNote(result);
+    return result;
+  }
+
   function balancedSuggestions(items,limit=60){
     const films=items.filter(x=>x.format==="Film");
     const series=items.filter(x=>x.format==="Series");
@@ -998,8 +1157,10 @@
           $("cur-ep").value="";
           $("next-season-num").value="";
           $("next-season-date").value="";
-          filmReleaseDate.value=item.releaseDate||"";
-          filmReleaseSource.value=item.releaseDate?(item.releaseSource||item.source||"Catalogue"):"";
+          filmReleaseDate.value="";
+          filmReleaseSource.value="";
+          try{await fillFilmReleaseData(item.title,{imdbId:$("imdb-id").value||"",seedDate:item.releaseDate||"",seedSource:item.releaseSource||item.source||"Film catalogue"});}
+          catch(e){console.warn("Film release verification failed",e);filmReleaseDate.value=isFutureDateOnly(item.releaseDate)?item.releaseDate:"";filmReleaseSource.value=filmReleaseDate.value?(item.releaseSource||item.source||"Film catalogue"):"";}
           return;
         }
         filmReleaseDate.value="";
@@ -1015,7 +1176,7 @@
     clearTimeout(searchTimer);
     const q=titleInput.value.trim();
     if(q.length<2){suggestList.classList.add("hidden");return;}
-    suggestList.innerHTML=`<div class="suggest-item" style="cursor:default"><div><div class="suggest-name">Searching films & series…</div><div class="suggest-meta">Checking IMDb, Apple Movies & TVMaze together — including film release dates</div></div></div>`;
+    suggestList.innerHTML=`<div class="suggest-item" style="cursor:default"><div><div class="suggest-name">Searching films & series…</div><div class="suggest-meta">Checking IMDb, Apple Movies & TVMaze together — film dates are then cross-checked with Wikipedia</div></div></div>`;
     suggestList.classList.remove("hidden");
     searchTimer=setTimeout(async()=>{
       try{
@@ -1029,11 +1190,22 @@
     },420);
   });
   document.addEventListener("click",e=>{if(!titleInput.contains(e.target)&&!suggestList.contains(e.target))suggestList.classList.add("hidden");});
-  typeSelect.onchange=()=>{const film=typeSelect.value==="Film";seriesSection.style.display=film?"none":"flex";upcomingSection.style.display=film?"none":"flex";filmSection.style.display=film?"flex":"none";if(!film){filmReleaseDate.value="";filmReleaseSource.value="";}};
+  typeSelect.onchange=()=>{const film=typeSelect.value==="Film";seriesSection.style.display=film?"none":"flex";upcomingSection.style.display=film?"none":"flex";filmSection.style.display=film?"flex":"none";if(!film){filmReleaseDate.value="";filmReleaseSource.value="";}else if(filmVerifyNote){filmVerifyNote.textContent="Future film release dates are cross-checked with Apple Movies and Wikipedia, with IMDb title/year data used to make sure the date belongs to the correct film.";}};
   filmReleaseDate.addEventListener("input",()=>{if(typeSelect.value==="Film")filmReleaseSource.value="Manual";});
 
-  function openAdd(){mediaForm.reset();$("item-id").value="";$("tvmaze-id").value="";$("imdb-id").value="";filmReleaseSource.value="";if(seasonVerifyNote)seasonVerifyNote.textContent="Season data is cross-checked with TVMaze and Wikipedia where available. Watched Logger only uses season numbers found in a real source; it never invents a season by adding 1.";$("modal-title").textContent="Log Title";deleteBtn.classList.add("hidden");seriesSection.style.display="flex";upcomingSection.style.display="flex";filmSection.style.display="none";modal.classList.remove("hidden");}
-  async function openEdit(id){const item=mediaItems.find(x=>String(x.id)===String(id));if(!item)return;$("item-id").value=item.id;$("tvmaze-id").value=item.tvmazeShowId||"";$("imdb-id").value=item.imdbId||"";$("title").value=item.title||"";$("type").value=item.type||"Series";$("status").value=item.status||"Saved";$("total-seasons").value=item.totalSeasons??"";$("watched-seasons").value=item.watchedSeasons??"";$("cur-season").value=item.curSeason??"";$("cur-ep").value=item.curEp??"";$("next-season-num").value=item.nextSeasonNum??"";$("next-season-date").value=item.nextSeasonDate?toLocalInput(item.nextSeasonDate):"";filmReleaseDate.value=item.filmReleaseDate||"";filmReleaseSource.value=item.filmReleaseSource||"";$("platform").value=item.platform||"";const film=item.type==="Film";seriesSection.style.display=film?"none":"flex";upcomingSection.style.display=film?"none":"flex";filmSection.style.display=film?"flex":"none";$("modal-title").textContent="Edit Title";deleteBtn.classList.remove("hidden");modal.classList.remove("hidden");if(!film){let sid=item.tvmazeShowId||await exactTVMazeId(item.title);$("tvmaze-id").value=sid||"";try{await fillSeasonData(sid||"",item.title,{preserveProgress:true});}catch(e){console.warn(e);}}}
+  function openAdd(){mediaForm.reset();$("item-id").value="";$("tvmaze-id").value="";$("imdb-id").value="";filmReleaseSource.value="";if(seasonVerifyNote)seasonVerifyNote.textContent="Season data is cross-checked with TVMaze and Wikipedia where available. Watched Logger only uses season numbers found in a real source; it never invents a season by adding 1.";if(filmVerifyNote)filmVerifyNote.textContent="Future film release dates are cross-checked with Apple Movies and Wikipedia, with IMDb title/year data used to make sure the date belongs to the correct film. If a real future date is found, Watched Logger fills it automatically.";$("modal-title").textContent="Log Title";deleteBtn.classList.add("hidden");seriesSection.style.display="flex";upcomingSection.style.display="flex";filmSection.style.display="none";modal.classList.remove("hidden");}
+  async function openEdit(id){
+    const item=mediaItems.find(x=>String(x.id)===String(id));if(!item)return;
+    $("item-id").value=item.id;$("tvmaze-id").value=item.tvmazeShowId||"";$("imdb-id").value=item.imdbId||"";$("title").value=item.title||"";$("type").value=item.type||"Series";$("status").value=item.status||"Saved";$("total-seasons").value=item.totalSeasons??"";$("watched-seasons").value=item.watchedSeasons??"";$("cur-season").value=item.curSeason??"";$("cur-ep").value=item.curEp??"";$("next-season-num").value=item.nextSeasonNum??"";$("next-season-date").value=item.nextSeasonDate?toLocalInput(item.nextSeasonDate):"";filmReleaseDate.value=item.filmReleaseDate||"";filmReleaseSource.value=item.filmReleaseSource||"";$("platform").value=item.platform||"";
+    const film=item.type==="Film";seriesSection.style.display=film?"none":"flex";upcomingSection.style.display=film?"none":"flex";filmSection.style.display=film?"flex":"none";$("modal-title").textContent="Edit Title";deleteBtn.classList.remove("hidden");modal.classList.remove("hidden");
+    if(film){
+      try{await fillFilmReleaseData(item.title,{imdbId:item.imdbId||"",seedDate:item.filmReleaseDate||"",seedSource:item.filmReleaseSource||"",preserveManual:item.filmReleaseSource==="Manual"});}
+      catch(e){console.warn("Film release re-check failed",e);}
+    }else{
+      let sid=item.tvmazeShowId||await exactTVMazeId(item.title);$("tvmaze-id").value=sid||"";
+      try{await fillSeasonData(sid||"",item.title,{preserveProgress:true});}catch(e){console.warn(e);}
+    }
+  }
   addBtn.onclick=openAdd;closeModal.onclick=()=>modal.classList.add("hidden");modal.addEventListener("click",e=>{if(e.target===modal)modal.classList.add("hidden");});
 
   mediaForm.onsubmit=async e=>{
@@ -1042,6 +1214,7 @@
       const existingId=$("item-id").value,id=existingId||uuid(),title=$("title").value.trim(),type=$("type").value;if(!title)throw new Error("Enter a title.");let sid=$("tvmaze-id").value;if(type!=="Film"&&!sid)sid=await exactTVMazeId(title);
       let total=$("total-seasons").value?Number($("total-seasons").value):null,nextNum=$("next-season-num").value?Number($("next-season-num").value):"",nextDate=$("next-season-date").value||"";
       if(type!=="Film"){const r=await verifiedSeasonData(sid||"",title);updateSeasonVerifyNote(r);if(r.highest!==null)total=r.highest;if(r.upcoming){nextNum=r.upcoming.number;if(r.nextEpisode&&Number(r.nextEpisode.season)===r.upcoming.number&&r.nextEpisode.airstamp)nextDate=toLocalInput(r.nextEpisode.airstamp);else nextDate=r.upcoming.premiereDate?dateOnlyInput(r.upcoming.premiereDate):"";}else{nextNum="";nextDate="";}$("total-seasons").value=total??"";$("next-season-num").value=nextNum;$("next-season-date").value=nextDate;}
+      else if(filmReleaseSource.value!=="Manual"){try{await fillFilmReleaseData(title,{imdbId:$("imdb-id").value||"",seedDate:filmReleaseDate.value||"",seedSource:filmReleaseSource.value||""});}catch(e){console.warn("Film release save-time verification failed",e);}}
       const previous=mediaItems.find(x=>String(x.id)===String(id));const numOrNull=x=>$(x).value===""?null:Number.parseInt($(x).value,10);const item={id,title,type,status:$("status").value,tvmazeShowId:sid||"",imdbId:$("imdb-id").value||"",totalSeasons:type==="Film"?null:total,watchedSeasons:type==="Film"?null:numOrNull("watched-seasons"),curSeason:type==="Film"?null:numOrNull("cur-season"),curEp:type==="Film"?null:numOrNull("cur-ep"),nextSeasonNum:type==="Film"?"":nextNum,nextSeasonDate:type==="Film"?"":nextDate,filmReleaseDate:type==="Film"?(filmReleaseDate.value||""):"",filmReleaseSource:type==="Film"?(filmReleaseDate.value?(filmReleaseSource.value||"Manual"):""):"",platform:$("platform").value.trim(),date:new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}),createdAt:previous?.createdAt||nowISO(),updatedAt:nowISO()};
       const idx=mediaItems.findIndex(x=>String(x.id)===String(id));if(idx>=0)mediaItems[idx]=item;else mediaItems.unshift(item);await persistLibrary(mediaItems);render();modal.classList.add("hidden");
     }catch(err){console.error(err);alert(err.message||"Save failed.");}
