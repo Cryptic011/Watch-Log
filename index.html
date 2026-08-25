@@ -49,6 +49,55 @@
       min-height: 100vh;
     }
 
+    /* Auth Overlay */
+    .auth-overlay {
+      position: fixed;
+      inset: 0;
+      background: #000000;
+      z-index: 500;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+    }
+
+    .auth-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 24px;
+      width: 100%;
+      max-width: 380px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .auth-header {
+      text-align: center;
+    }
+
+    .auth-header h2 {
+      font-size: 1.8rem;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .auth-header p {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    .auth-toggle {
+      color: #60a5fa;
+      font-size: 0.85rem;
+      text-align: center;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    /* Top Navigation Bar */
     .top-nav {
       position: sticky;
       top: 0;
@@ -64,6 +113,27 @@
       justify-content: space-between;
       align-items: center;
       margin-bottom: 14px;
+    }
+
+    .user-pill {
+      background: #181c24;
+      border: 1px solid var(--border);
+      color: #ffffff;
+      padding: 6px 14px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .user-avatar-dot {
+      width: 8px;
+      height: 8px;
+      background: #34d399;
+      border-radius: 50%;
     }
 
     .circle-btn {
@@ -434,6 +504,45 @@
     }
     .tab-icon-wrap svg { width: 22px; height: 22px; fill: currentColor; }
 
+    /* Profile / Settings Container */
+    .profile-card {
+      background: var(--card-bg);
+      border-radius: var(--radius-card);
+      border: 1px solid var(--border);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .profile-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .profile-avatar {
+      width: 56px;
+      height: 56px;
+      background: #2563eb;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: 800;
+    }
+
+    .profile-info h3 {
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .profile-info p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -546,11 +655,38 @@
 </head>
 <body>
 
+  <!-- Auth Screen Modal -->
+  <div id="auth-screen" class="auth-overlay hidden">
+    <div class="auth-card">
+      <div class="auth-header">
+        <h2 id="auth-title">Welcome Back</h2>
+        <p id="auth-sub">Log in to sync your watch library</p>
+      </div>
+      <form id="auth-form">
+        <div id="auth-name-group" class="form-group hidden">
+          <label for="auth-name">Name</label>
+          <input type="text" id="auth-name" placeholder="Your Name" />
+        </div>
+        <div class="form-group">
+          <label for="auth-email">Email</label>
+          <input type="email" id="auth-email" required placeholder="user@example.com" />
+        </div>
+        <div class="form-group">
+          <label for="auth-password">Password</label>
+          <input type="password" id="auth-password" required placeholder="••••••••" />
+        </div>
+        <button type="submit" id="auth-submit-btn" class="btn btn-primary" style="width: 100%; margin-top: 6px;">Log In</button>
+      </form>
+      <div id="auth-toggle-mode" class="auth-toggle">Don't have an account? Sign Up</div>
+    </div>
+  </div>
+
   <div class="top-nav">
     <div class="nav-header">
-      <button id="sort-btn" class="circle-btn" aria-label="Sort">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
-      </button>
+      <div id="user-profile-pill" class="user-pill">
+        <div class="user-avatar-dot"></div>
+        <span id="nav-user-name">Guest</span>
+      </div>
       <button id="add-btn" class="circle-btn" aria-label="Add Media">+</button>
     </div>
 
@@ -585,10 +721,28 @@
   </div>
 
   <main class="container">
-    <div class="section-label" id="list-label">Titles</div>
-    <div id="media-list" class="titles-group"></div>
-    <div id="empty-state" class="hidden" style="text-align: center; margin-top: 40px; color: var(--text-muted);">
-      <p>No titles found. Tap <strong>+</strong> to start!</p>
+    <div id="main-content-view">
+      <div class="section-label" id="list-label">Titles</div>
+      <div id="media-list" class="titles-group"></div>
+      <div id="empty-state" class="hidden" style="text-align: center; margin-top: 40px; color: var(--text-muted);">
+        <p>No titles found. Tap <strong>+</strong> to start!</p>
+      </div>
+    </div>
+
+    <!-- Profile View (Settings Tab) -->
+    <div id="profile-content-view" class="hidden">
+      <div class="section-label">Account & Profile</div>
+      <div class="profile-card">
+        <div class="profile-header">
+          <div id="profile-avatar-icon" class="profile-avatar">U</div>
+          <div class="profile-info">
+            <h3 id="profile-display-name">User</h3>
+            <p id="profile-display-email">user@watchlog.app</p>
+          </div>
+        </div>
+        <button id="switch-account-btn" class="btn btn-primary" style="width:100%;">Switch Account</button>
+        <button id="logout-btn" class="btn btn-danger" style="width:100%;">Log Out</button>
+      </div>
     </div>
   </main>
 
@@ -631,7 +785,7 @@
         <input type="hidden" id="item-id" />
 
         <div class="form-group search-suggest-box">
-          <label for="title">Title (Type freely or select match)</label>
+          <label for="title">Title (Type freely or pick match)</label>
           <input type="text" id="title" required placeholder="e.g. NCIS, Spider-Man, The Bear" autocomplete="off" />
           <div id="suggest-list" class="search-suggest-list hidden"></div>
         </div>
@@ -710,34 +864,33 @@
   </div>
 
   <script>
-    let mediaItems = JSON.parse(localStorage.getItem('watchlog_v2')) || [
-      {
-        id: '1',
-        title: 'Spider-Man',
-        type: 'Film',
-        status: 'Watched',
-        platform: 'Film',
-        date: '25 Aug 2026'
-      },
-      {
-        id: '2',
-        title: 'NCIS',
-        type: 'Series',
-        status: 'Watched',
-        platform: 'Paramount+',
-        totalSeasons: 23,
-        watchedSeasons: 23,
-        curSeason: 23,
-        curEp: 20,
-        nextSeasonNum: 24,
-        nextSeasonDate: '2026-10-04T17:12',
-        date: '25 Aug 2026'
-      }
-    ];
+    // Accounts Store
+    let users = JSON.parse(localStorage.getItem('watchlog_users')) || [];
+    let currentUser = JSON.parse(localStorage.getItem('watchlog_current_user')) || null;
+    let mediaItems = [];
 
+    let isSignUpMode = false;
     let activeFilter = 'All';
     let currentTab = 'library';
     let searchQuery = '';
+
+    // Elements
+    const authScreen = document.getElementById('auth-screen');
+    const authForm = document.getElementById('auth-form');
+    const authTitle = document.getElementById('auth-title');
+    const authSub = document.getElementById('auth-sub');
+    const authNameGroup = document.getElementById('auth-name-group');
+    const authSubmitBtn = document.getElementById('auth-submit-btn');
+    const authToggleMode = document.getElementById('auth-toggle-mode');
+    const navUserName = document.getElementById('nav-user-name');
+    const mainContentView = document.getElementById('main-content-view');
+    const profileContentView = document.getElementById('profile-content-view');
+    const profileDisplayName = document.getElementById('profile-display-name');
+    const profileDisplayEmail = document.getElementById('profile-display-email');
+    const profileAvatarIcon = document.getElementById('profile-avatar-icon');
+    const logoutBtn = document.getElementById('logout-btn');
+    const switchAccountBtn = document.getElementById('switch-account-btn');
+    const userProfilePill = document.getElementById('user-profile-pill');
 
     const mediaList = document.getElementById('media-list');
     const emptyState = document.getElementById('empty-state');
@@ -755,11 +908,102 @@
     const titleInput = document.getElementById('title');
     const suggestList = document.getElementById('suggest-list');
 
+    function checkAuth() {
+      if (!currentUser) {
+        authScreen.classList.remove('hidden');
+      } else {
+        authScreen.classList.add('hidden');
+        navUserName.innerText = currentUser.name;
+        profileDisplayName.innerText = currentUser.name;
+        profileDisplayEmail.innerText = currentUser.email;
+        profileAvatarIcon.innerText = currentUser.name.charAt(0).toUpperCase();
+
+        // Load specific user's private media library
+        mediaItems = JSON.parse(localStorage.getItem(`watchlog_data_${currentUser.email}`)) || [];
+        render();
+      }
+    }
+
+    // Toggle between Login and Sign Up
+    authToggleMode.onclick = () => {
+      isSignUpMode = !isSignUpMode;
+      if (isSignUpMode) {
+        authTitle.innerText = "Create Account";
+        authSub.innerText = "Set up your private watch library";
+        authNameGroup.classList.remove('hidden');
+        authSubmitBtn.innerText = "Sign Up";
+        authToggleMode.innerText = "Already have an account? Log In";
+      } else {
+        authTitle.innerText = "Welcome Back";
+        authSub.innerText = "Log in to sync your watch library";
+        authNameGroup.classList.add('hidden');
+        authSubmitBtn.innerText = "Log In";
+        authToggleMode.innerText = "Don't have an account? Sign Up";
+      }
+    };
+
+    authForm.onsubmit = (e) => {
+      e.preventDefault();
+      const email = document.getElementById('auth-email').value.trim().toLowerCase();
+      const password = document.getElementById('auth-password').value;
+      const name = document.getElementById('auth-name').value.trim();
+
+      if (isSignUpMode) {
+        if (users.find(u => u.email === email)) {
+          alert('An account with this email already exists.');
+          return;
+        }
+        const newUser = { name: name || 'User', email, password };
+        users.push(newUser);
+        localStorage.setItem('watchlog_users', JSON.stringify(users));
+        currentUser = newUser;
+      } else {
+        const found = users.find(u => u.email === email && u.password === password);
+        if (!found) {
+          alert('Invalid email or password.');
+          return;
+        }
+        currentUser = found;
+      }
+
+      localStorage.setItem('watchlog_current_user', JSON.stringify(currentUser));
+      authForm.reset();
+      checkAuth();
+    };
+
+    logoutBtn.onclick = () => {
+      localStorage.removeItem('watchlog_current_user');
+      currentUser = null;
+      checkAuth();
+    };
+
+    switchAccountBtn.onclick = () => {
+      localStorage.removeItem('watchlog_current_user');
+      currentUser = null;
+      checkAuth();
+    };
+
+    userProfilePill.onclick = () => {
+      switchTab('settings');
+    };
+
+    function save() {
+      if (currentUser) {
+        localStorage.setItem(`watchlog_data_${currentUser.email}`, JSON.stringify(mediaItems));
+      }
+      updateCounts();
+    }
+
+    function updateCounts() {
+      document.getElementById('count-saved').innerText = mediaItems.filter(i => i.status === 'Saved').length;
+      document.getElementById('count-watching').innerText = mediaItems.filter(i => i.status === 'Watching').length;
+      document.getElementById('count-watched').innerText = mediaItems.filter(i => i.status === 'Watched').length;
+    }
+
     function toLocalDatetimeInput(utcString) {
       if (!utcString) return '';
       const d = new Date(utcString);
       if (isNaN(d.getTime())) return '';
-      
       const year = d.getFullYear();
       const month = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
@@ -768,14 +1012,12 @@
       return `${year}-${month}-${day}T${hours}:${minutes}`;
     }
 
-    // Dismiss search list if user clicks outside
     document.addEventListener('click', (e) => {
       if (!titleInput.contains(e.target) && !suggestList.contains(e.target)) {
         suggestList.classList.add('hidden');
       }
     });
 
-    // Optional Auto-Search & Timezone Cross-Check
     let debounceTimeout = null;
     titleInput.addEventListener('input', () => {
       clearTimeout(debounceTimeout);
@@ -854,17 +1096,6 @@
       seriesSection.style.display = isFilm ? 'none' : 'flex';
       upcomingSection.style.display = isFilm ? 'none' : 'flex';
     });
-
-    function save() {
-      localStorage.setItem('watchlog_v2', JSON.stringify(mediaItems));
-      updateCounts();
-    }
-
-    function updateCounts() {
-      document.getElementById('count-saved').innerText = mediaItems.filter(i => i.status === 'Saved').length;
-      document.getElementById('count-watching').innerText = mediaItems.filter(i => i.status === 'Watching').length;
-      document.getElementById('count-watched').innerText = mediaItems.filter(i => i.status === 'Watched').length;
-    }
 
     function render() {
       mediaList.innerHTML = '';
@@ -1044,15 +1275,26 @@
       };
     });
 
-    tabBtns.forEach(btn => {
-      btn.onclick = () => {
-        tabBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentTab = btn.dataset.tab;
+    function switchTab(tab) {
+      tabBtns.forEach(b => b.classList.remove('active'));
+      const activeBtn = document.querySelector(`.tab-btn[data-tab="${tab}"]`);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      currentTab = tab;
+      if (currentTab === 'settings') {
+        mainContentView.classList.add('hidden');
+        profileContentView.classList.remove('hidden');
+      } else {
+        mainContentView.classList.remove('hidden');
+        profileContentView.classList.add('hidden');
         document.getElementById('list-label').innerText = 
           currentTab === 'watchlist' ? 'Upcoming Premieres' : (currentTab === 'history' ? 'Watch History' : 'Titles');
         render();
-      };
+      }
+    }
+
+    tabBtns.forEach(btn => {
+      btn.onclick = () => switchTab(btn.dataset.tab);
     });
 
     searchInput.oninput = (e) => {
@@ -1068,7 +1310,8 @@
         tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
     }
 
-    render();
+    // Initialize Auth
+    checkAuth();
   </script>
 </body>
 </html>
