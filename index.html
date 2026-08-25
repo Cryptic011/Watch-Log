@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>WatchLog</title>
 
-  <!-- iOS PWA Settings -->
+  <!-- iOS / Standalone PWA Settings -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="WatchLog" />
@@ -173,7 +173,6 @@
     .badge-type { background: rgba(59, 130, 246, 0.12); color: var(--accent); }
     .badge-status { background: rgba(16, 185, 129, 0.12); color: var(--success); }
 
-    /* Streamlined Episode Bar */
     .ep-tracker {
       background: var(--card-inner);
       border-radius: 12px;
@@ -209,6 +208,7 @@
       font-weight: bold;
     }
     .step-btn:active { background: var(--accent); color: white; }
+    .step-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
     .finish-season-btn {
       background: rgba(59, 130, 246, 0.15);
@@ -256,6 +256,33 @@
       margin-top: 80px;
       color: var(--text-muted);
     }
+
+    /* Auto-suggest dropdown */
+    .suggestions-list {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 100%;
+      background: #1c2230;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      max-height: 180px;
+      overflow-y: auto;
+      z-index: 120;
+      margin-top: 4px;
+    }
+
+    .suggestion-item {
+      padding: 10px 14px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+    .suggestion-item:last-child { border-bottom: none; }
+    .suggestion-item:active { background: var(--accent); }
 
     /* Modal Form */
     .modal-overlay {
@@ -327,6 +354,7 @@
 
     .form-group {
       flex: 1;
+      position: relative;
     }
 
     .modal-actions {
@@ -387,8 +415,9 @@
         <input type="hidden" id="item-id" />
 
         <div class="form-group">
-          <label for="title">Title</label>
-          <input type="text" id="title" required placeholder="e.g. NCIS" />
+          <label for="title">Title (Auto-detects show info)</label>
+          <input type="text" id="title" required placeholder="Type title (e.g. NCIS, Severance...)" autocomplete="off" />
+          <div id="suggestions" class="suggestions-list hidden"></div>
         </div>
 
         <div class="form-row">
@@ -413,17 +442,11 @@
           </div>
         </div>
 
-        <!-- Clean Series Fields -->
-        <div id="series-fields" class="form-row">
-          <div class="form-group">
-            <label for="season-num">Season #</label>
-            <input type="number" id="season-num" min="1" value="1" />
-          </div>
-          <div class="form-group">
-            <label for="ep-watched">Watched Ep</label>
-            <input type="number" id="ep-watched" min="0" value="0" />
-          </div>
-        </div>
+        <!-- Hidden dynamic metadata fetched automatically -->
+        <input type="hidden" id="season-num" value="1" />
+        <input type="hidden" id="ep-watched" value="0" />
+        <input type="hidden" id="season-total-eps" value="" />
+        <input type="hidden" id="imdb-id" value="" />
 
         <div class="form-row">
           <div class="form-group">
@@ -468,11 +491,58 @@
     const closeModal = document.getElementById('close-modal');
     const mediaForm = document.getElementById('media-form');
     const deleteBtn = document.getElementById('delete-btn');
-    const typeSelect = document.getElementById('type');
-    const seriesFields = document.getElementById('series-fields');
+    const titleInput = document.getElementById('title');
+    const suggestionsList = document.getElementById('suggestions');
 
-    typeSelect.addEventListener('change', () => {
-      seriesFields.style.display = (typeSelect.value === 'Movie') ? 'none' : 'flex';
+    // TVMaze open metadata API (cross-checks against IMDb/TV databases)
+    let debounceTimer;
+    titleInput.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      const query = titleInput.value.trim();
+      if (query.length < 2) {
+        suggestionsList.classList.add('hidden');
+        return;
+      }
+
+      debounceTimer = setTimeout(async () => {
+        try {
+          const res = await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`);
+          const data = await res.json();
+          if (data && data.length > 0) {
+            suggestionsList.innerHTML = data.slice(0, 4).map(item => `
+              <div class="suggestion-item" data-id="${item.show.id}" data-name="${escapeHTML(item.show.name)}" data-network="${escapeHTML(item.show.network?.name || item.show.webChannel?.name || '')}" data-imdb="${item.show.externals?.imdb || ''}">
+                <strong>${escapeHTML(item.show.name)}</strong>
+                <span style="color:var(--text-muted); font-size:0.75rem;">${item.show.premiered ? item.show.premiered.substring(0, 4) : ''}</span>
+              </div>
+            `).join('');
+            suggestionsList.classList.remove('hidden');
+
+            document.querySelectorAll('.suggestion-item').forEach(el => {
+              el.onclick = async () => {
+                titleInput.value = el.dataset.name;
+                document.getElementById('platform').value = el.dataset.network;
+                document.getElementById('imdb-id').value = el.dataset.imdb;
+                suggestionsList.classList.add('hidden');
+
+                // Auto-fetch total seasons & latest episode count
+                try {
+                  const sRes = await fetch(`https://api.tvmaze.com/shows/${el.dataset.id}/seasons`);
+                  const sData = await sRes.json();
+                  if (sData && sData.length > 0) {
+                    const currentSeasonObj = sData[0]; // defaults to Season 1
+                    document.getElementById('season-num').value = currentSeasonObj.number || 1;
+                    document.getElementById('season-total-eps').value = currentSeasonObj.episodeOrder || '';
+                  }
+                } catch (e) { console.error(e); }
+              };
+            });
+          } else {
+            suggestionsList.classList.add('hidden');
+          }
+        } catch (e) {
+          suggestionsList.classList.add('hidden');
+        }
+      }, 300);
     });
 
     function save() {
@@ -482,7 +552,12 @@
     function changeEp(id, delta) {
       const item = mediaItems.find(i => i.id === id);
       if (item) {
-        item.currentEp = Math.max(0, (parseInt(item.currentEp) || 0) + delta);
+        const total = parseInt(item.totalEps) || Infinity;
+        let newCount = (parseInt(item.currentEp) || 0) + delta;
+        if (newCount < 0) newCount = 0;
+        if (newCount > total) newCount = total;
+
+        item.currentEp = newCount;
         if (item.currentEp > 0 && item.status === 'Plan to Watch') {
           item.status = 'Watching';
         }
@@ -494,9 +569,9 @@
     function finishSeason(id) {
       const item = mediaItems.find(i => i.id === id);
       if (item) {
-        const nextSeason = (parseInt(item.season) || 1) + 1;
-        item.season = nextSeason;
+        item.season = (parseInt(item.season) || 1) + 1;
         item.currentEp = 0;
+        item.totalEps = ''; // Clears for next season fetch
         item.status = 'Completed';
         save();
         render();
@@ -527,6 +602,9 @@
           card.className = 'media-card';
 
           const isSeries = item.type !== 'Movie';
+          const curr = parseInt(item.currentEp) || 0;
+          const total = parseInt(item.totalEps) || null;
+          const isMax = total !== null && curr >= total;
 
           card.innerHTML = `
             <div class="card-top" onclick="openEditModal('${item.id}')">
@@ -542,11 +620,11 @@
 
             ${isSeries ? `
               <div class="ep-tracker">
-                <span class="ep-info">Season ${item.season || 1} • <strong>Ep ${item.currentEp || 0}</strong></span>
+                <span class="ep-info">Season ${item.season || 1} • <strong>Ep ${curr}${total ? ` / ${total}` : ''}</strong></span>
                 <div class="ep-actions">
-                  <button class="step-btn" onclick="changeEp('${item.id}', -1)">−</button>
-                  <button class="step-btn" onclick="changeEp('${item.id}', 1)">+</button>
-                  <button class="finish-season-btn" onclick="finishSeason('${item.id}')">End Season</button>
+                  <button class="step-btn" onclick="changeEp('${item.id}', -1)" ${curr <= 0 ? 'disabled' : ''}>−</button>
+                  <button class="step-btn" onclick="changeEp('${item.id}', 1)" ${isMax ? 'disabled' : ''}>+</button>
+                  <button class="finish-season-btn" onclick="finishSeason('${item.id}')">Finish S${item.season || 1}</button>
                 </div>
               </div>
             ` : ''}
@@ -574,7 +652,8 @@
       document.getElementById('modal-title').innerText = 'Add Media';
       document.getElementById('season-num').value = 1;
       document.getElementById('ep-watched').value = 0;
-      seriesFields.style.display = 'flex';
+      document.getElementById('season-total-eps').value = '';
+      suggestionsList.classList.add('hidden');
       deleteBtn.classList.add('hidden');
       modal.classList.remove('hidden');
     }
@@ -589,12 +668,13 @@
       document.getElementById('status').value = item.status;
       document.getElementById('season-num').value = item.season || 1;
       document.getElementById('ep-watched').value = item.currentEp || 0;
+      document.getElementById('season-total-eps').value = item.totalEps || '';
       document.getElementById('platform').value = item.platform || '';
       document.getElementById('rating').value = item.rating || '';
       document.getElementById('reminder-date').value = item.reminderDate || '';
       document.getElementById('notes').value = item.notes || '';
 
-      seriesFields.style.display = (item.type === 'Movie') ? 'none' : 'flex';
+      suggestionsList.classList.add('hidden');
       document.getElementById('modal-title').innerText = 'Edit Media';
       deleteBtn.classList.remove('hidden');
       modal.classList.remove('hidden');
@@ -609,6 +689,7 @@
         status: document.getElementById('status').value,
         season: parseInt(document.getElementById('season-num').value) || 1,
         currentEp: parseInt(document.getElementById('ep-watched').value) || 0,
+        totalEps: document.getElementById('season-total-eps').value || '',
         platform: document.getElementById('platform').value,
         rating: document.getElementById('rating').value,
         reminderDate: document.getElementById('reminder-date').value,
