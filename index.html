@@ -24,7 +24,6 @@
       --card-bg: #161b22;
       --card-inner: #21262d;
       --accent: #3b82f6;
-      --accent-hover: #2563eb;
       --text: #f0f6fc;
       --text-muted: #8b949e;
       --border: #30363d;
@@ -48,7 +47,6 @@
       min-height: 100vh;
     }
 
-    /* Fixed Glass Header */
     .app-header {
       position: sticky;
       top: 0;
@@ -140,7 +138,6 @@
       gap: 12px;
     }
 
-    /* Media Cards */
     .media-card {
       background: var(--card-bg);
       border: 1px solid var(--border);
@@ -175,6 +172,7 @@
       display: flex;
       gap: 6px;
       align-items: center;
+      margin-top: 4px;
     }
 
     .badge {
@@ -189,17 +187,24 @@
     .badge-type { background: rgba(59, 130, 246, 0.15); color: var(--accent); }
     .badge-status { background: rgba(34, 197, 94, 0.15); color: var(--success); }
 
-    /* Season & Progress Controls */
-    .progress-bar-container {
+    .seasons-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .season-row {
       background: var(--card-inner);
+      border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 10px;
+      padding: 8px 12px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
 
-    .progress-info {
+    .season-name {
       font-size: 0.88rem;
       font-weight: 600;
     }
@@ -215,9 +220,9 @@
       border: none;
       color: var(--text);
       font-size: 1.1rem;
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -225,6 +230,7 @@
       font-weight: bold;
     }
     .ctrl-btn:active { background: var(--accent); color: white; }
+    .ctrl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
     .card-footer {
       display: flex;
@@ -250,7 +256,6 @@
       color: var(--text-muted);
     }
 
-    /* Modal / Form */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -318,6 +323,49 @@
 
     .form-group {
       flex: 1;
+    }
+
+    .seasons-editor-box {
+      border: 1px solid var(--border);
+      background: #10141a;
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .season-item-input {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .season-item-input input {
+      padding: 8px;
+    }
+
+    .season-remove-btn {
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid var(--danger);
+      color: var(--danger);
+      border-radius: 6px;
+      width: 32px;
+      height: 32px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    .add-season-link {
+      background: var(--card-inner);
+      border: 1px dashed var(--accent);
+      color: var(--accent);
+      padding: 8px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-align: center;
     }
 
     .modal-actions {
@@ -404,20 +452,11 @@
           </div>
         </div>
 
-        <!-- TV & Episode Tracker Section -->
-        <div id="series-fields" class="form-row">
-          <div class="form-group">
-            <label for="season">Season</label>
-            <input type="number" id="season" min="1" value="1" />
-          </div>
-          <div class="form-group">
-            <label for="current-ep">Current Ep</label>
-            <input type="number" id="current-ep" min="0" value="0" />
-          </div>
-          <div class="form-group">
-            <label for="total-eps">Total Eps</label>
-            <input type="number" id="total-eps" min="0" placeholder="e.g. 10" />
-          </div>
+        <!-- Dynamic Multi-Seasons Section -->
+        <div id="seasons-container" class="seasons-editor-box">
+          <label>Seasons & Episodes</label>
+          <div id="seasons-list"></div>
+          <button type="button" id="add-season-row-btn" class="add-season-link">+ Add Another Season</button>
         </div>
 
         <div class="form-row">
@@ -437,7 +476,7 @@
         </div>
 
         <label for="notes">Notes</label>
-        <textarea id="notes" rows="3" placeholder="Review, favorite characters, thoughts..."></textarea>
+        <textarea id="notes" rows="3" placeholder="Review, thoughts, episode notes..."></textarea>
 
         <div class="modal-actions">
           <button type="button" id="delete-btn" class="btn btn-danger hidden">Delete</button>
@@ -462,24 +501,62 @@
     const mediaForm = document.getElementById('media-form');
     const deleteBtn = document.getElementById('delete-btn');
     const typeSelect = document.getElementById('type');
-    const seriesFields = document.getElementById('series-fields');
+    const seasonsContainer = document.getElementById('seasons-container');
+    const seasonsList = document.getElementById('seasons-list');
+    const addSeasonRowBtn = document.getElementById('add-season-row-btn');
 
-    // Show/hide series inputs depending on format
     typeSelect.addEventListener('change', () => {
-      seriesFields.style.display = (typeSelect.value === 'Movie') ? 'none' : 'flex';
+      seasonsContainer.style.display = (typeSelect.value === 'Movie') ? 'none' : 'flex';
     });
 
     function save() {
       localStorage.setItem('watchlog_items', JSON.stringify(mediaItems));
     }
 
-    function changeEpisode(id, delta) {
-      const item = mediaItems.find(i => i.id === id);
-      if (item) {
-        item.currentEp = Math.max(0, (parseInt(item.currentEp) || 0) + delta);
-        if (item.totalEps && item.currentEp >= parseInt(item.totalEps)) {
+    function createSeasonRow(seasonNumber = 1, currentEp = 0, totalEps = '') {
+      const row = document.createElement('div');
+      row.className = 'season-item-input';
+      row.innerHTML = `
+        <input type="text" class="s-name" value="Season ${seasonNumber}" style="flex: 1.2;" />
+        <input type="number" class="s-current" value="${currentEp}" min="0" placeholder="Watched" style="flex: 1;" />
+        <span style="color:var(--text-muted)">/</span>
+        <input type="number" class="s-total" value="${totalEps}" min="0" placeholder="Total" style="flex: 1;" />
+        <button type="button" class="season-remove-btn" onclick="this.parentElement.remove()">✕</button>
+      `;
+      seasonsList.appendChild(row);
+    }
+
+    addSeasonRowBtn.onclick = () => {
+      const currentCount = seasonsList.children.length;
+      createSeasonRow(currentCount + 1, 0, '');
+    };
+
+    function changeEpisode(itemId, seasonIndex, delta) {
+      const item = mediaItems.find(i => i.id === itemId);
+      if (item && item.seasons && item.seasons[seasonIndex]) {
+        const s = item.seasons[seasonIndex];
+        let current = parseInt(s.currentEp) || 0;
+        let total = parseInt(s.totalEps) || Infinity;
+
+        // Apply change bounded between 0 and Total Episodes (Max)
+        let newCount = current + delta;
+        if (newCount < 0) newCount = 0;
+        if (newCount > total) newCount = total;
+
+        s.currentEp = newCount;
+
+        // Auto-update status when all seasons reach maximum
+        const allCompleted = item.seasons.every(sec => {
+          const tot = parseInt(sec.totalEps);
+          return tot > 0 && (parseInt(sec.currentEp) || 0) >= tot;
+        });
+
+        if (allCompleted) {
           item.status = 'Completed';
+        } else if (item.status === 'Completed' && delta < 0) {
+          item.status = 'Watching';
         }
+
         save();
         render();
       }
@@ -509,9 +586,30 @@
           card.className = 'media-card';
 
           const isSeries = item.type !== 'Movie';
-          const epText = isSeries 
-            ? `S${item.season || 1} • Ep ${item.currentEp || 0}${item.totalEps ? ` / ${item.totalEps}` : ''}`
-            : 'Feature Film';
+          const seasons = item.seasons || [];
+
+          let seasonsHTML = '';
+          if (isSeries && seasons.length > 0) {
+            seasonsHTML = `
+              <div class="seasons-wrapper">
+                ${seasons.map((s, idx) => {
+                  const current = parseInt(s.currentEp) || 0;
+                  const total = parseInt(s.totalEps) || null;
+                  const isMax = total !== null && current >= total;
+
+                  return `
+                    <div class="season-row">
+                      <span class="season-name">${escapeHTML(s.name)}: <strong>Ep ${current}${total ? ` / ${total}` : ''}</strong></span>
+                      <div class="progress-controls">
+                        <button class="ctrl-btn" onclick="changeEpisode('${item.id}', ${idx}, -1)" ${current <= 0 ? 'disabled' : ''}>−</button>
+                        <button class="ctrl-btn" onclick="changeEpisode('${item.id}', ${idx}, 1)" ${isMax ? 'disabled' : ''}>+</button>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            `;
+          }
 
           card.innerHTML = `
             <div class="card-top" onclick="openEditModal('${item.id}')">
@@ -525,15 +623,7 @@
               </div>
             </div>
 
-            ${isSeries ? `
-              <div class="progress-bar-container">
-                <span class="progress-info">${epText}</span>
-                <div class="progress-controls">
-                  <button class="ctrl-btn" onclick="changeEpisode('${item.id}', -1)">−</button>
-                  <button class="ctrl-btn" onclick="changeEpisode('${item.id}', 1)">+</button>
-                </div>
-              </div>
-            ` : ''}
+            ${seasonsHTML}
 
             <div class="card-footer">
               <span>${item.platform ? `<span class="platform-tag">${escapeHTML(item.platform)}</span>` : ''}</span>
@@ -548,9 +638,11 @@
 
     function openAddModal() {
       mediaForm.reset();
+      seasonsList.innerHTML = '';
+      createSeasonRow(1, 0, ''); 
       document.getElementById('item-id').value = '';
       document.getElementById('modal-title').innerText = 'Add Media';
-      seriesFields.style.display = 'flex';
+      seasonsContainer.style.display = 'flex';
       deleteBtn.classList.add('hidden');
       modal.classList.remove('hidden');
     }
@@ -563,15 +655,23 @@
       document.getElementById('title').value = item.title;
       document.getElementById('type').value = item.type;
       document.getElementById('status').value = item.status;
-      document.getElementById('season').value = item.season || 1;
-      document.getElementById('current-ep').value = item.currentEp || 0;
-      document.getElementById('total-eps').value = item.totalEps || '';
       document.getElementById('platform').value = item.platform || '';
       document.getElementById('rating').value = item.rating || '';
       document.getElementById('reminder-date').value = item.reminder || '';
       document.getElementById('notes').value = item.notes || '';
 
-      seriesFields.style.display = (item.type === 'Movie') ? 'none' : 'flex';
+      seasonsList.innerHTML = '';
+      if (item.seasons && item.seasons.length > 0) {
+        item.seasons.forEach((s, idx) => {
+          createSeasonRow(idx + 1, s.currentEp, s.totalEps);
+          const lastRow = seasonsList.lastElementChild;
+          lastRow.querySelector('.s-name').value = s.name;
+        });
+      } else {
+        createSeasonRow(1, 0, '');
+      }
+
+      seasonsContainer.style.display = (item.type === 'Movie') ? 'none' : 'flex';
       document.getElementById('modal-title').innerText = 'Edit Media';
       deleteBtn.classList.remove('hidden');
       modal.classList.remove('hidden');
@@ -580,13 +680,30 @@
     mediaForm.onsubmit = (e) => {
       e.preventDefault();
       const id = document.getElementById('item-id').value;
+      const type = document.getElementById('type').value;
+
+      const parsedSeasons = [];
+      if (type !== 'Movie') {
+        const rows = seasonsList.querySelectorAll('.season-item-input');
+        rows.forEach(row => {
+          let curr = parseInt(row.querySelector('.s-current').value) || 0;
+          let tot = row.querySelector('.s-total').value ? parseInt(row.querySelector('.s-total').value) : '';
+          
+          if (tot && curr > tot) curr = tot;
+
+          parsedSeasons.push({
+            name: row.querySelector('.s-name').value || 'Season',
+            currentEp: curr,
+            totalEps: tot
+          });
+        });
+      }
+
       const data = {
         title: document.getElementById('title').value,
-        type: document.getElementById('type').value,
+        type: type,
         status: document.getElementById('status').value,
-        season: parseInt(document.getElementById('season').value) || 1,
-        currentEp: parseInt(document.getElementById('current-ep').value) || 0,
-        totalEps: document.getElementById('total-eps').value,
+        seasons: parsedSeasons,
         platform: document.getElementById('platform').value,
         rating: document.getElementById('rating').value,
         reminder: document.getElementById('reminder-date').value,
