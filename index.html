@@ -49,7 +49,7 @@
       min-height: 100vh;
     }
 
-    /* Auth Overlay */
+    /* Auth Screen Modal */
     .auth-overlay {
       position: fixed;
       inset: 0;
@@ -504,7 +504,6 @@
     }
     .tab-icon-wrap svg { width: 22px; height: 22px; fill: currentColor; }
 
-    /* Profile / Settings Container */
     .profile-card {
       background: var(--card-bg);
       border-radius: var(--radius-card);
@@ -864,9 +863,13 @@
   </div>
 
   <script>
-    // Accounts Store
-    let users = JSON.parse(localStorage.getItem('watchlog_users')) || [];
-    let currentUser = JSON.parse(localStorage.getItem('watchlog_current_user')) || null;
+    // Storage Keys
+    const USERS_KEY = 'watchlog_auth_users';
+    const SESSION_KEY = 'watchlog_auth_session';
+
+    // Global Registry
+    let users = JSON.parse(localStorage.getItem(USERS_KEY)) || [];
+    let currentUser = JSON.parse(localStorage.getItem(SESSION_KEY)) || null;
     let mediaItems = [];
 
     let isSignUpMode = false;
@@ -908,23 +911,27 @@
     const titleInput = document.getElementById('title');
     const suggestList = document.getElementById('suggest-list');
 
+    function getUserDataKey(email) {
+      return `watchlog_records_${email.toLowerCase()}`;
+    }
+
     function checkAuth() {
       if (!currentUser) {
         authScreen.classList.remove('hidden');
       } else {
         authScreen.classList.add('hidden');
-        navUserName.innerText = currentUser.name;
-        profileDisplayName.innerText = currentUser.name;
+        navUserName.innerText = currentUser.name || 'User';
+        profileDisplayName.innerText = currentUser.name || 'User';
         profileDisplayEmail.innerText = currentUser.email;
-        profileAvatarIcon.innerText = currentUser.name.charAt(0).toUpperCase();
+        profileAvatarIcon.innerText = (currentUser.name || currentUser.email).charAt(0).toUpperCase();
 
-        // Load specific user's private media library
-        mediaItems = JSON.parse(localStorage.getItem(`watchlog_data_${currentUser.email}`)) || [];
+        // Load isolated titles for this specific account
+        const userStorageKey = getUserDataKey(currentUser.email);
+        mediaItems = JSON.parse(localStorage.getItem(userStorageKey)) || [];
         render();
       }
     }
 
-    // Toggle between Login and Sign Up
     authToggleMode.onclick = () => {
       isSignUpMode = !isSignUpMode;
       if (isSignUpMode) {
@@ -948,6 +955,8 @@
       const password = document.getElementById('auth-password').value;
       const name = document.getElementById('auth-name').value.trim();
 
+      users = JSON.parse(localStorage.getItem(USERS_KEY)) || [];
+
       if (isSignUpMode) {
         if (users.find(u => u.email === email)) {
           alert('An account with this email already exists.');
@@ -955,7 +964,7 @@
         }
         const newUser = { name: name || 'User', email, password };
         users.push(newUser);
-        localStorage.setItem('watchlog_users', JSON.stringify(users));
+        localStorage.setItem(USERS_KEY, JSON.stringify(users));
         currentUser = newUser;
       } else {
         const found = users.find(u => u.email === email && u.password === password);
@@ -966,20 +975,24 @@
         currentUser = found;
       }
 
-      localStorage.setItem('watchlog_current_user', JSON.stringify(currentUser));
+      localStorage.setItem(SESSION_KEY, JSON.stringify(currentUser));
       authForm.reset();
       checkAuth();
     };
 
     logoutBtn.onclick = () => {
-      localStorage.removeItem('watchlog_current_user');
+      localStorage.removeItem(SESSION_KEY);
       currentUser = null;
+      mediaItems = [];
+      render();
       checkAuth();
     };
 
     switchAccountBtn.onclick = () => {
-      localStorage.removeItem('watchlog_current_user');
+      localStorage.removeItem(SESSION_KEY);
       currentUser = null;
+      mediaItems = [];
+      render();
       checkAuth();
     };
 
@@ -988,8 +1001,9 @@
     };
 
     function save() {
-      if (currentUser) {
-        localStorage.setItem(`watchlog_data_${currentUser.email}`, JSON.stringify(mediaItems));
+      if (currentUser && currentUser.email) {
+        const userStorageKey = getUserDataKey(currentUser.email);
+        localStorage.setItem(userStorageKey, JSON.stringify(mediaItems));
       }
       updateCounts();
     }
@@ -1100,6 +1114,8 @@
     function render() {
       mediaList.innerHTML = '';
       updateCounts();
+
+      if (!currentUser) return;
 
       const filtered = mediaItems.filter(item => {
         let matchesTab = true;
@@ -1231,6 +1247,7 @@
       const type = document.getElementById('type').value;
 
       const data = {
+        ownerEmail: currentUser.email,
         title: document.getElementById('title').value,
         type: type,
         status: document.getElementById('status').value,
@@ -1310,7 +1327,7 @@
         tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
     }
 
-    // Initialize Auth
+    // Initialize Auth & Hydrate Profile
     checkAuth();
   </script>
 </body>
