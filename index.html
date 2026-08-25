@@ -5,77 +5,81 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>WatchLog</title>
 
-  <!-- iOS / Standalone PWA Meta Tags -->
+  <!-- iOS / Standalone PWA Settings -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="WatchLog" />
-  <meta name="theme-color" content="#0b0e14" />
+  <meta name="theme-color" content="#0d1117" />
 
-  <!-- Inline App Icon (Base64 SVG) -->
-  <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%23151b26'/><polygon points='200,160 360,256 200,352' fill='%233b82f6'/></svg>" />
-  <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%23151b26'/><polygon points='200,160 360,256 200,352' fill='%233b82f6'/></svg>" />
+  <!-- Embedded App Icon -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='110' fill='%23161b22'/><circle cx='256' cy='256' r='180' fill='%2321262d'/><polygon points='210,160 360,256 210,352' fill='%233b82f6'/></svg>" />
+  <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='110' fill='%23161b22'/><circle cx='256' cy='256' r='180' fill='%2321262d'/><polygon points='210,160 360,256 210,352' fill='%233b82f6'/></svg>" />
 
-  <!-- Inline Web Manifest -->
-  <link rel="manifest" href='data:application/manifest+json,{"name":"WatchLog","short_name":"WatchLog","start_url":".","display":"standalone","background_color":"%230b0e14","theme_color":"%230b0e14","icons":[{"src":"data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\"><rect width=\"512\" height=\"512\" rx=\"100\" fill=\"%23151b26\"/><polygon points=\"200,160 360,256 200,352\" fill=\"%233b82f6\"/></svg>","sizes":"512x512","type":"image/svg+xml"}]}' />
+  <!-- Embedded Web Manifest -->
+  <link rel="manifest" href='data:application/manifest+json,{"name":"WatchLog","short_name":"WatchLog","start_url":".","display":"standalone","background_color":"%230d1117","theme_color":"%230d1117","icons":[{"src":"data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\"><rect width=\"512\" height=\"512\" rx=\"110\" fill=\"%23161b22\"/><circle cx=\"256\" cy=\"256\" r=\"180\" fill=\"%2321262d\"/><polygon points=\"210,160 360,256 210,352\" fill=\"%233b82f6\"/></svg>","sizes":"512x512","type":"image/svg+xml"}]}' />
 
   <style>
     :root {
-      --bg-color: #0b0e14;
-      --card-bg: #151b26;
-      --accent-color: #3b82f6;
-      --text-primary: #f8fafc;
-      --text-secondary: #94a3b8;
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --card-inner: #21262d;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --text: #f0f6fc;
+      --text-muted: #8b949e;
+      --border: #30363d;
       --danger: #ef4444;
-      --border: #1e293b;
-      --radius: 12px;
+      --success: #22c55e;
+      --radius: 14px;
     }
 
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
       -webkit-tap-highlight-color: transparent;
     }
 
     body {
-      background-color: var(--bg-color);
-      color: var(--text-primary);
-      padding-bottom: 60px;
+      background-color: var(--bg);
+      color: var(--text);
+      padding-bottom: 90px;
       min-height: 100vh;
     }
 
+    /* Fixed Glass Header */
     .app-header {
       position: sticky;
       top: 0;
-      background-color: rgba(11, 14, 20, 0.85);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      background-color: rgba(13, 17, 23, 0.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       border-bottom: 1px solid var(--border);
       padding: env(safe-area-inset-top, 16px) 16px 8px 16px;
       z-index: 50;
     }
 
-    .header-content {
+    .header-top {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      letter-spacing: -0.5px;
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.6px;
     }
 
     .icon-btn {
-      background: var(--accent-color);
+      background: var(--accent);
       border: none;
       color: white;
-      font-size: 1.4rem;
-      width: 36px;
-      height: 36px;
+      font-size: 1.6rem;
+      width: 38px;
+      height: 38px;
       border-radius: 50%;
       cursor: pointer;
       display: flex;
@@ -83,29 +87,45 @@
       justify-content: center;
     }
 
+    .search-box {
+      margin-bottom: 10px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+    }
+
     .filter-bar {
       display: flex;
       gap: 8px;
       overflow-x: auto;
-      padding-bottom: 6px;
+      padding-bottom: 4px;
+      scrollbar-width: none;
     }
+    .filter-bar::-webkit-scrollbar { display: none; }
 
     .filter-btn {
-      background: transparent;
+      background: var(--card-bg);
       border: 1px solid var(--border);
-      color: var(--text-secondary);
+      color: var(--text-muted);
       padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 0.85rem;
-      font-weight: 500;
+      border-radius: 18px;
+      font-size: 0.8rem;
+      font-weight: 600;
       cursor: pointer;
       white-space: nowrap;
     }
 
     .filter-btn.active {
-      background: var(--accent-color);
+      background: var(--accent);
       color: white;
-      border-color: var(--accent-color);
+      border-color: var(--accent);
     }
 
     .container {
@@ -114,79 +134,142 @@
       margin: 0 auto;
     }
 
-    .media-grid {
+    .media-list {
       display: flex;
       flex-direction: column;
       gap: 12px;
     }
 
+    /* Media Cards */
     .media-card {
       background: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 14px;
-      cursor: pointer;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 10px;
     }
 
     .card-top {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
+      cursor: pointer;
+    }
+
+    .card-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
 
     .card-title {
-      font-size: 1.05rem;
-      font-weight: 600;
+      font-size: 1.1rem;
+      font-weight: 700;
     }
 
-    .card-badge {
-      font-size: 0.75rem;
-      padding: 2px 8px;
-      border-radius: 6px;
-      background: rgba(59, 130, 246, 0.15);
-      color: var(--accent-color);
-      font-weight: 600;
-    }
-
-    .card-details {
+    .card-meta {
+      font-size: 0.78rem;
+      color: var(--text-muted);
       display: flex;
-      gap: 12px;
-      font-size: 0.85rem;
-      color: var(--text-secondary);
+      gap: 6px;
+      align-items: center;
     }
 
-    .card-notes {
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-      margin-top: 4px;
-      line-height: 1.3;
+    .badge {
+      font-size: 0.72rem;
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-type { background: rgba(59, 130, 246, 0.15); color: var(--accent); }
+    .badge-status { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+
+    /* Season & Progress Controls */
+    .progress-bar-container {
+      background: var(--card-inner);
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .progress-info {
+      font-size: 0.88rem;
+      font-weight: 600;
+    }
+
+    .progress-controls {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .ctrl-btn {
+      background: var(--border);
+      border: none;
+      color: var(--text);
+      font-size: 1.1rem;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+    }
+    .ctrl-btn:active { background: var(--accent); color: white; }
+
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+    }
+
+    .platform-tag {
+      background: #23272e;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-size: 0.75rem;
     }
 
     .empty-state {
       text-align: center;
       margin-top: 80px;
-      color: var(--text-secondary);
+      color: var(--text-muted);
     }
 
+    /* Modal / Form */
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0, 0, 0, 0.75);
       display: flex;
       align-items: flex-end;
       z-index: 100;
     }
 
     .modal-content {
-      background: #19202e;
+      background: #161b22;
+      border-top: 1px solid var(--border);
       width: 100%;
       max-width: 600px;
       margin: 0 auto;
       border-radius: 20px 20px 0 0;
       padding: 20px 20px calc(env(safe-area-inset-bottom, 20px) + 20px) 20px;
+      max-height: 90vh;
+      overflow-y: auto;
     }
 
     .modal-header {
@@ -200,7 +283,7 @@
       background: transparent;
       border: none;
       font-size: 1.8rem;
-      color: var(--text-secondary);
+      color: var(--text-muted);
       cursor: pointer;
     }
 
@@ -211,16 +294,18 @@
     }
 
     label {
-      font-size: 0.8rem;
-      color: var(--text-secondary);
-      font-weight: 600;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
     }
 
     input, select, textarea {
       width: 100%;
-      background: var(--card-bg);
+      background: var(--card-inner);
       border: 1px solid var(--border);
-      color: var(--text-primary);
+      color: var(--text);
       padding: 10px;
       border-radius: 8px;
       font-size: 0.95rem;
@@ -228,7 +313,7 @@
 
     .form-row {
       display: flex;
-      gap: 12px;
+      gap: 10px;
     }
 
     .form-group {
@@ -237,66 +322,75 @@
 
     .modal-actions {
       display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      margin-top: 10px;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
     }
 
     .btn {
       padding: 10px 18px;
       border-radius: 8px;
       border: none;
-      font-weight: 600;
+      font-weight: 700;
+      font-size: 0.95rem;
       cursor: pointer;
     }
 
-    .btn-primary { background: var(--accent-color); color: white; }
+    .btn-primary { background: var(--accent); color: white; }
     .btn-danger { background: var(--danger); color: white; }
     .hidden { display: none !important; }
   </style>
 </head>
 <body>
+
   <header class="app-header">
-    <div class="header-content">
+    <div class="header-top">
       <h1>WatchLog</h1>
       <button id="add-btn" class="icon-btn" aria-label="Add Media">+</button>
+    </div>
+    <div class="search-box">
+      <input type="text" id="search-input" class="search-input" placeholder="Search titles, platforms..." />
     </div>
     <div class="filter-bar">
       <button class="filter-btn active" data-filter="All">All</button>
       <button class="filter-btn" data-filter="Watching">Watching</button>
       <button class="filter-btn" data-filter="Plan to Watch">Plan</button>
       <button class="filter-btn" data-filter="Completed">Done</button>
+      <button class="filter-btn" data-filter="TV Show">TV Shows</button>
+      <button class="filter-btn" data-filter="Movie">Movies</button>
+      <button class="filter-btn" data-filter="Anime">Anime</button>
     </div>
   </header>
 
   <main class="container">
-    <div id="media-list" class="media-grid"></div>
+    <div id="media-list" class="media-list"></div>
     <div id="empty-state" class="empty-state hidden">
-      <p>No media found. Tap <strong>+</strong> to log your first title!</p>
+      <p>No entries found. Tap <strong>+</strong> to start tracking!</p>
     </div>
   </main>
 
+  <!-- Add / Edit Modal -->
   <div id="modal" class="modal-overlay hidden">
     <div class="modal-content">
       <div class="modal-header">
-        <h2 id="modal-title">Add Media</h2>
+        <h2 id="modal-title">Log Media</h2>
         <button id="close-modal" class="close-btn">&times;</button>
       </div>
       <form id="media-form">
         <input type="hidden" id="item-id" />
 
         <label for="title">Title</label>
-        <input type="text" id="title" required placeholder="e.g. Inception" />
+        <input type="text" id="title" required placeholder="e.g. Severance" />
 
         <div class="form-row">
           <div class="form-group">
-            <label for="type">Category</label>
+            <label for="type">Format</label>
             <select id="type">
-              <option value="Movie">Movie</option>
               <option value="TV Show">TV Show</option>
+              <option value="Movie">Movie</option>
               <option value="Anime">Anime</option>
-              <option value="Book">Book</option>
               <option value="Game">Game</option>
+              <option value="Book">Book</option>
             </select>
           </div>
           <div class="form-group">
@@ -305,63 +399,106 @@
               <option value="Watching">Watching</option>
               <option value="Plan to Watch">Plan to Watch</option>
               <option value="Completed">Completed</option>
-              <option value="On Hold">On Hold</option>
               <option value="Dropped">Dropped</option>
             </select>
           </div>
         </div>
 
-        <div class="form-row">
+        <!-- TV & Episode Tracker Section -->
+        <div id="series-fields" class="form-row">
           <div class="form-group">
-            <label for="rating">Rating (1–10)</label>
-            <input type="number" id="rating" min="1" max="10" placeholder="e.g. 9" />
+            <label for="season">Season</label>
+            <input type="number" id="season" min="1" value="1" />
           </div>
           <div class="form-group">
-            <label for="reminder-date">Reminder Date</label>
-            <input type="datetime-local" id="reminder-date" />
+            <label for="current-ep">Current Ep</label>
+            <input type="number" id="current-ep" min="0" value="0" />
+          </div>
+          <div class="form-group">
+            <label for="total-eps">Total Eps</label>
+            <input type="number" id="total-eps" min="0" placeholder="e.g. 10" />
           </div>
         </div>
 
-        <label for="notes">Notes / Episodes</label>
-        <textarea id="notes" rows="3" placeholder="Episode progress, thoughts, etc..."></textarea>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="platform">Streaming / Platform</label>
+            <input type="text" id="platform" placeholder="Apple TV+, Netflix, Xbox..." />
+          </div>
+          <div class="form-group">
+            <label for="rating">Rating (1–10)</label>
+            <input type="number" id="rating" min="1" max="10" placeholder="★ /10" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="reminder-date">Reminder / Air Date</label>
+          <input type="datetime-local" id="reminder-date" />
+        </div>
+
+        <label for="notes">Notes</label>
+        <textarea id="notes" rows="3" placeholder="Review, favorite characters, thoughts..."></textarea>
 
         <div class="modal-actions">
           <button type="button" id="delete-btn" class="btn btn-danger hidden">Delete</button>
-          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="submit" class="btn btn-primary">Save to Log</button>
         </div>
       </form>
     </div>
   </div>
 
   <script>
-    // State & Storage
     let mediaItems = JSON.parse(localStorage.getItem('watchlog_items')) || [];
     let activeFilter = 'All';
+    let searchQuery = '';
 
-    // Elements
     const mediaList = document.getElementById('media-list');
     const emptyState = document.getElementById('empty-state');
     const filterBtns = document.querySelectorAll('.filter-btn');
+    const searchInput = document.getElementById('search-input');
     const modal = document.getElementById('modal');
     const addBtn = document.getElementById('add-btn');
     const closeModal = document.getElementById('close-modal');
     const mediaForm = document.getElementById('media-form');
     const deleteBtn = document.getElementById('delete-btn');
+    const typeSelect = document.getElementById('type');
+    const seriesFields = document.getElementById('series-fields');
 
-    // Notification Check
-    if ('Notification' in window && Notification.permission !== 'granted') {
-      Notification.requestPermission();
-    }
+    // Show/hide series inputs depending on format
+    typeSelect.addEventListener('change', () => {
+      seriesFields.style.display = (typeSelect.value === 'Movie') ? 'none' : 'flex';
+    });
 
     function save() {
       localStorage.setItem('watchlog_items', JSON.stringify(mediaItems));
     }
 
+    function changeEpisode(id, delta) {
+      const item = mediaItems.find(i => i.id === id);
+      if (item) {
+        item.currentEp = Math.max(0, (parseInt(item.currentEp) || 0) + delta);
+        if (item.totalEps && item.currentEp >= parseInt(item.totalEps)) {
+          item.status = 'Completed';
+        }
+        save();
+        render();
+      }
+    }
+
     function render() {
       mediaList.innerHTML = '';
-      const filtered = activeFilter === 'All' 
-        ? mediaItems 
-        : mediaItems.filter(item => item.status === activeFilter);
+      
+      const filtered = mediaItems.filter(item => {
+        const matchesFilter = (activeFilter === 'All') 
+          || (item.status === activeFilter) 
+          || (item.type === activeFilter);
+
+        const matchesSearch = !searchQuery 
+          || item.title.toLowerCase().includes(searchQuery.toLowerCase())
+          || (item.platform && item.platform.toLowerCase().includes(searchQuery.toLowerCase()));
+
+        return matchesFilter && matchesSearch;
+      });
 
       if (filtered.length === 0) {
         emptyState.classList.remove('hidden');
@@ -370,19 +507,39 @@
         filtered.forEach(item => {
           const card = document.createElement('div');
           card.className = 'media-card';
-          card.onclick = () => openEditModal(item.id);
+
+          const isSeries = item.type !== 'Movie';
+          const epText = isSeries 
+            ? `S${item.season || 1} • Ep ${item.currentEp || 0}${item.totalEps ? ` / ${item.totalEps}` : ''}`
+            : 'Feature Film';
 
           card.innerHTML = `
-            <div class="card-top">
-              <span class="card-title">${escapeHTML(item.title)}</span>
-              <span class="card-badge">${item.type}</span>
+            <div class="card-top" onclick="openEditModal('${item.id}')">
+              <div class="card-title-group">
+                <span class="card-title">${escapeHTML(item.title)}</span>
+                <div class="card-meta">
+                  <span class="badge badge-type">${item.type}</span>
+                  <span class="badge badge-status">${item.status}</span>
+                  ${item.rating ? `<span>★ ${item.rating}/10</span>` : ''}
+                </div>
+              </div>
             </div>
-            <div class="card-details">
-              <span>Status: <strong>${item.status}</strong></span>
-              ${item.rating ? `<span>★ ${item.rating}/10</span>` : ''}
-              ${item.reminder ? `<span>⏰ ${new Date(item.reminder).toLocaleDateString()}</span>` : ''}
+
+            ${isSeries ? `
+              <div class="progress-bar-container">
+                <span class="progress-info">${epText}</span>
+                <div class="progress-controls">
+                  <button class="ctrl-btn" onclick="changeEpisode('${item.id}', -1)">−</button>
+                  <button class="ctrl-btn" onclick="changeEpisode('${item.id}', 1)">+</button>
+                </div>
+              </div>
+            ` : ''}
+
+            <div class="card-footer">
+              <span>${item.platform ? `<span class="platform-tag">${escapeHTML(item.platform)}</span>` : ''}</span>
+              <span>${item.reminder ? `⏰ ${new Date(item.reminder).toLocaleDateString()}` : ''}</span>
             </div>
-            ${item.notes ? `<div class="card-notes">${escapeHTML(item.notes)}</div>` : ''}
+            ${item.notes ? `<p style="font-size:0.8rem; color:var(--text-muted);">${escapeHTML(item.notes)}</p>` : ''}
           `;
           mediaList.appendChild(card);
         });
@@ -393,6 +550,7 @@
       mediaForm.reset();
       document.getElementById('item-id').value = '';
       document.getElementById('modal-title').innerText = 'Add Media';
+      seriesFields.style.display = 'flex';
       deleteBtn.classList.add('hidden');
       modal.classList.remove('hidden');
     }
@@ -405,10 +563,15 @@
       document.getElementById('title').value = item.title;
       document.getElementById('type').value = item.type;
       document.getElementById('status').value = item.status;
+      document.getElementById('season').value = item.season || 1;
+      document.getElementById('current-ep').value = item.currentEp || 0;
+      document.getElementById('total-eps').value = item.totalEps || '';
+      document.getElementById('platform').value = item.platform || '';
       document.getElementById('rating').value = item.rating || '';
       document.getElementById('reminder-date').value = item.reminder || '';
       document.getElementById('notes').value = item.notes || '';
 
+      seriesFields.style.display = (item.type === 'Movie') ? 'none' : 'flex';
       document.getElementById('modal-title').innerText = 'Edit Media';
       deleteBtn.classList.remove('hidden');
       modal.classList.remove('hidden');
@@ -417,18 +580,24 @@
     mediaForm.onsubmit = (e) => {
       e.preventDefault();
       const id = document.getElementById('item-id').value;
-      const title = document.getElementById('title').value;
-      const type = document.getElementById('type').value;
-      const status = document.getElementById('status').value;
-      const rating = document.getElementById('rating').value;
-      const reminder = document.getElementById('reminder-date').value;
-      const notes = document.getElementById('notes').value;
+      const data = {
+        title: document.getElementById('title').value,
+        type: document.getElementById('type').value,
+        status: document.getElementById('status').value,
+        season: parseInt(document.getElementById('season').value) || 1,
+        currentEp: parseInt(document.getElementById('current-ep').value) || 0,
+        totalEps: document.getElementById('total-eps').value,
+        platform: document.getElementById('platform').value,
+        rating: document.getElementById('rating').value,
+        reminder: document.getElementById('reminder-date').value,
+        notes: document.getElementById('notes').value
+      };
 
       if (id) {
         const idx = mediaItems.findIndex(i => i.id === id);
-        if (idx !== -1) mediaItems[idx] = { id, title, type, status, rating, reminder, notes };
+        if (idx !== -1) mediaItems[idx] = { id, ...data };
       } else {
-        mediaItems.unshift({ id: Date.now().toString(), title, type, status, rating, reminder, notes });
+        mediaItems.unshift({ id: Date.now().toString(), ...data });
       }
 
       save();
@@ -454,6 +623,11 @@
         render();
       };
     });
+
+    searchInput.oninput = (e) => {
+      searchQuery = e.target.value;
+      render();
+    };
 
     addBtn.onclick = openAddModal;
     closeModal.onclick = () => modal.classList.add('hidden');
