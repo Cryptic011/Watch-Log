@@ -20,8 +20,6 @@
       --card-bg: #15181e;
       --card-inner: #1e222a;
       --accent: #2563eb;
-      --accent-pill: #1e293b;
-      --pill-active: #525a68;
       --text: #ffffff;
       --text-muted: #8e95a2;
       --border: #232730;
@@ -90,7 +88,6 @@
       margin-bottom: 12px;
     }
 
-    /* Search Bar */
     .search-box {
       background: #15181e;
       border: 1px solid var(--border);
@@ -117,7 +114,6 @@
       outline: none;
     }
 
-    /* Summary Stat Cards */
     .stats-row {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
@@ -146,7 +142,6 @@
       font-weight: 600;
     }
 
-    /* Filter Pill Bar */
     .filter-pills {
       display: flex;
       gap: 6px;
@@ -187,7 +182,6 @@
       color: #ffffff;
     }
 
-    /* Card List */
     .titles-group {
       background: var(--card-bg);
       border-radius: var(--radius-card);
@@ -330,7 +324,6 @@
       font-weight: bold;
     }
 
-    /* Reminder Pill Banner */
     .reminder-pill-banner {
       background: var(--tag-reminder-bg);
       border: 1px solid var(--tag-reminder-border);
@@ -344,10 +337,61 @@
       font-weight: 600;
     }
 
-    .reminder-pill-banner .bell-tag {
+    /* Auto-Search Dropdown */
+    .search-suggest-box {
+      position: relative;
+    }
+
+    .search-suggest-list {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 100%;
+      background: #181d26;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      max-height: 220px;
+      overflow-y: auto;
+      z-index: 150;
+      margin-top: 6px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+    }
+
+    .suggest-item {
+      padding: 12px 14px;
+      cursor: pointer;
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .suggest-item:last-child { border-bottom: none; }
+    .suggest-item:active { background: #232d3f; }
+
+    .suggest-item-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .suggest-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .suggest-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .suggest-network {
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 600;
     }
 
     /* Bottom iOS Navigation Bar */
@@ -380,21 +424,13 @@
       flex: 1;
     }
 
-    .tab-btn.active {
-      color: #60a5fa;
-    }
-
+    .tab-btn.active { color: #60a5fa; }
     .tab-btn.active .tab-icon-wrap {
       background: #232d3f;
       border-radius: 16px;
       padding: 4px 18px;
     }
-
-    .tab-icon-wrap svg {
-      width: 22px;
-      height: 22px;
-      fill: currentColor;
-    }
+    .tab-icon-wrap svg { width: 22px; height: 22px; fill: currentColor; }
 
     /* Modal Sheet */
     .modal-overlay {
@@ -519,13 +555,11 @@
 
     <h1>WatchLog</h1>
 
-    <!-- Search Input -->
     <div class="search-box">
       <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
       <input type="text" id="search-input" placeholder="Search titles or platforms" />
     </div>
 
-    <!-- 3 Action Stat Counters -->
     <div class="stats-row">
       <div class="stat-card">
         <span class="num" id="count-saved">0</span>
@@ -541,7 +575,6 @@
       </div>
     </div>
 
-    <!-- Filter Pills -->
     <div class="filter-pills">
       <button class="pill-btn active" data-filter="All">All</button>
       <button class="pill-btn" data-filter="Saved">Saved</button>
@@ -586,7 +619,7 @@
     </button>
   </nav>
 
-  <!-- Add / Edit Modal -->
+  <!-- Add / Edit Modal Sheet -->
   <div id="modal" class="modal-overlay hidden">
     <div class="modal-content">
       <div class="modal-header">
@@ -596,9 +629,10 @@
       <form id="media-form">
         <input type="hidden" id="item-id" />
 
-        <div class="form-group">
-          <label for="title">Title</label>
-          <input type="text" id="title" required placeholder="e.g. NCIS, Spider-Man" />
+        <div class="form-group search-suggest-box">
+          <label for="title">Title (Live Auto-Search)</label>
+          <input type="text" id="title" required placeholder="Type series name (e.g. NCIS, Severance...)" autocomplete="off" />
+          <div id="suggest-list" class="search-suggest-list hidden"></div>
         </div>
 
         <div class="form-row">
@@ -663,7 +697,7 @@
 
         <div class="form-group">
           <label for="platform">Streaming / Platform</label>
-          <input type="text" id="platform" placeholder="Paramount+, Netflix, Film..." />
+          <input type="text" id="platform" placeholder="Paramount+, Netflix, Apple TV+..." />
         </div>
 
         <div class="modal-actions">
@@ -717,11 +751,88 @@
     const typeSelect = document.getElementById('type');
     const seriesSection = document.getElementById('series-section');
     const upcomingSection = document.getElementById('upcoming-section');
+    const titleInput = document.getElementById('title');
+    const suggestList = document.getElementById('suggest-list');
 
-    // Ask for Notification Permissions for air date reminders
-    if ('Notification' in window && Notification.permission !== 'granted') {
-      Notification.requestPermission();
-    }
+    // Live Auto-Search / Auto-Fill API handler
+    let debounceTimeout = null;
+    titleInput.addEventListener('input', () => {
+      clearTimeout(debounceTimeout);
+      const query = titleInput.value.trim();
+      if (query.length < 2) {
+        suggestList.classList.add('hidden');
+        return;
+      }
+
+      debounceTimeout = setTimeout(async () => {
+        try {
+          const res = await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`);
+          const results = await res.json();
+
+          if (results && results.length > 0) {
+            suggestList.innerHTML = results.slice(0, 5).map(item => {
+              const show = item.show;
+              const network = show.network?.name || show.webChannel?.name || 'Streaming';
+              const year = show.premiered ? show.premiered.substring(0, 4) : '';
+              return `
+                <div class="suggest-item" data-id="${show.id}" data-title="${escapeHTML(show.name)}" data-platform="${escapeHTML(network)}">
+                  <div class="suggest-item-left">
+                    <span class="suggest-title">${escapeHTML(show.name)}</span>
+                    <span class="suggest-meta">${year ? `${year} • ` : ''}${show.type || 'Series'}</span>
+                  </div>
+                  <span class="suggest-network">${escapeHTML(network)}</span>
+                </div>
+              `;
+            }).join('');
+            suggestList.classList.remove('hidden');
+
+            // Attach 1-tap autofill listeners
+            document.querySelectorAll('.suggest-item').forEach(el => {
+              el.onclick = async () => {
+                const showId = el.dataset.id;
+                titleInput.value = el.dataset.title;
+                document.getElementById('platform').value = el.dataset.platform;
+                document.getElementById('type').value = 'Series';
+                suggestList.classList.add('hidden');
+
+                // Auto-fetch seasons metadata
+                try {
+                  const sRes = await fetch(`https://api.tvmaze.com/shows/${showId}/seasons`);
+                  const seasons = await sRes.json();
+                  if (seasons && seasons.length > 0) {
+                    const totalSeasons = seasons.length;
+                    const latestSeason = seasons[seasons.length - 1];
+
+                    document.getElementById('total-seasons').value = totalSeasons;
+                    document.getElementById('cur-season').value = totalSeasons;
+                    document.getElementById('watched-seasons').value = totalSeasons;
+                    document.getElementById('cur-ep').value = latestSeason.episodeOrder || '';
+
+                    // Check for next announced season
+                    const nextSeasonNum = totalSeasons + 1;
+                    document.getElementById('next-season-num').value = nextSeasonNum;
+                  }
+
+                  // Auto-fetch upcoming premiere date if scheduled
+                  const epRes = await fetch(`https://api.tvmaze.com/shows/${showId}?embed=nextepisode`);
+                  const epData = await epRes.json();
+                  if (epData._embedded?.nextepisode?.airstamp) {
+                    const nextDate = new Date(epData._embedded.nextepisode.airstamp).toISOString().slice(0, 16);
+                    document.getElementById('next-season-date').value = nextDate;
+                  }
+                } catch (err) {
+                  console.error('Auto-fetch failed:', err);
+                }
+              };
+            });
+          } else {
+            suggestList.classList.add('hidden');
+          }
+        } catch (e) {
+          suggestList.classList.add('hidden');
+        }
+      }, 300);
+    });
 
     typeSelect.addEventListener('change', () => {
       const isFilm = typeSelect.value === 'Film';
@@ -787,7 +898,7 @@
             const formattedDate = new Date(item.nextSeasonDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
             reminderHTML = `
               <div class="reminder-pill-banner">
-                <span class="bell-tag">🔔 Season ${item.nextSeasonNum || 'Next'} Premiere</span>
+                <span>🔔 Season ${item.nextSeasonNum || 'Next'} Premiere</span>
                 <span>${formattedDate}</span>
               </div>
             `;
@@ -832,6 +943,7 @@
       mediaForm.reset();
       document.getElementById('item-id').value = '';
       document.getElementById('modal-title').innerText = 'Log Title';
+      suggestList.classList.add('hidden');
       seriesSection.style.display = 'flex';
       upcomingSection.style.display = 'flex';
       deleteBtn.classList.add('hidden');
@@ -858,6 +970,7 @@
       seriesSection.style.display = isFilm ? 'none' : 'flex';
       upcomingSection.style.display = isFilm ? 'none' : 'flex';
 
+      suggestList.classList.add('hidden');
       document.getElementById('modal-title').innerText = 'Edit Title';
       deleteBtn.classList.remove('hidden');
       modal.classList.remove('hidden');
