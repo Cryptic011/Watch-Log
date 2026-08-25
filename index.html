@@ -9,298 +9,381 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="WatchLog" />
-  <meta name="theme-color" content="#0a0c10" />
+  <meta name="theme-color" content="#000000" />
 
-  <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='120' fill='%2312161f'/><polygon points='210,160 360,256 210,352' fill='%233b82f6'/></svg>" />
-  <link rel="manifest" href='data:application/manifest+json,{"name":"WatchLog","short_name":"WatchLog","start_url":".","display":"standalone","background_color":"%230a0c10","theme_color":"%230a0c10","icons":[{"src":"data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\"><rect width=\"512\" height=\"512\" rx=\"120\" fill=\"%2312161f\"/><polygon points=\"210,160 360,256 210,352\" fill=\"%233b82f6\"/></svg>","sizes":"512x512","type":"image/svg+xml"}]}' />
+  <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='120' fill='%23181b20'/><polygon points='210,160 360,256 210,352' fill='%233b82f6'/></svg>" />
+  <link rel="manifest" href='data:application/manifest+json,{"name":"WatchLog","short_name":"WatchLog","start_url":".","display":"standalone","background_color":"%23000000","theme_color":"%23000000","icons":[{"src":"data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\"><rect width=\"512\" height=\"512\" rx=\"120\" fill=\"%23181b20\"/><polygon points=\"210,160 360,256 210,352\" fill=\"%233b82f6\"/></svg>","sizes":"512x512","type":"image/svg+xml"}]}' />
 
   <style>
     :root {
-      --bg: #0a0c10;
-      --card-bg: #141822;
-      --card-inner: #1c2230;
-      --accent: #3b82f6;
-      --text: #f1f5f9;
-      --text-muted: #828d9f;
-      --border: #232a3b;
+      --bg: #000000;
+      --card-bg: #15181e;
+      --card-inner: #1e222a;
+      --accent: #2563eb;
+      --accent-pill: #1e293b;
+      --pill-active: #525a68;
+      --text: #ffffff;
+      --text-muted: #8e95a2;
+      --border: #232730;
+      --tag-watched-bg: #143026;
+      --tag-watched-text: #34d399;
+      --tag-watching-bg: #1e293b;
+      --tag-watching-text: #60a5fa;
       --danger: #ef4444;
-      --success: #10b981;
-      --radius: 16px;
+      --radius-card: 20px;
     }
 
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
       -webkit-tap-highlight-color: transparent;
     }
 
     body {
       background-color: var(--bg);
       color: var(--text);
-      padding-bottom: 90px;
+      padding-bottom: 110px;
       min-height: 100vh;
     }
 
-    .app-header {
+    /* Top Navigation Bar */
+    .top-nav {
       position: sticky;
       top: 0;
-      background-color: rgba(10, 12, 16, 0.85);
+      background-color: rgba(0, 0, 0, 0.9);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--border);
       padding: env(safe-area-inset-top, 16px) 16px 10px 16px;
       z-index: 50;
     }
 
-    .header-top {
+    .nav-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }
 
-    h1 {
-      font-size: 1.65rem;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-    }
-
-    .icon-btn {
-      background: var(--accent);
-      border: none;
-      color: white;
-      font-size: 1.5rem;
-      width: 36px;
-      height: 36px;
+    .circle-btn {
+      background: #181c24;
+      border: 1px solid var(--border);
+      color: #60a5fa;
+      width: 44px;
+      height: 44px;
       border-radius: 50%;
-      cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
+      font-size: 1.3rem;
+      cursor: pointer;
     }
 
-    .search-input {
-      width: 100%;
-      background: var(--card-bg);
+    h1 {
+      font-size: 2.1rem;
+      font-weight: 800;
+      letter-spacing: -0.6px;
+      margin-bottom: 12px;
+    }
+
+    /* Search Bar */
+    .search-box {
+      background: #15181e;
       border: 1px solid var(--border);
-      color: var(--text);
-      padding: 10px 14px;
       border-radius: 12px;
-      font-size: 0.9rem;
-      margin-bottom: 10px;
-    }
-
-    .filter-bar {
       display: flex;
-      gap: 8px;
-      overflow-x: auto;
-      padding-bottom: 4px;
-      scrollbar-width: none;
+      align-items: center;
+      padding: 10px 14px;
+      gap: 10px;
+      margin-bottom: 14px;
     }
-    .filter-bar::-webkit-scrollbar { display: none; }
 
-    .filter-btn {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
+    .search-box svg {
+      width: 18px;
+      height: 18px;
+      fill: var(--text-muted);
+    }
+
+    .search-box input {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 1rem;
+      width: 100%;
+      outline: none;
+    }
+
+    /* Summary Stat Cards */
+    .stats-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .stat-card {
+      background: #15181e;
+      border-radius: 14px;
+      padding: 12px 6px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .stat-card .num {
+      font-size: 1.35rem;
+      font-weight: 800;
+    }
+
+    .stat-card .label {
+      font-size: 0.78rem;
       color: var(--text-muted);
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 0.82rem;
+      font-weight: 600;
+    }
+
+    /* Filter Pill Bar */
+    .filter-pills {
+      display: flex;
+      gap: 6px;
+      background: #15181e;
+      padding: 4px;
+      border-radius: 14px;
+      margin-bottom: 20px;
+    }
+
+    .pill-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 8px 0;
+      border-radius: 10px;
+      font-size: 0.88rem;
       font-weight: 600;
       cursor: pointer;
-      white-space: nowrap;
+      text-align: center;
     }
 
-    .filter-btn.active {
-      background: var(--accent);
-      color: white;
-      border-color: var(--accent);
+    .pill-btn.active {
+      background: #3e4552;
+      color: #ffffff;
     }
 
     .container {
-      padding: 16px;
+      padding: 0 16px;
       max-width: 600px;
       margin: 0 auto;
     }
 
-    .media-list {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
+    .section-label {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #ffffff;
     }
 
-    .media-card {
+    /* Card List */
+    .titles-group {
       background: var(--card-bg);
+      border-radius: var(--radius-card);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .title-item {
       padding: 16px;
       display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .card-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      cursor: pointer;
-    }
-
-    .card-title {
-      font-size: 1.15rem;
-      font-weight: 700;
-      letter-spacing: -0.3px;
-    }
-
-    .card-meta {
-      display: flex;
-      gap: 6px;
       align-items: center;
-      margin-top: 4px;
+      gap: 14px;
+      position: relative;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
     }
+    .title-item:last-child { border-bottom: none; }
 
-    .badge {
-      font-size: 0.7rem;
-      padding: 3px 8px;
-      border-radius: 6px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .badge-type { background: rgba(59, 130, 246, 0.12); color: var(--accent); }
-    .badge-status { background: rgba(16, 185, 129, 0.12); color: var(--success); }
-
-    .ep-tracker {
-      background: var(--card-inner);
+    .item-icon-box {
+      width: 48px;
+      height: 48px;
+      background: #202632;
       border-radius: 12px;
-      padding: 10px 14px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .ep-info {
-      font-size: 0.95rem;
-      font-weight: 600;
-    }
-
-    .ep-actions {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .step-btn {
-      background: var(--border);
-      border: none;
-      color: var(--text);
-      font-size: 1.1rem;
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .item-icon-box svg {
+      width: 24px;
+      height: 24px;
+      fill: #60a5fa;
+    }
+
+    .item-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .item-name {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-subline {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .platform-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #60a5fa;
+      font-size: 0.82rem;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .platform-row svg {
+      width: 14px;
+      height: 14px;
+      fill: #60a5fa;
+    }
+
+    .item-progress-bar {
+      height: 3px;
+      background: #2d3748;
+      border-radius: 2px;
+      margin-top: 6px;
+      overflow: hidden;
+      max-width: 140px;
+    }
+
+    .item-progress-fill {
+      height: 100%;
+      background: #3b82f6;
+    }
+
+    .item-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .status-badge.watched {
+      background: var(--tag-watched-bg);
+      color: var(--tag-watched-text);
+    }
+
+    .status-badge.watching {
+      background: var(--tag-watching-bg);
+      color: var(--tag-watching-text);
+    }
+
+    .status-badge.saved {
+      background: #252830;
+      color: var(--text-muted);
+    }
+
+    .item-date {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .chevron {
+      color: #4b5563;
+      font-size: 1.1rem;
       font-weight: bold;
     }
-    .step-btn:active { background: var(--accent); color: white; }
-    .step-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-    .finish-season-btn {
-      background: rgba(59, 130, 246, 0.15);
-      border: 1px solid rgba(59, 130, 246, 0.4);
-      color: var(--accent);
-      padding: 6px 10px;
-      border-radius: 8px;
-      font-size: 0.78rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .reminder-badge {
-      background: rgba(245, 158, 11, 0.1);
-      border: 1px solid rgba(245, 158, 11, 0.25);
-      border-radius: 10px;
-      padding: 8px 12px;
-      font-size: 0.8rem;
-      color: #fbbf24;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .card-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      border-top: 1px solid rgba(255, 255, 255, 0.05);
-      padding-top: 8px;
-    }
-
-    .tag {
-      background: var(--card-inner);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 2px 8px;
-      font-size: 0.75rem;
-    }
-
-    .empty-state {
-      text-align: center;
-      margin-top: 80px;
-      color: var(--text-muted);
-    }
-
-    /* Auto-suggest dropdown */
-    .suggestions-list {
-      position: absolute;
+    /* Bottom iOS Navigation Bar */
+    .bottom-tabs {
+      position: fixed;
+      bottom: 0;
       left: 0;
       right: 0;
-      top: 100%;
-      background: #1c2230;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      max-height: 180px;
-      overflow-y: auto;
-      z-index: 120;
-      margin-top: 4px;
-    }
-
-    .suggestion-item {
-      padding: 10px 14px;
-      cursor: pointer;
+      background: rgba(10, 10, 10, 0.92);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border-top: 1px solid var(--border);
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.9rem;
+      justify-content: space-around;
+      padding: 10px 0 calc(env(safe-area-inset-bottom, 12px) + 8px) 0;
+      z-index: 60;
     }
-    .suggestion-item:last-child { border-bottom: none; }
-    .suggestion-item:active { background: var(--accent); }
 
-    /* Modal Form */
+    .tab-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .tab-btn.active {
+      color: #60a5fa;
+    }
+
+    .tab-btn.active .tab-icon-wrap {
+      background: #232d3f;
+      border-radius: 16px;
+      padding: 4px 18px;
+    }
+
+    .tab-icon-wrap svg {
+      width: 22px;
+      height: 22px;
+      fill: currentColor;
+    }
+
+    /* Modal Sheet */
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0, 0, 0, 0.75);
       display: flex;
       align-items: flex-end;
       z-index: 100;
     }
 
     .modal-content {
-      background: #141822;
+      background: #15181e;
       border-top: 1px solid var(--border);
       width: 100%;
       max-width: 600px;
       margin: 0 auto;
-      border-radius: 20px 20px 0 0;
+      border-radius: 24px 24px 0 0;
       padding: 20px 20px calc(env(safe-area-inset-bottom, 20px) + 20px) 20px;
       max-height: 90vh;
       overflow-y: auto;
@@ -325,6 +408,24 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
+    }
+
+    .section-box {
+      background: #101217;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .section-title {
+      font-size: 0.78rem;
+      color: #60a5fa;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     label {
@@ -354,7 +455,6 @@
 
     .form-group {
       flex: 1;
-      position: relative;
     }
 
     .modal-actions {
@@ -373,219 +473,245 @@
       cursor: pointer;
     }
 
-    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary { background: #2563eb; color: white; }
     .btn-danger { background: var(--danger); color: white; }
     .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
-  <header class="app-header">
-    <div class="header-top">
-      <h1>WatchLog</h1>
-      <button id="add-btn" class="icon-btn">+</button>
+  <div class="top-nav">
+    <div class="nav-header">
+      <button id="sort-btn" class="circle-btn" aria-label="Sort">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+      </button>
+      <button id="add-btn" class="circle-btn" aria-label="Add Media">+</button>
     </div>
-    <input type="text" id="search-input" class="search-input" placeholder="Search shows, movies, platforms..." />
-    <div class="filter-bar">
-      <button class="filter-btn active" data-filter="All">All</button>
-      <button class="filter-btn" data-filter="Watching">Watching</button>
-      <button class="filter-btn" data-filter="Plan to Watch">Plan</button>
-      <button class="filter-btn" data-filter="Completed">Done</button>
-      <button class="filter-btn" data-filter="TV Show">TV Shows</button>
-      <button class="filter-btn" data-filter="Movie">Movies</button>
-      <button class="filter-btn" data-filter="Anime">Anime</button>
+
+    <h1>WatchLog</h1>
+
+    <!-- Search Input -->
+    <div class="search-box">
+      <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <input type="text" id="search-input" placeholder="Search titles or platforms" />
     </div>
-  </header>
+
+    <!-- 3 Action Stat Counters -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="num" id="count-saved">0</span>
+        <span class="label">Saved</span>
+      </div>
+      <div class="stat-card">
+        <span class="num" id="count-watching">0</span>
+        <span class="label">Watching</span>
+      </div>
+      <div class="stat-card">
+        <span class="num" id="count-watched">0</span>
+        <span class="label">Watched</span>
+      </div>
+    </div>
+
+    <!-- Filter Pills -->
+    <div class="filter-pills">
+      <button class="pill-btn active" data-filter="All">All</button>
+      <button class="pill-btn" data-filter="Saved">Saved</button>
+      <button class="pill-btn" data-filter="Watching">Watching</button>
+      <button class="pill-btn" data-filter="Watched">Watched</button>
+    </div>
+  </div>
 
   <main class="container">
-    <div id="media-list" class="media-list"></div>
-    <div id="empty-state" class="empty-state hidden">
-      <p>No entries found. Tap <strong>+</strong> to start tracking!</p>
+    <div class="section-label">Titles</div>
+    <div id="media-list" class="titles-group">
+      <!-- Item list injected dynamically -->
+    </div>
+    <div id="empty-state" class="hidden" style="text-align: center; margin-top: 40px; color: var(--text-muted);">
+      <p>No titles logged. Tap <strong>+</strong> to start!</p>
     </div>
   </main>
+
+  <!-- iOS Bottom Tab Bar -->
+  <nav class="bottom-tabs">
+    <button class="tab-btn active">
+      <div class="tab-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
+      </div>
+      <span>Library</span>
+    </button>
+    <button class="tab-btn">
+      <div class="tab-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
+      </div>
+      <span>History</span>
+    </button>
+    <button class="tab-btn">
+      <div class="tab-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+      </div>
+      <span>Watchlist</span>
+    </button>
+    <button class="tab-btn">
+      <div class="tab-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      </div>
+      <span>Settings</span>
+    </button>
+  </nav>
 
   <!-- Add / Edit Modal -->
   <div id="modal" class="modal-overlay hidden">
     <div class="modal-content">
       <div class="modal-header">
-        <h2 id="modal-title">Log Media</h2>
+        <h2 id="modal-title">Log Title</h2>
         <button id="close-modal" class="close-btn">&times;</button>
       </div>
       <form id="media-form">
         <input type="hidden" id="item-id" />
 
         <div class="form-group">
-          <label for="title">Title (Auto-detects show info)</label>
-          <input type="text" id="title" required placeholder="Type title (e.g. NCIS, Severance...)" autocomplete="off" />
-          <div id="suggestions" class="suggestions-list hidden"></div>
+          <label for="title">Title</label>
+          <input type="text" id="title" required placeholder="e.g. NCIS, Spider-Man" />
         </div>
 
         <div class="form-row">
           <div class="form-group">
             <label for="type">Format</label>
             <select id="type">
-              <option value="TV Show">TV Show</option>
-              <option value="Movie">Movie</option>
+              <option value="Series">Series</option>
+              <option value="Film">Film</option>
               <option value="Anime">Anime</option>
               <option value="Game">Game</option>
-              <option value="Book">Book</option>
             </select>
           </div>
           <div class="form-group">
             <label for="status">Status</label>
             <select id="status">
+              <option value="Watched">Watched</option>
               <option value="Watching">Watching</option>
-              <option value="Plan to Watch">Plan to Watch</option>
-              <option value="Completed">Completed</option>
-              <option value="Dropped">Dropped</option>
+              <option value="Saved">Saved</option>
             </select>
           </div>
         </div>
 
-        <!-- Hidden dynamic metadata fetched automatically -->
-        <input type="hidden" id="season-num" value="1" />
-        <input type="hidden" id="ep-watched" value="0" />
-        <input type="hidden" id="season-total-eps" value="" />
-        <input type="hidden" id="imdb-id" value="" />
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="platform">Platform</label>
-            <input type="text" id="platform" placeholder="Paramount+, Netflix..." />
+        <!-- Explicit Seasons & Episodes Config -->
+        <div id="series-section" class="section-box">
+          <span class="section-title">Seasons & Current Progress</span>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="total-seasons">Total Seasons</label>
+              <input type="number" id="total-seasons" min="1" placeholder="e.g. 23" />
+            </div>
+            <div class="form-group">
+              <label for="watched-seasons">Watched Seasons</label>
+              <input type="number" id="watched-seasons" min="0" placeholder="e.g. 23" />
+            </div>
           </div>
-          <div class="form-group">
-            <label for="rating">Rating</label>
-            <input type="number" id="rating" min="1" max="10" placeholder="★ /10" />
+          <div class="form-row">
+            <div class="form-group">
+              <label for="cur-season">Current Season #</label>
+              <input type="number" id="cur-season" min="1" placeholder="e.g. 23" />
+            </div>
+            <div class="form-group">
+              <label for="cur-ep">Episode in Season</label>
+              <input type="number" id="cur-ep" min="0" placeholder="e.g. 14" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Upcoming Season Due Date -->
+        <div id="upcoming-section" class="section-box">
+          <span class="section-title">Next Season Due</span>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="next-season-num">Next Season #</label>
+              <input type="number" id="next-season-num" placeholder="e.g. 24" />
+            </div>
+            <div class="form-group">
+              <label for="next-season-date">Due / Premiere Date</label>
+              <input type="date" id="next-season-date" />
+            </div>
           </div>
         </div>
 
         <div class="form-group">
-          <label for="reminder-date">Next Air / Premiere Date</label>
-          <input type="datetime-local" id="reminder-date" />
-        </div>
-
-        <div class="form-group">
-          <label for="notes">Notes</label>
-          <textarea id="notes" rows="2" placeholder="Thoughts, theories..."></textarea>
+          <label for="platform">Streaming / Platform</label>
+          <input type="text" id="platform" placeholder="Paramount+, Netflix, Film..." />
         </div>
 
         <div class="modal-actions">
           <button type="button" id="delete-btn" class="btn btn-danger hidden">Delete</button>
-          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="submit" class="btn btn-primary">Save to Log</button>
         </div>
       </form>
     </div>
   </div>
 
   <script>
-    let mediaItems = JSON.parse(localStorage.getItem('watchlog_items')) || [];
+    let mediaItems = JSON.parse(localStorage.getItem('watchlog_v2')) || [
+      {
+        id: '1',
+        title: 'Spider-Man',
+        type: 'Film',
+        status: 'Watched',
+        platform: 'Film',
+        date: '25 Aug 2026'
+      },
+      {
+        id: '2',
+        title: 'NCIS',
+        type: 'Series',
+        status: 'Watched',
+        platform: 'Paramount+',
+        totalSeasons: 23,
+        watchedSeasons: 23,
+        curSeason: 23,
+        curEp: 20,
+        nextSeasonNum: 24,
+        nextSeasonDate: '2026-10-04',
+        date: '25 Aug 2026'
+      }
+    ];
+
     let activeFilter = 'All';
     let searchQuery = '';
 
     const mediaList = document.getElementById('media-list');
     const emptyState = document.getElementById('empty-state');
-    const filterBtns = document.querySelectorAll('.filter-btn');
+    const pillBtns = document.querySelectorAll('.pill-btn');
     const searchInput = document.getElementById('search-input');
     const modal = document.getElementById('modal');
     const addBtn = document.getElementById('add-btn');
     const closeModal = document.getElementById('close-modal');
     const mediaForm = document.getElementById('media-form');
     const deleteBtn = document.getElementById('delete-btn');
-    const titleInput = document.getElementById('title');
-    const suggestionsList = document.getElementById('suggestions');
+    const typeSelect = document.getElementById('type');
+    const seriesSection = document.getElementById('series-section');
+    const upcomingSection = document.getElementById('upcoming-section');
 
-    // TVMaze open metadata API (cross-checks against IMDb/TV databases)
-    let debounceTimer;
-    titleInput.addEventListener('input', () => {
-      clearTimeout(debounceTimer);
-      const query = titleInput.value.trim();
-      if (query.length < 2) {
-        suggestionsList.classList.add('hidden');
-        return;
-      }
-
-      debounceTimer = setTimeout(async () => {
-        try {
-          const res = await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`);
-          const data = await res.json();
-          if (data && data.length > 0) {
-            suggestionsList.innerHTML = data.slice(0, 4).map(item => `
-              <div class="suggestion-item" data-id="${item.show.id}" data-name="${escapeHTML(item.show.name)}" data-network="${escapeHTML(item.show.network?.name || item.show.webChannel?.name || '')}" data-imdb="${item.show.externals?.imdb || ''}">
-                <strong>${escapeHTML(item.show.name)}</strong>
-                <span style="color:var(--text-muted); font-size:0.75rem;">${item.show.premiered ? item.show.premiered.substring(0, 4) : ''}</span>
-              </div>
-            `).join('');
-            suggestionsList.classList.remove('hidden');
-
-            document.querySelectorAll('.suggestion-item').forEach(el => {
-              el.onclick = async () => {
-                titleInput.value = el.dataset.name;
-                document.getElementById('platform').value = el.dataset.network;
-                document.getElementById('imdb-id').value = el.dataset.imdb;
-                suggestionsList.classList.add('hidden');
-
-                // Auto-fetch total seasons & latest episode count
-                try {
-                  const sRes = await fetch(`https://api.tvmaze.com/shows/${el.dataset.id}/seasons`);
-                  const sData = await sRes.json();
-                  if (sData && sData.length > 0) {
-                    const currentSeasonObj = sData[0]; // defaults to Season 1
-                    document.getElementById('season-num').value = currentSeasonObj.number || 1;
-                    document.getElementById('season-total-eps').value = currentSeasonObj.episodeOrder || '';
-                  }
-                } catch (e) { console.error(e); }
-              };
-            });
-          } else {
-            suggestionsList.classList.add('hidden');
-          }
-        } catch (e) {
-          suggestionsList.classList.add('hidden');
-        }
-      }, 300);
+    typeSelect.addEventListener('change', () => {
+      const isFilm = typeSelect.value === 'Film';
+      seriesSection.style.display = isFilm ? 'none' : 'flex';
+      upcomingSection.style.display = isFilm ? 'none' : 'flex';
     });
 
     function save() {
-      localStorage.setItem('watchlog_items', JSON.stringify(mediaItems));
+      localStorage.setItem('watchlog_v2', JSON.stringify(mediaItems));
+      updateCounts();
     }
 
-    function changeEp(id, delta) {
-      const item = mediaItems.find(i => i.id === id);
-      if (item) {
-        const total = parseInt(item.totalEps) || Infinity;
-        let newCount = (parseInt(item.currentEp) || 0) + delta;
-        if (newCount < 0) newCount = 0;
-        if (newCount > total) newCount = total;
-
-        item.currentEp = newCount;
-        if (item.currentEp > 0 && item.status === 'Plan to Watch') {
-          item.status = 'Watching';
-        }
-        save();
-        render();
-      }
-    }
-
-    function finishSeason(id) {
-      const item = mediaItems.find(i => i.id === id);
-      if (item) {
-        item.season = (parseInt(item.season) || 1) + 1;
-        item.currentEp = 0;
-        item.totalEps = ''; // Clears for next season fetch
-        item.status = 'Completed';
-        save();
-        render();
-      }
+    function updateCounts() {
+      document.getElementById('count-saved').innerText = mediaItems.filter(i => i.status === 'Saved').length;
+      document.getElementById('count-watching').innerText = mediaItems.filter(i => i.status === 'Watching').length;
+      document.getElementById('count-watched').innerText = mediaItems.filter(i => i.status === 'Watched').length;
     }
 
     function render() {
       mediaList.innerHTML = '';
-      
-      const filtered = mediaItems.filter(item => {
-        const matchesFilter = (activeFilter === 'All') 
-          || (item.status === activeFilter) 
-          || (item.type === activeFilter);
+      updateCounts();
 
+      const filtered = mediaItems.filter(item => {
+        const matchesFilter = (activeFilter === 'All') || (item.status === activeFilter);
         const matchesSearch = !searchQuery 
           || item.title.toLowerCase().includes(searchQuery.toLowerCase())
           || (item.platform && item.platform.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -598,50 +724,51 @@
       } else {
         emptyState.classList.add('hidden');
         filtered.forEach(item => {
-          const card = document.createElement('div');
-          card.className = 'media-card';
+          const row = document.createElement('div');
+          row.className = 'title-item';
+          row.onclick = () => openEditModal(item.id);
 
-          const isSeries = item.type !== 'Movie';
-          const curr = parseInt(item.currentEp) || 0;
-          const total = parseInt(item.totalEps) || null;
-          const isMax = total !== null && curr >= total;
+          const isFilm = item.type === 'Film';
+          const iconSVG = isFilm 
+            ? `<svg viewBox="0 0 24 24"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></svg>`
+            : `<svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg>`;
 
-          card.innerHTML = `
-            <div class="card-top" onclick="openEditModal('${item.id}')">
-              <div>
-                <span class="card-title">${escapeHTML(item.title)}</span>
-                <div class="card-meta">
-                  <span class="badge badge-type">${item.type}</span>
-                  <span class="badge badge-status">${item.status}</span>
-                  ${item.rating ? `<span>★ ${item.rating}/10</span>` : ''}
+          const seasonText = isFilm 
+            ? '' 
+            : `• ${item.watchedSeasons || item.curSeason || 0} of ${item.totalSeasons || item.curSeason || 1} seasons`;
+
+          const progressPercent = isFilm 
+            ? 100 
+            : Math.min(100, (((item.watchedSeasons || 1) / (item.totalSeasons || 1)) * 100));
+
+          row.innerHTML = `
+            <div class="item-icon-box">${iconSVG}</div>
+            <div class="item-main">
+              <span class="item-name">${escapeHTML(item.title)}</span>
+              <div class="item-subline">
+                <span>${item.type}</span>
+                <span>${seasonText}</span>
+              </div>
+              <div class="platform-row">
+                <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                <span>${escapeHTML(item.platform || item.type)}</span>
+              </div>
+              ${!isFilm ? `
+                <div class="item-progress-bar">
+                  <div class="item-progress-fill" style="width: ${progressPercent}%;"></div>
                 </div>
-              </div>
+              ` : ''}
             </div>
-
-            ${isSeries ? `
-              <div class="ep-tracker">
-                <span class="ep-info">Season ${item.season || 1} • <strong>Ep ${curr}${total ? ` / ${total}` : ''}</strong></span>
-                <div class="ep-actions">
-                  <button class="step-btn" onclick="changeEp('${item.id}', -1)" ${curr <= 0 ? 'disabled' : ''}>−</button>
-                  <button class="step-btn" onclick="changeEp('${item.id}', 1)" ${isMax ? 'disabled' : ''}>+</button>
-                  <button class="finish-season-btn" onclick="finishSeason('${item.id}')">Finish S${item.season || 1}</button>
-                </div>
+            <div class="item-right">
+              <div class="status-badge ${item.status.toLowerCase()}">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                <span>${item.status}</span>
               </div>
-            ` : ''}
-
-            ${item.reminderDate ? `
-              <div class="reminder-badge">
-                <span>🔔 Air Date / Premiere</span>
-                <strong>${new Date(item.reminderDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</strong>
-              </div>
-            ` : ''}
-
-            <div class="card-footer">
-              <span>${item.platform ? `<span class="tag">${escapeHTML(item.platform)}</span>` : ''}</span>
-              ${item.notes ? `<span style="color:var(--text-muted); font-size:0.8rem;">${escapeHTML(item.notes)}</span>` : ''}
+              <span class="item-date">${item.date || '25 Aug 2026'}</span>
             </div>
+            <span class="chevron">›</span>
           `;
-          mediaList.appendChild(card);
+          mediaList.appendChild(row);
         });
       }
     }
@@ -649,11 +776,9 @@
     function openAddModal() {
       mediaForm.reset();
       document.getElementById('item-id').value = '';
-      document.getElementById('modal-title').innerText = 'Add Media';
-      document.getElementById('season-num').value = 1;
-      document.getElementById('ep-watched').value = 0;
-      document.getElementById('season-total-eps').value = '';
-      suggestionsList.classList.add('hidden');
+      document.getElementById('modal-title').innerText = 'Log Title';
+      seriesSection.style.display = 'flex';
+      upcomingSection.style.display = 'flex';
       deleteBtn.classList.add('hidden');
       modal.classList.remove('hidden');
     }
@@ -666,16 +791,19 @@
       document.getElementById('title').value = item.title;
       document.getElementById('type').value = item.type;
       document.getElementById('status').value = item.status;
-      document.getElementById('season-num').value = item.season || 1;
-      document.getElementById('ep-watched').value = item.currentEp || 0;
-      document.getElementById('season-total-eps').value = item.totalEps || '';
+      document.getElementById('total-seasons').value = item.totalSeasons || '';
+      document.getElementById('watched-seasons').value = item.watchedSeasons || '';
+      document.getElementById('cur-season').value = item.curSeason || '';
+      document.getElementById('cur-ep').value = item.curEp || '';
+      document.getElementById('next-season-num').value = item.nextSeasonNum || '';
+      document.getElementById('next-season-date').value = item.nextSeasonDate || '';
       document.getElementById('platform').value = item.platform || '';
-      document.getElementById('rating').value = item.rating || '';
-      document.getElementById('reminder-date').value = item.reminderDate || '';
-      document.getElementById('notes').value = item.notes || '';
 
-      suggestionsList.classList.add('hidden');
-      document.getElementById('modal-title').innerText = 'Edit Media';
+      const isFilm = item.type === 'Film';
+      seriesSection.style.display = isFilm ? 'none' : 'flex';
+      upcomingSection.style.display = isFilm ? 'none' : 'flex';
+
+      document.getElementById('modal-title').innerText = 'Edit Title';
       deleteBtn.classList.remove('hidden');
       modal.classList.remove('hidden');
     }
@@ -683,17 +811,20 @@
     mediaForm.onsubmit = (e) => {
       e.preventDefault();
       const id = document.getElementById('item-id').value;
+      const type = document.getElementById('type').value;
+
       const data = {
         title: document.getElementById('title').value,
-        type: document.getElementById('type').value,
+        type: type,
         status: document.getElementById('status').value,
-        season: parseInt(document.getElementById('season-num').value) || 1,
-        currentEp: parseInt(document.getElementById('ep-watched').value) || 0,
-        totalEps: document.getElementById('season-total-eps').value || '',
+        totalSeasons: parseInt(document.getElementById('total-seasons').value) || null,
+        watchedSeasons: parseInt(document.getElementById('watched-seasons').value) || null,
+        curSeason: parseInt(document.getElementById('cur-season').value) || null,
+        curEp: parseInt(document.getElementById('cur-ep').value) || null,
+        nextSeasonNum: document.getElementById('next-season-num').value || '',
+        nextSeasonDate: document.getElementById('next-season-date').value || '',
         platform: document.getElementById('platform').value,
-        rating: document.getElementById('rating').value,
-        reminderDate: document.getElementById('reminder-date').value,
-        notes: document.getElementById('notes').value
+        date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
       };
 
       if (id) {
@@ -718,9 +849,9 @@
       }
     };
 
-    filterBtns.forEach(btn => {
+    pillBtns.forEach(btn => {
       btn.onclick = () => {
-        filterBtns.forEach(b => b.classList.remove('active'));
+        pillBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         activeFilter = btn.dataset.filter;
         render();
