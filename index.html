@@ -19,7 +19,3671 @@
   <!-- Optional iCloud / CloudKit backup. The app still works without this. -->
   <script src="https://cdn.apple-cloudkit.com/ck/2/cloudkit.js"></script>
 
+  <style><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>WatchLog</title>
+
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="WatchLog" />
+  <meta name="theme-color" content="#000000" />
+
+  <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='120' fill='%23181b20'/><polygon points='210,160 360,256 210,352' fill='%233b82f6'/></svg>" />
+  <link rel="manifest" href='data:application/manifest+json,{"name":"WatchLog","short_name":"WatchLog","start_url":".","display":"standalone","background_color":"%23000000","theme_color":"%23000000"}' />
+
+  <!-- Cross-device account/database support. The publishable key is safe for browser use; never put a service-role key here. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Optional iCloud / CloudKit backup. The app still works without this. -->
+  <script src="https://cdn.apple-cloudkit.com/ck/2/cloudkit.js"></script>
+
   <style>
+    :root {
+      --bg: #000000;
+      --card-bg: #15181e;
+      --card-inner: #1e222a;
+      --accent: #2563eb;
+      --text: #ffffff;
+      --text-muted: #8e95a2;
+      --border: #232730;
+      --tag-watched-bg: #143026;
+      --tag-watched-text: #34d399;
+      --tag-watching-bg: #1e293b;
+      --tag-watching-text: #60a5fa;
+      --tag-reminder-bg: rgba(245, 158, 11, 0.12);
+      --tag-reminder-text: #fbbf24;
+      --tag-reminder-border: rgba(245, 158, 11, 0.3);
+      --danger: #ef4444;
+      --radius-card: 20px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body { background: var(--bg); color: var(--text); min-height: 100%; }
+    body { min-height: 100vh; padding-bottom: 110px; }
+    button, input, select, textarea { font: inherit; }
+    button { touch-action: manipulation; }
+    .hidden { display: none !important; }
+
+    .auth-overlay {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+    }
+
+    .auth-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 24px;
+      width: 100%;
+      max-width: 390px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .auth-header { text-align: center; }
+    .auth-header h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 6px; }
+    .auth-header p { color: var(--text-muted); font-size: 0.85rem; line-height: 1.4; }
+    .auth-toggle { color: #60a5fa; font-size: 0.85rem; text-align: center; cursor: pointer; font-weight: 700; }
+
+    .auth-message {
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.82rem;
+      line-height: 1.4;
+    }
+    .auth-message.error { background: rgba(239,68,68,.12); color: #fca5a5; border: 1px solid rgba(239,68,68,.3); }
+    .auth-message.success { background: rgba(52,211,153,.1); color: #6ee7b7; border: 1px solid rgba(52,211,153,.25); }
+    .auth-message.info { background: rgba(59,130,246,.12); color: #93c5fd; border: 1px solid rgba(59,130,246,.3); }
+
+    .top-nav {
+      position: sticky;
+      top: 0;
+      background: rgba(0,0,0,.9);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: max(12px, env(safe-area-inset-top)) 16px 10px;
+      z-index: 50;
+    }
+
+    .nav-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .user-pill {
+      background: #181c24;
+      border: 1px solid var(--border);
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: .85rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .user-avatar-dot { width: 8px; height: 8px; background: #34d399; border-radius: 50%; }
+    .circle-btn {
+      background: #181c24;
+      border: 1px solid var(--border);
+      color: #60a5fa;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      cursor: pointer;
+    }
+
+    h1 { font-size: 2.1rem; font-weight: 800; letter-spacing: -.6px; margin-bottom: 12px; }
+
+    .search-box {
+      background: #15181e;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      padding: 10px 14px;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .search-box svg { width: 18px; height: 18px; fill: var(--text-muted); }
+    .search-box input { background: transparent; border: none; color: var(--text); font-size: 1rem; width: 100%; outline: none; }
+
+    .stats-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .stat-card { background: #15181e; border-radius: 14px; padding: 12px 6px; text-align: center; display: flex; flex-direction: column; gap: 2px; }
+    .stat-card .num { font-size: 1.35rem; font-weight: 800; }
+    .stat-card .label { font-size: .78rem; color: var(--text-muted); font-weight: 600; }
+
+    .filter-pills { display: flex; gap: 6px; background: #15181e; padding: 4px; border-radius: 14px; margin-bottom: 20px; }
+    .pill-btn { flex: 1; background: transparent; border: none; color: var(--text-muted); padding: 8px 0; border-radius: 10px; font-size: .88rem; font-weight: 600; cursor: pointer; }
+    .pill-btn.active { background: #3e4552; color: #fff; }
+
+    .container { padding: 0 16px; max-width: 600px; margin: 0 auto; }
+    .section-label { font-size: 1rem; font-weight: 700; margin-bottom: 12px; color: #fff; }
+
+    .titles-group { background: var(--card-bg); border-radius: var(--radius-card); border: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; }
+    .title-item { padding: 16px; display: flex; flex-direction: column; gap: 10px; cursor: pointer; border-bottom: 1px solid var(--border); }
+    .title-item:last-child { border-bottom: none; }
+    .item-header-row { display: flex; align-items: center; gap: 14px; }
+    .item-icon-box { width: 48px; height: 48px; background: #202632; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .item-icon-box svg { width: 24px; height: 24px; fill: #60a5fa; }
+    .item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .item-name { font-size: 1.05rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item-subline { font-size: .82rem; color: var(--text-muted); display: flex; gap: 6px; align-items: center; }
+    .platform-row { display: flex; align-items: center; gap: 6px; color: #60a5fa; font-size: .82rem; font-weight: 600; margin-top: 2px; }
+    .platform-row svg { width: 14px; height: 14px; fill: #60a5fa; }
+    .item-progress-bar { height: 3px; background: #2d3748; border-radius: 2px; margin-top: 6px; overflow: hidden; max-width: 140px; }
+    .item-progress-fill { height: 100%; background: #3b82f6; }
+    .item-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+    .status-badge { display: flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 20px; font-size: .82rem; font-weight: 700; }
+    .status-badge.watched { background: var(--tag-watched-bg); color: var(--tag-watched-text); }
+    .status-badge.watching { background: var(--tag-watching-bg); color: var(--tag-watching-text); }
+    .status-badge.saved { background: #252830; color: var(--text-muted); }
+    .item-date { font-size: .78rem; color: var(--text-muted); }
+    .chevron { color: #4b5563; font-size: 1.1rem; font-weight: bold; }
+
+    .reminder-pill-banner {
+      background: var(--tag-reminder-bg);
+      border: 1px solid var(--tag-reminder-border);
+      border-radius: 10px;
+      padding: 6px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      font-size: .82rem;
+      color: var(--tag-reminder-text);
+      font-weight: 600;
+    }
+    .reminder-pill-banner .tz-local { font-size: .75rem; opacity: .85; text-align: right; }
+
+    .search-suggest-box { position: relative; }
+    .search-suggest-list {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 100%;
+      background: #181d26;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      max-height: 220px;
+      overflow-y: auto;
+      z-index: 150;
+      margin-top: 6px;
+      box-shadow: 0 10px 25px rgba(0,0,0,.6);
+    }
+    .suggest-item { padding: 12px 14px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); }
+    .suggest-item:last-child { border-bottom: none; }
+    .suggest-item:active { background: #232d3f; }
+    .suggest-item-left { display: flex; flex-direction: column; gap: 2px; }
+    .suggest-title { font-size: .95rem; font-weight: 700; color: #fff; }
+    .suggest-meta { font-size: .75rem; color: var(--text-muted); }
+    .suggest-network { background: rgba(59,130,246,.15); color: #60a5fa; font-size: .75rem; padding: 2px 8px; border-radius: 6px; font-weight: 600; flex-shrink: 0; }
+
+    .bottom-tabs {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(10,10,10,.92);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border-top: 1px solid var(--border);
+      display: flex;
+      padding: 10px 0 calc(env(safe-area-inset-bottom, 12px) + 8px);
+      z-index: 60;
+    }
+    .tab-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; background: transparent; border: none; color: var(--text-muted); font-size: .75rem; font-weight: 600; cursor: pointer; }
+    .tab-btn.active { color: #60a5fa; }
+    .tab-btn.active .tab-icon-wrap { background: #232d3f; border-radius: 16px; padding: 4px 18px; }
+    .tab-icon-wrap svg { width: 22px; height: 22px; fill: currentColor; }
+
+    .profile-card { background: var(--card-bg); border-radius: var(--radius-card); border: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+    .profile-header { display: flex; align-items: center; gap: 14px; }
+    .profile-avatar { width: 56px; height: 56px; background: #2563eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 800; flex-shrink: 0; }
+    .profile-info { min-width: 0; }
+    .profile-info h3 { font-size: 1.2rem; font-weight: 700; }
+    .profile-info p { font-size: .85rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; }
+
+    .storage-box { background: #101217; border: 1px solid var(--border); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .storage-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .storage-title { font-size: .95rem; font-weight: 700; }
+    .storage-status { color: var(--text-muted); font-size: .8rem; line-height: 1.45; }
+    .status-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .status-dot.off { background: #6b7280; }
+    .status-dot.ok { background: #34d399; }
+    .status-dot.warning { background: #f59e0b; }
+
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); display: flex; align-items: flex-end; z-index: 100; }
+    .modal-overlay.centered { align-items: center; justify-content: center; padding: 20px; z-index: 650; }
+    .modal-content { background: #15181e; border-top: 1px solid var(--border); width: 100%; max-width: 600px; margin: 0 auto; border-radius: 24px 24px 0 0; padding: 20px 20px calc(env(safe-area-inset-bottom, 20px) + 20px); max-height: 90vh; overflow-y: auto; }
+    .modal-content.center-card { max-width: 390px; border: 1px solid var(--border); border-radius: 24px; padding: 22px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .close-btn { background: transparent; border: none; font-size: 1.8rem; color: var(--text-muted); cursor: pointer; }
+
+    form { display: flex; flex-direction: column; gap: 12px; }
+    .section-box { background: #101217; border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+    .section-title { font-size: .78rem; color: #60a5fa; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+    label { font-size: .75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 2px; display: block; }
+    input, select, textarea { width: 100%; background: var(--card-inner); border: 1px solid var(--border); color: var(--text); padding: 10px 12px; border-radius: 10px; font-size: .95rem; }
+    .form-row { display: flex; gap: 10px; }
+    .form-group { flex: 1; min-width: 0; }
+    .modal-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 14px; }
+    .btn { padding: 12px 20px; border-radius: 10px; border: none; font-weight: 700; font-size: .95rem; cursor: pointer; }
+    .btn:disabled { opacity: .55; cursor: default; }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-secondary { background: #252a34; color: #fff; border: 1px solid #343a46; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-full { width: 100%; }
+    .small-note { color: var(--text-muted); font-size: .75rem; line-height: 1.45; }
+
+    #apple-sign-in-button, #apple-sign-out-button { width: 100%; min-height: 44px; }
+
+    @media (max-width: 420px) {
+      .form-row { gap: 8px; }
+      .item-header-row { gap: 10px; }
+      .item-icon-box { width: 44px; height: 44px; }
+      .status-badge { padding: 4px 8px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- AUTH -->
+  <div id="auth-screen" class="auth-overlay">
+    <div class="auth-card">
+      <div class="auth-header">
+        <h2 id="auth-title">Welcome Back</h2>
+        <p id="auth-sub">Log in using your WatchLog username or email</p>
+      </div>
+
+      <div id="auth-message" class="auth-message info hidden"></div>
+
+      <form id="auth-form">
+        <div id="auth-name-group" class="form-group hidden">
+          <label for="auth-name">Display Name</label>
+          <input type="text" id="auth-name" placeholder="Your Name" autocomplete="name" />
+        </div>
+
+        <div id="auth-username-group" class="form-group hidden">
+          <label for="auth-username">Username</label>
+          <input type="text" id="auth-username" placeholder="e.g. robert" autocomplete="username" />
+        </div>
+
+        <div id="auth-email-group" class="form-group hidden">
+          <label for="auth-email">Email</label>
+          <input type="email" id="auth-email" placeholder="user@example.com" autocomplete="email" />
+        </div>
+
+        <div id="auth-identifier-group" class="form-group">
+          <label for="auth-identifier">Username or Email</label>
+          <input type="text" id="auth-identifier" required placeholder="Username or email" autocomplete="username" />
+        </div>
+
+        <div class="form-group">
+          <label for="auth-password">Password</label>
+          <input type="password" id="auth-password" required placeholder="••••••••" autocomplete="current-password" />
+        </div>
+
+        <button type="submit" id="auth-submit-btn" class="btn btn-primary btn-full">Log In</button>
+      </form>
+
+      <div id="auth-toggle-mode" class="auth-toggle">Don't have an account? Sign Up</div>
+      <button type="button" id="icloud-recovery-btn" class="btn btn-secondary btn-full">iCloud Recovery / Sync</button>
+    </div>
+  </div>
+
+  <!-- TOP NAV -->
+  <div class="top-nav">
+    <div class="nav-header">
+      <div id="user-profile-pill" class="user-pill">
+        <div class="user-avatar-dot"></div>
+        <span id="nav-user-name">Guest</span>
+      </div>
+      <button id="add-btn" class="circle-btn" aria-label="Add Media">+</button>
+    </div>
+
+    <h1>WatchLog</h1>
+
+    <div class="search-box">
+      <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <input type="text" id="search-input" placeholder="Search titles or platforms" />
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card"><span class="num" id="count-saved">0</span><span class="label">Saved</span></div>
+      <div class="stat-card"><span class="num" id="count-watching">0</span><span class="label">Watching</span></div>
+      <div class="stat-card"><span class="num" id="count-watched">0</span><span class="label">Watched</span></div>
+    </div>
+
+    <div class="filter-pills">
+      <button class="pill-btn active" data-filter="All">All</button>
+      <button class="pill-btn" data-filter="Saved">Saved</button>
+      <button class="pill-btn" data-filter="Watching">Watching</button>
+      <button class="pill-btn" data-filter="Watched">Watched</button>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <main class="container">
+    <div id="main-content-view">
+      <div class="section-label" id="list-label">Titles</div>
+      <div id="media-list" class="titles-group"></div>
+      <div id="empty-state" class="hidden" style="text-align:center;margin-top:40px;color:var(--text-muted);">
+        <p>No titles found. Tap <strong>+</strong> to start!</p>
+      </div>
+    </div>
+
+    <div id="profile-content-view" class="hidden">
+      <div class="section-label">Account & Profile</div>
+      <div class="profile-card">
+        <div class="profile-header">
+          <div id="profile-avatar-icon" class="profile-avatar">U</div>
+          <div class="profile-info">
+            <h3 id="profile-display-name">User</h3>
+            <p id="profile-display-username">@username</p>
+            <p id="profile-display-email">user@watchlog.app</p>
+          </div>
+        </div>
+
+        <div class="storage-box">
+          <div class="storage-heading">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="status-dot ok"></div>
+              <span class="storage-title">On-device Database</span>
+            </div>
+          </div>
+          <p id="device-storage-status" class="storage-status">Each WatchLog account uses its own isolated database.</p>
+        </div>
+
+        <div class="storage-box">
+          <div class="storage-heading">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div id="cloud-account-status-dot" class="status-dot off"></div>
+              <span class="storage-title">Cross-device Account Database</span>
+            </div>
+          </div>
+          <p id="cloud-account-status" class="storage-status">Checking cloud account configuration…</p>
+          <button type="button" id="cloud-sync-now-btn" class="btn btn-secondary btn-full">Sync Account & Library</button>
+        </div>
+
+        <div class="storage-box">
+          <div class="storage-heading">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div id="icloud-status-dot" class="status-dot off"></div>
+              <span class="storage-title">iCloud Backup & Sync</span>
+            </div>
+          </div>
+          <p id="icloud-profile-status" class="storage-status">Checking iCloud configuration…</p>
+          <button type="button" id="open-icloud-btn" class="btn btn-secondary btn-full">Manage iCloud Sync</button>
+        </div>
+
+        <button id="switch-account-btn" class="btn btn-primary btn-full">Switch Account</button>
+        <button id="logout-btn" class="btn btn-danger btn-full">Log Out</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- BOTTOM TABS -->
+  <nav class="bottom-tabs">
+    <button class="tab-btn active" data-tab="library">
+      <div class="tab-icon-wrap"><svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg></div>
+      <span>Library</span>
+    </button>
+
+    <button class="tab-btn" data-tab="history">
+      <div class="tab-icon-wrap"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg></div>
+      <span>History</span>
+    </button>
+
+    <button class="tab-btn" data-tab="watchlist">
+      <div class="tab-icon-wrap"><svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5S10.5 3.17 10.5 4v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg></div>
+      <span>Watchlist</span>
+    </button>
+
+    <button class="tab-btn" data-tab="settings">
+      <div class="tab-icon-wrap"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
+      <span>Settings</span>
+    </button>
+  </nav>
+
+  <!-- ADD / EDIT MODAL -->
+  <div id="modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-title">Log Title</h2>
+        <button id="close-modal" class="close-btn" type="button">&times;</button>
+      </div>
+
+      <form id="media-form">
+        <input type="hidden" id="item-id" />
+        <input type="hidden" id="tvmaze-show-id" />
+
+        <div class="form-group search-suggest-box">
+          <label for="title">Title</label>
+          <input type="text" id="title" required placeholder="e.g. NCIS, Spider-Man, The Bear" autocomplete="off" />
+          <div id="suggest-list" class="search-suggest-list hidden"></div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="type">Format</label>
+            <select id="type">
+              <option value="Series">Series</option>
+              <option value="Film">Film</option>
+              <option value="Anime">Anime</option>
+              <option value="Game">Game</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="status">Status</label>
+            <select id="status">
+              <option value="Watched">Watched</option>
+              <option value="Watching">Watching</option>
+              <option value="Saved">Saved</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="series-section" class="section-box">
+          <span class="section-title">Seasons & Current Progress</span>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="total-seasons">Known / Announced Seasons</label>
+              <input type="number" id="total-seasons" min="1" placeholder="e.g. 24" />
+            </div>
+
+            <div class="form-group">
+              <label for="watched-seasons">Watched Seasons</label>
+              <input type="number" id="watched-seasons" min="0" placeholder="e.g. 23" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="cur-season">Current Season #</label>
+              <input type="number" id="cur-season" min="1" placeholder="e.g. 23" />
+            </div>
+
+            <div class="form-group">
+              <label for="cur-ep">Episode in Season</label>
+              <input type="number" id="cur-ep" min="0" placeholder="e.g. 14" />
+            </div>
+          </div>
+        </div>
+
+        <div id="upcoming-section" class="section-box">
+          <span class="section-title">🔔 Confirmed Upcoming Season</span>
+          <p class="small-note">For TVMaze matches, WatchLog only accepts a season number that TVMaze actually returns and confirms as not yet started. No +1 calculation is used.</p>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="next-season-num">Upcoming Season #</label>
+              <input type="number" id="next-season-num" placeholder="e.g. 24" />
+            </div>
+
+            <div class="form-group">
+              <label for="next-season-date">Premiere Date / Time</label>
+              <input type="datetime-local" id="next-season-date" />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="platform">Streaming / Platform</label>
+          <input type="text" id="platform" placeholder="Paramount+, Netflix, Apple TV+, Film..." />
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" id="delete-btn" class="btn btn-danger hidden">Delete</button>
+          <button type="submit" id="media-save-btn" class="btn btn-primary">Save to Log</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ICLOUD MODAL -->
+  <div id="icloud-modal" class="modal-overlay centered hidden">
+    <div class="modal-content center-card">
+      <div class="modal-header">
+        <h2>iCloud Sync</h2>
+        <button type="button" id="close-icloud-modal" class="close-btn">&times;</button>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <p id="icloud-modal-status" class="storage-status">Checking iCloud…</p>
+        <div id="apple-sign-in-button"></div>
+        <div id="apple-sign-out-button"></div>
+        <button type="button" id="icloud-sync-now-btn" class="btn btn-primary btn-full">Sync Now</button>
+        <button type="button" id="icloud-restore-btn" class="btn btn-secondary btn-full">Restore from iCloud</button>
+        <p class="small-note">The iCloud private database can hold the hashed account verifier, profile and library backup. Your plaintext password is never uploaded.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    "use strict";
+
+    /* =========================================================
+       CONFIGURATION
+       ========================================================= */
+
+    /*
+      CROSS-DEVICE LOGIN / DATABASE
+      --------------------------------
+      This is the part that makes the SAME login work on different devices.
+
+      Create a Supabase project, run the SQL shown immediately below in the
+      Supabase SQL editor, then paste the Project URL and PUBLISHABLE/ANON key
+      here. Never put the service_role key in this HTML file.
+
+      SQL TO RUN ONCE:
+
+      create table if not exists public.watchlog_profiles (
+        user_id uuid primary key references auth.users(id) on delete cascade,
+        username text not null,
+        username_hash text not null unique,
+        email text not null,
+        name text not null default 'User',
+        updated_at timestamptz not null default now()
+      );
+
+      create table if not exists public.watchlog_libraries (
+        user_id uuid primary key references auth.users(id) on delete cascade,
+        payload jsonb not null default '[]'::jsonb,
+        integrity_hash text,
+        updated_at timestamptz not null default now()
+      );
+
+      alter table public.watchlog_profiles enable row level security;
+      alter table public.watchlog_libraries enable row level security;
+
+      drop policy if exists "watchlog profile read own" on public.watchlog_profiles;
+      create policy "watchlog profile read own" on public.watchlog_profiles
+        for select using (auth.uid() = user_id);
+
+      drop policy if exists "watchlog profile insert own" on public.watchlog_profiles;
+      create policy "watchlog profile insert own" on public.watchlog_profiles
+        for insert with check (auth.uid() = user_id);
+
+      drop policy if exists "watchlog profile update own" on public.watchlog_profiles;
+      create policy "watchlog profile update own" on public.watchlog_profiles
+        for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+      drop policy if exists "watchlog library read own" on public.watchlog_libraries;
+      create policy "watchlog library read own" on public.watchlog_libraries
+        for select using (auth.uid() = user_id);
+
+      drop policy if exists "watchlog library insert own" on public.watchlog_libraries;
+      create policy "watchlog library insert own" on public.watchlog_libraries
+        for insert with check (auth.uid() = user_id);
+
+      drop policy if exists "watchlog library update own" on public.watchlog_libraries;
+      create policy "watchlog library update own" on public.watchlog_libraries
+        for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+      create or replace function public.watchlog_resolve_username(p_username_hash text)
+      returns text
+      language sql
+      security definer
+      set search_path = public
+      stable
+      as $$
+        select email
+        from public.watchlog_profiles
+        where username_hash = p_username_hash
+        limit 1;
+      $$;
+
+      revoke all on function public.watchlog_resolve_username(text) from public;
+      grant execute on function public.watchlog_resolve_username(text) to anon, authenticated;
+    */
+    const SUPABASE_CONFIG = {
+      url: "REPLACE_WITH_YOUR_SUPABASE_PROJECT_URL",
+      publishableKey: "REPLACE_WITH_YOUR_SUPABASE_PUBLISHABLE_KEY"
+    };
+
+    const CLOUDKIT_CONFIG = {
+      containerIdentifier: "REPLACE_WITH_YOUR_ICLOUD_CONTAINER",
+      apiToken: "REPLACE_WITH_YOUR_CLOUDKIT_WEB_API_TOKEN",
+      environment: "production"
+    };
+
+    /*
+      Optional IMDb server-side verification endpoint.
+
+      Do NOT put IMDb/AWS credentials into this browser file.
+
+      If you create a secure serverless endpoint, set it here. It should accept:
+        ?title=SHOW_TITLE&season=24&premiereDate=2026-09-01
+
+      and return JSON such as:
+        { "confirmed": true, "seasonNumber": 24 }
+        { "confirmed": false, "seasonNumber": 23 }
+        { "confirmed": null }
+
+      Leaving this blank keeps IMDb verification disabled while the strict
+      TVMaze checks remain active.
+    */
+    const IMDB_VERIFY_ENDPOINT = "";
+
+    const AUTH_DB_NAME = "WatchLogAuthRegistryV4";
+    const AUTH_DB_VERSION = 1;
+    const AUTH_ACCOUNTS_STORE = "accounts";
+
+    const USER_DB_VERSION = 1;
+    const USER_PROFILE_STORE = "profile";
+    const USER_LIBRARY_STORE = "library";
+
+    const SESSION_KEY = "watchlog_session_v4";
+
+    const LEGACY_USERS_KEY = "watchlog_auth_users";
+    const LEGACY_USERS_BACKUP_KEY = "watchlog_auth_users_v3_backup";
+    const LEGACY_SESSION_KEY = "watchlog_auth_session";
+    const LEGACY_SESSION_V3_KEY = "watchlog_auth_session_v3";
+    const LEGACY_SHARED_DB = "WatchLogDeviceDatabase";
+
+    const PASSWORD_ITERATIONS = 210000;
+
+    let authDB = null;
+    let userDB = null;
+    let currentUser = null;
+    let currentAccountRecord = null;
+    let mediaItems = [];
+    let currentLibraryUpdatedAt = "";
+
+    let isSignUpMode = false;
+    let activeFilter = "All";
+    let currentTab = "library";
+    let searchQuery = "";
+
+    let cloudContainer = null;
+    let cloudDatabase = null;
+    let cloudIdentity = null;
+    let cloudKitReady = false;
+    let cloudSyncTimer = null;
+
+    let supabaseClient = null;
+    let supabaseSession = null;
+    let supabaseReady = false;
+    let supabaseSyncTimer = null;
+
+    /* =========================================================
+       DOM
+       ========================================================= */
+
+    const authScreen = document.getElementById("auth-screen");
+    const authForm = document.getElementById("auth-form");
+    const authTitle = document.getElementById("auth-title");
+    const authSub = document.getElementById("auth-sub");
+    const authNameGroup = document.getElementById("auth-name-group");
+    const authUsernameGroup = document.getElementById("auth-username-group");
+    const authEmailGroup = document.getElementById("auth-email-group");
+    const authIdentifierGroup = document.getElementById("auth-identifier-group");
+    const authSubmitBtn = document.getElementById("auth-submit-btn");
+    const authToggleMode = document.getElementById("auth-toggle-mode");
+    const authMessage = document.getElementById("auth-message");
+    const iCloudRecoveryBtn = document.getElementById("icloud-recovery-btn");
+
+    const navUserName = document.getElementById("nav-user-name");
+    const mainContentView = document.getElementById("main-content-view");
+    const profileContentView = document.getElementById("profile-content-view");
+    const profileDisplayName = document.getElementById("profile-display-name");
+    const profileDisplayUsername = document.getElementById("profile-display-username");
+    const profileDisplayEmail = document.getElementById("profile-display-email");
+    const profileAvatarIcon = document.getElementById("profile-avatar-icon");
+    const deviceStorageStatus = document.getElementById("device-storage-status");
+    const cloudAccountStatusDot = document.getElementById("cloud-account-status-dot");
+    const cloudAccountStatus = document.getElementById("cloud-account-status");
+    const cloudSyncNowBtn = document.getElementById("cloud-sync-now-btn");
+    const logoutBtn = document.getElementById("logout-btn");
+    const switchAccountBtn = document.getElementById("switch-account-btn");
+    const userProfilePill = document.getElementById("user-profile-pill");
+
+    const iCloudStatusDot = document.getElementById("icloud-status-dot");
+    const iCloudProfileStatus = document.getElementById("icloud-profile-status");
+    const openICloudBtn = document.getElementById("open-icloud-btn");
+
+    const mediaList = document.getElementById("media-list");
+    const emptyState = document.getElementById("empty-state");
+    const pillBtns = document.querySelectorAll(".pill-btn");
+    const tabBtns = document.querySelectorAll(".tab-btn");
+    const searchInput = document.getElementById("search-input");
+
+    const modal = document.getElementById("modal");
+    const addBtn = document.getElementById("add-btn");
+    const closeModal = document.getElementById("close-modal");
+    const mediaForm = document.getElementById("media-form");
+    const mediaSaveBtn = document.getElementById("media-save-btn");
+    const deleteBtn = document.getElementById("delete-btn");
+    const typeSelect = document.getElementById("type");
+    const seriesSection = document.getElementById("series-section");
+    const upcomingSection = document.getElementById("upcoming-section");
+    const titleInput = document.getElementById("title");
+    const suggestList = document.getElementById("suggest-list");
+
+    const iCloudModal = document.getElementById("icloud-modal");
+    const closeICloudModalBtn = document.getElementById("close-icloud-modal");
+    const iCloudModalStatus = document.getElementById("icloud-modal-status");
+    const iCloudSyncNowBtn = document.getElementById("icloud-sync-now-btn");
+    const iCloudRestoreBtn = document.getElementById("icloud-restore-btn");
+
+    /* =========================================================
+       GENERAL HELPERS
+       ========================================================= */
+
+    function normalizeUsername(value) {
+      return String(value || "").trim().toLowerCase();
+    }
+
+    function normalizeEmail(value) {
+      return String(value || "").trim().toLowerCase();
+    }
+
+    function normalizeIdentifier(value) {
+      return String(value || "").trim().toLowerCase();
+    }
+
+    function nowISO() {
+      return new Date().toISOString();
+    }
+
+    function timestampValue(value) {
+      if (!value) return 0;
+      const parsed = new Date(value).getTime();
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function escapeHTML(value) {
+      return String(value ?? "").replace(/[&<>'"]/g, character => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&#39;",
+        '"': "&quot;"
+      })[character] || character);
+    }
+
+    function showAuthMessage(text, type = "error") {
+      authMessage.textContent = text;
+      authMessage.className = `auth-message ${type}`;
+    }
+
+    function hideAuthMessage() {
+      authMessage.textContent = "";
+      authMessage.className = "auth-message hidden";
+    }
+
+    function createMediaId() {
+      if (globalThis.crypto && typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID();
+      }
+      return `media_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    }
+
+    function safeReadJSON(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw === null) return fallback;
+        return JSON.parse(raw);
+      } catch (error) {
+        console.error(`Unable to read ${key}:`, error);
+        return fallback;
+      }
+    }
+
+    function safeWriteJSON(key, value) {
+      try {
+        const encoded = JSON.stringify(value);
+        localStorage.setItem(key, encoded);
+        return localStorage.getItem(key) === encoded;
+      } catch (error) {
+        console.error(`Unable to write ${key}:`, error);
+        return false;
+      }
+    }
+
+    /* =========================================================
+       HASHING / PASSWORD VERIFICATION
+       ========================================================= */
+
+    function bytesToBase64(bytes) {
+      let binary = "";
+      bytes.forEach(byte => { binary += String.fromCharCode(byte); });
+      return btoa(binary);
+    }
+
+    function base64ToBytes(value) {
+      const binary = atob(value);
+      return Uint8Array.from(binary, char => char.charCodeAt(0));
+    }
+
+    async function sha256Text(value) {
+      if (!globalThis.crypto?.subtle) {
+        throw new Error("Secure Web Crypto is unavailable.");
+      }
+      const data = new TextEncoder().encode(String(value));
+      const digest = await crypto.subtle.digest("SHA-256", data);
+      return Array.from(new Uint8Array(digest))
+        .map(byte => byte.toString(16).padStart(2, "0"))
+        .join("");
+    }
+
+    async function hashUsername(username) {
+      return sha256Text(`watchlog:username:${normalizeUsername(username)}`);
+    }
+
+    async function hashEmail(email) {
+      return sha256Text(`watchlog:email:${normalizeEmail(email)}`);
+    }
+
+    async function createUserKey(usernameHash, emailHash) {
+      return sha256Text(`watchlog:user:${usernameHash}:${emailHash}`);
+    }
+
+    async function derivePasswordRecord(password, existingSalt = null, iterations = PASSWORD_ITERATIONS) {
+      if (!globalThis.crypto?.subtle) {
+        throw new Error("Secure Web Crypto is unavailable.");
+      }
+
+      const encoder = new TextEncoder();
+      const salt = existingSalt
+        ? base64ToBytes(existingSalt)
+        : crypto.getRandomValues(new Uint8Array(16));
+
+      const keyMaterial = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(password),
+        "PBKDF2",
+        false,
+        ["deriveBits"]
+      );
+
+      const bits = await crypto.subtle.deriveBits(
+        {
+          name: "PBKDF2",
+          salt,
+          iterations,
+          hash: "SHA-256"
+        },
+        keyMaterial,
+        256
+      );
+
+      return {
+        passwordHash: bytesToBase64(new Uint8Array(bits)),
+        passwordSalt: bytesToBase64(salt),
+        passwordIterations: iterations,
+        passwordVersion: 2
+      };
+    }
+
+    async function passwordMatchesAccount(account, password) {
+      if (!account?.passwordHash || !account?.passwordSalt) return false;
+      const candidate = await derivePasswordRecord(
+        password,
+        account.passwordSalt,
+        Number(account.passwordIterations || 150000)
+      );
+      return candidate.passwordHash === account.passwordHash;
+    }
+
+    async function passwordMatchesLegacy(user, password) {
+      if (!user) return false;
+      if (typeof user.password === "string") return user.password === password;
+      if (user.passwordHash && user.passwordSalt) {
+        const candidate = await derivePasswordRecord(
+          password,
+          user.passwordSalt,
+          Number(user.passwordIterations || 150000)
+        );
+        return candidate.passwordHash === user.passwordHash;
+      }
+      return false;
+    }
+
+    /* =========================================================
+       AUTH REGISTRY DATABASE
+       Stores only hashed lookup identifiers + password verifier.
+       Plain username/email/profile live in the separate user DB.
+       ========================================================= */
+
+    function openAuthDatabase() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(AUTH_DB_NAME, AUTH_DB_VERSION);
+
+        request.onupgradeneeded = event => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains(AUTH_ACCOUNTS_STORE)) {
+            const store = db.createObjectStore(AUTH_ACCOUNTS_STORE, { keyPath: "userKey" });
+            store.createIndex("usernameHash", "usernameHash", { unique: true });
+            store.createIndex("emailHash", "emailHash", { unique: true });
+          }
+        };
+
+        request.onsuccess = () => {
+          authDB = request.result;
+          authDB.onversionchange = () => authDB.close();
+          resolve(authDB);
+        };
+
+        request.onerror = () => reject(request.error || new Error("Unable to open WatchLog account database."));
+      });
+    }
+
+    function authGetByKey(userKey) {
+      return new Promise((resolve, reject) => {
+        const tx = authDB.transaction(AUTH_ACCOUNTS_STORE, "readonly");
+        const request = tx.objectStore(AUTH_ACCOUNTS_STORE).get(userKey);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function authGetByIndex(indexName, value) {
+      return new Promise((resolve, reject) => {
+        const tx = authDB.transaction(AUTH_ACCOUNTS_STORE, "readonly");
+        const request = tx.objectStore(AUTH_ACCOUNTS_STORE).index(indexName).get(value);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function authGetAll() {
+      return new Promise((resolve, reject) => {
+        const tx = authDB.transaction(AUTH_ACCOUNTS_STORE, "readonly");
+        const request = tx.objectStore(AUTH_ACCOUNTS_STORE).getAll();
+        request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function authPut(account) {
+      return new Promise((resolve, reject) => {
+        const tx = authDB.transaction(AUTH_ACCOUNTS_STORE, "readwrite");
+        tx.objectStore(AUTH_ACCOUNTS_STORE).put(account);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error || new Error("Account database transaction aborted."));
+      });
+    }
+
+    /* =========================================================
+       SEPARATE PER-USER DATABASE
+       Database name is based on a SHA-256 user key.
+       ========================================================= */
+
+    function getUserDatabaseName(userKey) {
+      return `WatchLogUser_${String(userKey).slice(0, 48)}`;
+    }
+
+    function openUserDatabase(userKey) {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(getUserDatabaseName(userKey), USER_DB_VERSION);
+
+        request.onupgradeneeded = event => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains(USER_PROFILE_STORE)) {
+            db.createObjectStore(USER_PROFILE_STORE, { keyPath: "key" });
+          }
+          if (!db.objectStoreNames.contains(USER_LIBRARY_STORE)) {
+            db.createObjectStore(USER_LIBRARY_STORE, { keyPath: "key" });
+          }
+        };
+
+        request.onsuccess = () => {
+          if (userDB) {
+            try { userDB.close(); } catch (_) {}
+          }
+          userDB = request.result;
+          userDB.onversionchange = () => userDB.close();
+          resolve(userDB);
+        };
+
+        request.onerror = () => reject(request.error || new Error("Unable to open this user's WatchLog database."));
+      });
+    }
+
+    function userDBGet(storeName, key) {
+      return new Promise((resolve, reject) => {
+        const tx = userDB.transaction(storeName, "readonly");
+        const request = tx.objectStore(storeName).get(key);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function userDBPut(storeName, value) {
+      return new Promise((resolve, reject) => {
+        const tx = userDB.transaction(storeName, "readwrite");
+        tx.objectStore(storeName).put(value);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error || new Error("User database transaction aborted."));
+      });
+    }
+
+    async function computeLibraryIntegrityHash(userKey, items) {
+      return sha256Text(`${userKey}|${JSON.stringify(items)}`);
+    }
+
+    async function saveProfile(profile) {
+      const record = {
+        key: "profile",
+        ...profile,
+        updatedAt: nowISO()
+      };
+      await userDBPut(USER_PROFILE_STORE, record);
+      const verify = await userDBGet(USER_PROFILE_STORE, "profile");
+      if (!verify || verify.userKey !== profile.userKey) {
+        throw new Error("Profile save verification failed.");
+      }
+      return verify;
+    }
+
+    async function saveLibrary(nextItems, { syncCloud = true } = {}) {
+      if (!currentUser?.userKey || !userDB) {
+        alert("You must be logged in before saving.");
+        return false;
+      }
+
+      const updatedAt = nowISO();
+      const normalizedItems = nextItems.map(item => ({
+        ...item,
+        ownerKey: currentUser.userKey,
+        updatedAt: item.updatedAt || updatedAt
+      }));
+
+      const integrityHash = await computeLibraryIntegrityHash(currentUser.userKey, normalizedItems);
+      const record = {
+        key: "library",
+        items: normalizedItems,
+        integrityHash,
+        updatedAt
+      };
+
+      try {
+        await userDBPut(USER_LIBRARY_STORE, record);
+        const verify = await userDBGet(USER_LIBRARY_STORE, "library");
+
+        if (!verify || !Array.isArray(verify.items)) {
+          throw new Error("Library save read-back failed.");
+        }
+
+        const verifyHash = await computeLibraryIntegrityHash(currentUser.userKey, verify.items);
+        if (verifyHash !== verify.integrityHash) {
+          throw new Error("Library integrity verification failed.");
+        }
+
+        mediaItems = verify.items;
+        currentLibraryUpdatedAt = verify.updatedAt || updatedAt;
+        updateCounts();
+
+        if (syncCloud) {
+          queueSupabaseSync();
+          queueICloudSync();
+        }
+        return true;
+      } catch (error) {
+        console.error("Library save failed:", error);
+        alert("WatchLog could not verify this save. Your current saved library was left unchanged.");
+        return false;
+      }
+    }
+
+    async function loadLibrary() {
+      const record = await userDBGet(USER_LIBRARY_STORE, "library");
+      if (!record) {
+        const integrityHash = await computeLibraryIntegrityHash(currentUser.userKey, []);
+        await userDBPut(USER_LIBRARY_STORE, {
+          key: "library",
+          items: [],
+          integrityHash,
+          updatedAt: nowISO()
+        });
+        mediaItems = [];
+        currentLibraryUpdatedAt = nowISO();
+        return;
+      }
+
+      if (!Array.isArray(record.items)) {
+        throw new Error("Saved library has an invalid format.");
+      }
+
+      const expectedHash = await computeLibraryIntegrityHash(currentUser.userKey, record.items);
+      if (record.integrityHash && expectedHash !== record.integrityHash) {
+        throw new Error("Saved library failed its integrity check.");
+      }
+
+      /* Upgrade older user-DB records that did not yet have an integrity hash. */
+      if (!record.integrityHash) {
+        record.integrityHash = expectedHash;
+        await userDBPut(USER_LIBRARY_STORE, record);
+      }
+
+      mediaItems = record.items;
+      currentLibraryUpdatedAt = record.updatedAt || "";
+    }
+
+    /* =========================================================
+       SESSION
+       ========================================================= */
+
+    function saveSession(userKey) {
+      return safeWriteJSON(SESSION_KEY, { userKey });
+    }
+
+    function clearSessionStorage() {
+      try {
+        localStorage.removeItem(SESSION_KEY);
+        localStorage.removeItem(LEGACY_SESSION_KEY);
+        localStorage.removeItem(LEGACY_SESSION_V3_KEY);
+      } catch (error) {
+        console.error("Unable to clear session:", error);
+      }
+    }
+
+    /* =========================================================
+       ACCOUNT LOOKUP
+       ========================================================= */
+
+    async function findAccountByIdentifier(identifier) {
+      const normalized = normalizeIdentifier(identifier);
+      if (!normalized) return null;
+
+      /* Login input can be either username or email, so calculate both hashes. */
+      const usernameHash = await hashUsername(normalized);
+      const emailHash = await hashEmail(normalized);
+
+      const byUsername = await authGetByIndex("usernameHash", usernameHash);
+      if (byUsername) return byUsername;
+
+      return authGetByIndex("emailHash", emailHash);
+    }
+
+    /* =========================================================
+       LEGACY MIGRATION
+       Converts old accounts into the new hashed registry and
+       separate per-user database.
+       ========================================================= */
+
+    function getLegacyLocalLibrary(email, oldId) {
+      const collections = [];
+      if (email) {
+        const byEmail = safeReadJSON(`watchlog_records_${normalizeEmail(email)}`, []);
+        if (Array.isArray(byEmail)) collections.push(byEmail);
+      }
+      if (oldId) {
+        const byId = safeReadJSON(`watchlog_records_user_${oldId}`, []);
+        if (Array.isArray(byId)) collections.push(byId);
+      }
+      return mergeMediaCollections(collections);
+    }
+
+    function mergeMediaCollections(collections) {
+      const map = new Map();
+
+      for (const collection of collections) {
+        if (!Array.isArray(collection)) continue;
+        for (const raw of collection) {
+          if (!raw) continue;
+          const item = {
+            ...raw,
+            id: String(raw.id || createMediaId()),
+            updatedAt: raw.updatedAt || raw.createdAt || nowISO()
+          };
+
+          const existing = map.get(item.id);
+          if (!existing || timestampValue(item.updatedAt) >= timestampValue(existing.updatedAt)) {
+            map.set(item.id, item);
+          }
+        }
+      }
+
+      return Array.from(map.values());
+    }
+
+    async function readLegacySharedDatabase() {
+      return new Promise(resolve => {
+        try {
+          const request = indexedDB.open(LEGACY_SHARED_DB);
+          let createdFresh = false;
+
+          request.onupgradeneeded = () => {
+            /* If it never existed, opening it creates an empty DB. */
+            createdFresh = true;
+          };
+
+          request.onerror = () => resolve({ users: [], libraries: [] });
+
+          request.onsuccess = () => {
+            const db = request.result;
+            if (createdFresh) {
+              db.close();
+              resolve({ users: [], libraries: [] });
+              return;
+            }
+
+            const hasUsers = db.objectStoreNames.contains("users");
+            const hasLibraries = db.objectStoreNames.contains("libraries");
+            if (!hasUsers) {
+              db.close();
+              resolve({ users: [], libraries: [] });
+              return;
+            }
+
+            const stores = hasLibraries ? ["users", "libraries"] : ["users"];
+            const tx = db.transaction(stores, "readonly");
+            const usersRequest = tx.objectStore("users").getAll();
+            const libraryRequest = hasLibraries ? tx.objectStore("libraries").getAll() : null;
+
+            let users = [];
+            let libraries = [];
+            usersRequest.onsuccess = () => { users = Array.isArray(usersRequest.result) ? usersRequest.result : []; };
+            if (libraryRequest) libraryRequest.onsuccess = () => { libraries = Array.isArray(libraryRequest.result) ? libraryRequest.result : []; };
+
+            tx.oncomplete = () => {
+              db.close();
+              resolve({ users, libraries });
+            };
+            tx.onerror = () => {
+              db.close();
+              resolve({ users: [], libraries: [] });
+            };
+          };
+        } catch (error) {
+          console.warn("Unable to inspect previous WatchLog database:", error);
+          resolve({ users: [], libraries: [] });
+        }
+      });
+    }
+
+    async function getUniqueUsername(baseValue) {
+      let base = normalizeUsername(baseValue)
+        .replace(/[^a-z0-9._-]/g, "")
+        .slice(0, 24);
+
+      if (base.length < 3) base = `user${Math.floor(Math.random() * 9000 + 1000)}`;
+
+      let candidate = base;
+      let counter = 1;
+
+      while (await authGetByIndex("usernameHash", await hashUsername(candidate))) {
+        candidate = `${base}${counter}`.slice(0, 30);
+        counter += 1;
+      }
+
+      return candidate;
+    }
+
+    async function migrateOneLegacyAccount(legacyUser, libraryCollections = []) {
+      if (!legacyUser?.email) return null;
+
+      const email = normalizeEmail(legacyUser.email);
+      const emailHash = await hashEmail(email);
+      const alreadyMigrated = await authGetByIndex("emailHash", emailHash);
+      if (alreadyMigrated) return alreadyMigrated;
+
+      const suggestedUsername = legacyUser.username || email.split("@")[0] || "user";
+      const username = await getUniqueUsername(suggestedUsername);
+      const usernameHash = await hashUsername(username);
+      const userKey = await createUserKey(usernameHash, emailHash);
+
+      let passwordRecord = null;
+      if (legacyUser.passwordHash && legacyUser.passwordSalt) {
+        passwordRecord = {
+          passwordHash: legacyUser.passwordHash,
+          passwordSalt: legacyUser.passwordSalt,
+          passwordIterations: Number(legacyUser.passwordIterations || 150000),
+          passwordVersion: Number(legacyUser.passwordVersion || 1)
+        };
+      } else if (typeof legacyUser.password === "string" && legacyUser.password) {
+        passwordRecord = await derivePasswordRecord(legacyUser.password);
+      }
+
+      if (!passwordRecord) return null;
+
+      const account = {
+        userKey,
+        usernameHash,
+        emailHash,
+        ...passwordRecord,
+        createdAt: legacyUser.createdAt || nowISO(),
+        updatedAt: nowISO(),
+        schemaVersion: 5
+      };
+
+      await authPut(account);
+      await openUserDatabase(userKey);
+
+      const profile = {
+        userKey,
+        username,
+        email,
+        name: String(legacyUser.name || "User").trim() || "User"
+      };
+      await saveProfile(profile);
+
+      const localLegacy = getLegacyLocalLibrary(email, legacyUser.id);
+      const mergedItems = mergeMediaCollections([...libraryCollections, localLegacy]);
+      const integrityHash = await computeLibraryIntegrityHash(userKey, mergedItems);
+      await userDBPut(USER_LIBRARY_STORE, {
+        key: "library",
+        items: mergedItems,
+        integrityHash,
+        updatedAt: nowISO()
+      });
+
+      return account;
+    }
+
+    async function collectAllLegacyUsers() {
+      const users = [];
+
+      for (const key of [LEGACY_USERS_KEY, LEGACY_USERS_BACKUP_KEY]) {
+        const records = safeReadJSON(key, []);
+        if (Array.isArray(records)) users.push(...records.filter(Boolean));
+      }
+
+      const shared = await readLegacySharedDatabase();
+      users.push(...shared.users.filter(Boolean));
+
+      return users;
+    }
+
+    async function repairAccountPasswordFromLegacy(account, identifier, password) {
+      let email = normalizeIdentifier(identifier).includes("@")
+        ? normalizeEmail(identifier)
+        : "";
+
+      /*
+        If login was by username, read the profile only to learn which legacy
+        email records belong to this hashed account. This does not create a
+        session or bypass password verification.
+      */
+      if (!email && account?.userKey) {
+        try {
+          await openUserDatabase(account.userKey);
+          const profile = await userDBGet(USER_PROFILE_STORE, "profile");
+          email = normalizeEmail(profile?.email);
+        } catch (_) {}
+      }
+
+      if (!email) return null;
+
+      const legacyUsers = await collectAllLegacyUsers();
+      const candidates = legacyUsers.filter(user => normalizeEmail(user?.email) === email);
+
+      for (const candidate of candidates) {
+        try {
+          if (await passwordMatchesLegacy(candidate, password)) {
+            const repairedPassword = await derivePasswordRecord(password);
+            const repaired = {
+              ...account,
+              ...repairedPassword,
+              updatedAt: nowISO(),
+              schemaVersion: 5
+            };
+            await authPut(repaired);
+            return repaired;
+          }
+        } catch (error) {
+          console.warn("A legacy password candidate could not be checked:", error);
+        }
+      }
+
+      return null;
+    }
+
+    async function migrateLegacyAccounts() {
+      const localUsers = [];
+      const seenEmails = new Set();
+
+      for (const key of [LEGACY_USERS_KEY, LEGACY_USERS_BACKUP_KEY]) {
+        const records = safeReadJSON(key, []);
+        if (!Array.isArray(records)) continue;
+        for (const record of records) {
+          const email = normalizeEmail(record?.email);
+          if (!email || seenEmails.has(email)) continue;
+          seenEmails.add(email);
+          localUsers.push(record);
+        }
+      }
+
+      const shared = await readLegacySharedDatabase();
+      const sharedLibrariesByUserId = new Map();
+      for (const library of shared.libraries) {
+        if (library?.userId) sharedLibrariesByUserId.set(library.userId, library.items || []);
+      }
+
+      for (const oldUser of shared.users) {
+        const email = normalizeEmail(oldUser?.email);
+        if (!email) continue;
+        if (!seenEmails.has(email)) {
+          seenEmails.add(email);
+          localUsers.push(oldUser);
+        }
+      }
+
+      for (const legacyUser of localUsers) {
+        try {
+          const extra = legacyUser.id && sharedLibrariesByUserId.has(legacyUser.id)
+            ? [sharedLibrariesByUserId.get(legacyUser.id)]
+            : [];
+          await migrateOneLegacyAccount(legacyUser, extra);
+        } catch (error) {
+          console.warn("One previous WatchLog account could not be migrated:", error);
+        }
+      }
+
+      /* Remove plaintext passwords from the old account array after migration. */
+      const oldArray = safeReadJSON(LEGACY_USERS_KEY, []);
+      if (Array.isArray(oldArray)) {
+        const sanitized = [];
+        for (const user of oldArray) {
+          if (!user || typeof user !== "object") continue;
+          const copy = { ...user };
+          if (typeof copy.password === "string" && copy.password) {
+            try {
+              Object.assign(copy, await derivePasswordRecord(copy.password));
+              delete copy.password;
+            } catch (_) {}
+          }
+          sanitized.push(copy);
+        }
+        safeWriteJSON(LEGACY_USERS_KEY, sanitized);
+      }
+    }
+
+    /* =========================================================
+       SUPABASE CROSS-DEVICE ACCOUNT + DATABASE
+       ========================================================= */
+
+    function isSupabaseConfigured() {
+      return Boolean(
+        SUPABASE_CONFIG.url &&
+        SUPABASE_CONFIG.publishableKey &&
+        !SUPABASE_CONFIG.url.startsWith("REPLACE_") &&
+        !SUPABASE_CONFIG.publishableKey.startsWith("REPLACE_")
+      );
+    }
+
+    function setSupabaseStatus(message, state = "off") {
+      if (cloudAccountStatus) cloudAccountStatus.textContent = message;
+      if (cloudAccountStatusDot) cloudAccountStatusDot.className = `status-dot ${state}`;
+    }
+
+    function updateSupabaseUI() {
+      if (!isSupabaseConfigured()) {
+        setSupabaseStatus(
+          "Cross-device login is not configured yet. Add your Supabase Project URL and publishable key in SUPABASE_CONFIG.",
+          "warning"
+        );
+        if (cloudSyncNowBtn) cloudSyncNowBtn.disabled = true;
+        return;
+      }
+
+      if (!supabaseReady) {
+        setSupabaseStatus("Connecting to the cross-device account database…", "warning");
+        if (cloudSyncNowBtn) cloudSyncNowBtn.disabled = true;
+        return;
+      }
+
+      if (supabaseSession?.user) {
+        setSupabaseStatus(
+          `Cloud account connected. Login and library are available across devices for ${supabaseSession.user.email || "this account"}.`,
+          "ok"
+        );
+        if (cloudSyncNowBtn) cloudSyncNowBtn.disabled = !currentUser;
+      } else {
+        setSupabaseStatus(
+          "Cloud database is configured, but this device is not currently signed into a cloud WatchLog account.",
+          "warning"
+        );
+        if (cloudSyncNowBtn) cloudSyncNowBtn.disabled = true;
+      }
+    }
+
+    async function initializeSupabase() {
+      if (!isSupabaseConfigured()) {
+        supabaseReady = false;
+        updateSupabaseUI();
+        return false;
+      }
+
+      if (!window.supabase?.createClient) {
+        supabaseReady = false;
+        setSupabaseStatus("The Supabase browser library could not be loaded.", "warning");
+        return false;
+      }
+
+      try {
+        supabaseClient = window.supabase.createClient(
+          SUPABASE_CONFIG.url,
+          SUPABASE_CONFIG.publishableKey,
+          {
+            auth: {
+              persistSession: true,
+              autoRefreshToken: true,
+              detectSessionInUrl: true
+            }
+          }
+        );
+
+        const { data, error } = await supabaseClient.auth.getSession();
+        if (error) throw error;
+
+        supabaseSession = data?.session || null;
+        supabaseReady = true;
+
+        supabaseClient.auth.onAuthStateChange((event, session) => {
+          supabaseSession = session || null;
+          updateSupabaseUI();
+        });
+
+        updateSupabaseUI();
+        return true;
+      } catch (error) {
+        console.error("Supabase initialisation failed:", error);
+        supabaseReady = false;
+        setSupabaseStatus(
+          "The cross-device account database could not be reached. On-device data remains available.",
+          "warning"
+        );
+        return false;
+      }
+    }
+
+    async function resolveSupabaseLoginEmail(identifier) {
+      const normalized = normalizeIdentifier(identifier);
+      if (!normalized) return null;
+
+      if (normalized.includes("@")) {
+        return normalizeEmail(normalized);
+      }
+
+      if (!supabaseClient) return null;
+
+      const usernameHash = await hashUsername(normalized);
+      const { data, error } = await supabaseClient.rpc(
+        "watchlog_resolve_username",
+        { p_username_hash: usernameHash }
+      );
+
+      if (error) {
+        console.warn("Username-to-email cloud lookup failed:", error);
+        return null;
+      }
+
+      if (typeof data === "string" && data.includes("@")) {
+        return normalizeEmail(data);
+      }
+
+      if (Array.isArray(data) && data[0]) {
+        const candidate = typeof data[0] === "string" ? data[0] : data[0].email;
+        return normalizeEmail(candidate);
+      }
+
+      return null;
+    }
+
+    async function getSupabaseProfile(authUserId) {
+      if (!supabaseClient || !authUserId) return null;
+
+      const { data, error } = await supabaseClient
+        .from("watchlog_profiles")
+        .select("user_id, username, username_hash, email, name, updated_at")
+        .eq("user_id", authUserId)
+        .maybeSingle();
+
+      if (error) {
+        console.warn("Unable to fetch WatchLog cloud profile:", error);
+        return null;
+      }
+
+      return data || null;
+    }
+
+    async function ensureSupabaseProfile(authUser, fallback = {}) {
+      if (!authUser?.id || !supabaseClient) {
+        throw new Error("CLOUD_PROFILE_UNAVAILABLE");
+      }
+
+      const existing = await getSupabaseProfile(authUser.id);
+      if (existing) return existing;
+
+      const email = normalizeEmail(authUser.email || fallback.email);
+      const metadata = authUser.user_metadata || {};
+
+      let baseUsername = normalizeUsername(
+        fallback.username ||
+        metadata.username ||
+        (email ? email.split("@")[0] : "user")
+      )
+        .replace(/[^a-z0-9._-]/g, "")
+        .slice(0, 24);
+
+      if (baseUsername.length < 3) {
+        baseUsername = `user${String(authUser.id).replace(/-/g, "").slice(0, 8)}`;
+      }
+
+      let username = baseUsername;
+      let lastError = null;
+
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        if (attempt > 0) {
+          username = `${baseUsername}${String(authUser.id).replace(/-/g, "").slice(0, 4 + attempt)}`.slice(0, 30);
+        }
+
+        const usernameHash = await hashUsername(username);
+        const payload = {
+          user_id: authUser.id,
+          username,
+          username_hash: usernameHash,
+          email,
+          name: String(fallback.name || metadata.name || "User").trim() || "User",
+          updated_at: nowISO()
+        };
+
+        const { data, error } = await supabaseClient
+          .from("watchlog_profiles")
+          .insert(payload)
+          .select("user_id, username, username_hash, email, name, updated_at")
+          .single();
+
+        if (!error && data) return data;
+        lastError = error;
+
+        /* 23505 = unique violation, normally username_hash already taken. */
+        if (String(error?.code || "") !== "23505") break;
+      }
+
+      console.error("Unable to create WatchLog cloud profile:", lastError);
+      throw new Error("CLOUD_PROFILE_SAVE_FAILED");
+    }
+
+    async function cacheSupabaseAccountLocally(authUser, cloudProfile, password = null) {
+      const username = normalizeUsername(cloudProfile.username);
+      const email = normalizeEmail(cloudProfile.email || authUser.email);
+      const usernameHash = await hashUsername(username);
+      const emailHash = await hashEmail(email);
+
+      /*
+        The same username+email combination produces the same hashed userKey on
+        every device, while the cloud auth UUID remains the authoritative
+        cross-device identity.
+      */
+      let userKey = await createUserKey(usernameHash, emailHash);
+
+      const existingByEmail = await authGetByIndex("emailHash", emailHash);
+      const existingByUsername = await authGetByIndex("usernameHash", usernameHash);
+      const existing = existingByEmail || existingByUsername;
+      if (existing?.userKey) userKey = existing.userKey;
+
+      let passwordRecord = null;
+      if (password) {
+        passwordRecord = await derivePasswordRecord(password);
+      } else if (existing?.passwordHash && existing?.passwordSalt) {
+        passwordRecord = {
+          passwordHash: existing.passwordHash,
+          passwordSalt: existing.passwordSalt,
+          passwordIterations: Number(existing.passwordIterations || PASSWORD_ITERATIONS),
+          passwordVersion: Number(existing.passwordVersion || 2)
+        };
+      }
+
+      const account = {
+        ...(existing || {}),
+        userKey,
+        usernameHash,
+        emailHash,
+        cloudAuthUserId: authUser.id,
+        ...(passwordRecord || {}),
+        createdAt: existing?.createdAt || nowISO(),
+        updatedAt: nowISO(),
+        schemaVersion: 5
+      };
+
+      await authPut(account);
+      await openUserDatabase(userKey);
+
+      const profile = await saveProfile({
+        userKey,
+        cloudAuthUserId: authUser.id,
+        username,
+        email,
+        name: String(cloudProfile.name || "User").trim() || "User"
+      });
+
+      currentAccountRecord = account;
+      currentUser = profile;
+      saveSession(userKey);
+
+      return profile;
+    }
+
+    async function fetchSupabaseLibrary() {
+      if (!supabaseClient || !supabaseSession?.user?.id) return null;
+
+      const { data, error } = await supabaseClient
+        .from("watchlog_libraries")
+        .select("user_id, payload, integrity_hash, updated_at")
+        .eq("user_id", supabaseSession.user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.warn("Unable to fetch cloud WatchLog library:", error);
+        return null;
+      }
+
+      if (!data) return null;
+
+      return {
+        userId: data.user_id,
+        items: Array.isArray(data.payload) ? data.payload : [],
+        integrityHash: data.integrity_hash || "",
+        updatedAt: data.updated_at || ""
+      };
+    }
+
+    async function uploadSupabaseLibrary(items = mediaItems, updatedAt = currentLibraryUpdatedAt || nowISO()) {
+      if (!supabaseClient || !supabaseSession?.user?.id || !currentUser?.userKey) {
+        return false;
+      }
+
+      const cleanItems = Array.isArray(items) ? items : [];
+      const integrityHash = await computeLibraryIntegrityHash(currentUser.userKey, cleanItems);
+
+      const { error } = await supabaseClient
+        .from("watchlog_libraries")
+        .upsert(
+          {
+            user_id: supabaseSession.user.id,
+            payload: cleanItems,
+            integrity_hash: integrityHash,
+            updated_at: updatedAt || nowISO()
+          },
+          { onConflict: "user_id" }
+        );
+
+      if (error) {
+        console.error("Cloud library upload failed:", error);
+        return false;
+      }
+
+      return true;
+    }
+
+    async function syncSupabaseLibrary() {
+      if (!supabaseReady || !supabaseSession?.user || !currentUser?.userKey || !userDB) {
+        return false;
+      }
+
+      const localRecord = await userDBGet(USER_LIBRARY_STORE, "library");
+      const cloudRecord = await fetchSupabaseLibrary();
+
+      if (!localRecord && !cloudRecord) {
+        const items = [];
+        const updatedAt = nowISO();
+        const integrityHash = await computeLibraryIntegrityHash(currentUser.userKey, items);
+        await userDBPut(USER_LIBRARY_STORE, {
+          key: "library",
+          items,
+          integrityHash,
+          updatedAt
+        });
+        mediaItems = [];
+        currentLibraryUpdatedAt = updatedAt;
+        await uploadSupabaseLibrary(items, updatedAt);
+        render();
+        return true;
+      }
+
+      if (!localRecord && cloudRecord) {
+        const expectedCloudHash = await computeLibraryIntegrityHash(currentUser.userKey, cloudRecord.items);
+        if (cloudRecord.integrityHash && expectedCloudHash !== cloudRecord.integrityHash) {
+          throw new Error("CLOUD_LIBRARY_INTEGRITY_FAILED");
+        }
+
+        await userDBPut(USER_LIBRARY_STORE, {
+          key: "library",
+          items: cloudRecord.items,
+          integrityHash: expectedCloudHash,
+          updatedAt: cloudRecord.updatedAt || nowISO()
+        });
+
+        mediaItems = cloudRecord.items;
+        currentLibraryUpdatedAt = cloudRecord.updatedAt || nowISO();
+        render();
+        return true;
+      }
+
+      if (localRecord && !cloudRecord) {
+        mediaItems = Array.isArray(localRecord.items) ? localRecord.items : [];
+        currentLibraryUpdatedAt = localRecord.updatedAt || nowISO();
+        await uploadSupabaseLibrary(mediaItems, currentLibraryUpdatedAt);
+        render();
+        return true;
+      }
+
+      const localTime = timestampValue(localRecord.updatedAt);
+      const cloudTime = timestampValue(cloudRecord.updatedAt);
+
+      if (cloudTime > localTime) {
+        const expectedCloudHash = await computeLibraryIntegrityHash(currentUser.userKey, cloudRecord.items);
+        if (cloudRecord.integrityHash && expectedCloudHash !== cloudRecord.integrityHash) {
+          throw new Error("CLOUD_LIBRARY_INTEGRITY_FAILED");
+        }
+
+        await userDBPut(USER_LIBRARY_STORE, {
+          key: "library",
+          items: cloudRecord.items,
+          integrityHash: expectedCloudHash,
+          updatedAt: cloudRecord.updatedAt || nowISO()
+        });
+
+        mediaItems = cloudRecord.items;
+        currentLibraryUpdatedAt = cloudRecord.updatedAt || nowISO();
+        render();
+        return true;
+      }
+
+      mediaItems = Array.isArray(localRecord.items) ? localRecord.items : [];
+      currentLibraryUpdatedAt = localRecord.updatedAt || nowISO();
+      await uploadSupabaseLibrary(mediaItems, currentLibraryUpdatedAt);
+      render();
+      return true;
+    }
+
+    function queueSupabaseSync() {
+      if (!supabaseReady || !supabaseSession?.user || !currentUser) return;
+
+      clearTimeout(supabaseSyncTimer);
+      supabaseSyncTimer = setTimeout(async () => {
+        try {
+          const ok = await uploadSupabaseLibrary(mediaItems, currentLibraryUpdatedAt || nowISO());
+          if (ok) updateSupabaseUI();
+        } catch (error) {
+          console.error("Deferred cloud sync failed:", error);
+          setSupabaseStatus("Saved on this device, but cloud sync needs to be retried.", "warning");
+        }
+      }, 500);
+    }
+
+    async function loginWithSupabase(identifier, password) {
+      if (!supabaseReady || !supabaseClient) throw new Error("CLOUD_NOT_CONFIGURED");
+
+      const email = await resolveSupabaseLoginEmail(identifier);
+      if (!email) {
+        if (!normalizeIdentifier(identifier).includes("@")) {
+          throw new Error("CLOUD_USERNAME_NOT_FOUND");
+        }
+        throw new Error("CLOUD_ACCOUNT_NOT_FOUND");
+      }
+
+      const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error || !data?.user || !data?.session) {
+        console.warn("Cloud login rejected:", error);
+        throw new Error("CLOUD_LOGIN_REJECTED");
+      }
+
+      supabaseSession = data.session;
+      const profile = await ensureSupabaseProfile(data.user, { email });
+      await cacheSupabaseAccountLocally(data.user, profile, password);
+      await syncSupabaseLibrary();
+      updateSupabaseUI();
+      return currentUser;
+    }
+
+    async function createSupabaseAccount({ username, email, password, name }) {
+      if (!supabaseReady || !supabaseClient) return { configured: false, session: null, user: null };
+
+      const { data, error } = await supabaseClient.auth.signUp({
+        email: normalizeEmail(email),
+        password,
+        options: {
+          data: {
+            username: normalizeUsername(username),
+            name: String(name || "User").trim() || "User"
+          }
+        }
+      });
+
+      if (error) {
+        console.error("Cloud account signup failed:", error);
+        throw new Error("CLOUD_SIGNUP_FAILED");
+      }
+
+      if (!data?.user) throw new Error("CLOUD_SIGNUP_FAILED");
+      if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        throw new Error("CLOUD_ACCOUNT_ALREADY_EXISTS");
+      }
+
+      supabaseSession = data.session || null;
+
+      /*
+        If email confirmation is enabled, Supabase can create the auth user but
+        not issue a session yet. The metadata is already stored on the auth
+        user; the public profile row is created on the first confirmed login.
+      */
+      if (data.session) {
+        const profile = await ensureSupabaseProfile(data.user, {
+          username,
+          email,
+          name
+        });
+        await cacheSupabaseAccountLocally(data.user, profile, password);
+      }
+
+      updateSupabaseUI();
+      return { configured: true, session: data.session || null, user: data.user };
+    }
+
+    async function promoteCurrentLocalAccountToSupabase(password) {
+      if (!supabaseReady || !supabaseClient || !currentUser?.email) return false;
+
+      /* First try to sign into an existing cloud account with the same credentials. */
+      const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({
+        email: normalizeEmail(currentUser.email),
+        password
+      });
+
+      if (!signInError && signInData?.session && signInData?.user) {
+        supabaseSession = signInData.session;
+        const profile = await ensureSupabaseProfile(signInData.user, currentUser);
+        await cacheSupabaseAccountLocally(signInData.user, profile, password);
+        await syncSupabaseLibrary();
+        return true;
+      }
+
+      /* No matching cloud login: create one from the verified legacy/local account. */
+      const { data, error } = await supabaseClient.auth.signUp({
+        email: normalizeEmail(currentUser.email),
+        password,
+        options: {
+          data: {
+            username: normalizeUsername(currentUser.username),
+            name: currentUser.name || "User"
+          }
+        }
+      });
+
+      if (error || !data?.user) {
+        console.warn("Could not promote local WatchLog account to cloud:", error);
+        return false;
+      }
+
+      if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        setSupabaseStatus(
+          "A cloud account already exists for this email, but its password did not match this older local account. Use the cloud account password or reset it in Supabase Auth.",
+          "warning"
+        );
+        return false;
+      }
+
+      if (!data.session) {
+        setSupabaseStatus(
+          "Your local account was submitted to the cloud database. Confirm the Supabase verification email, then log in again to finish cross-device sync.",
+          "warning"
+        );
+        return false;
+      }
+
+      supabaseSession = data.session;
+      const profile = await ensureSupabaseProfile(data.user, currentUser);
+      await cacheSupabaseAccountLocally(data.user, profile, password);
+      await uploadSupabaseLibrary(mediaItems, currentLibraryUpdatedAt || nowISO());
+      updateSupabaseUI();
+      return true;
+    }
+
+    async function restoreFromSupabaseSession() {
+      if (!supabaseReady || !supabaseSession?.user) return false;
+
+      try {
+        const profile = await ensureSupabaseProfile(supabaseSession.user, {
+          email: supabaseSession.user.email,
+          username: supabaseSession.user.user_metadata?.username,
+          name: supabaseSession.user.user_metadata?.name
+        });
+
+        await cacheSupabaseAccountLocally(supabaseSession.user, profile, null);
+        await syncSupabaseLibrary();
+        return true;
+      } catch (error) {
+        console.error("Unable to restore cloud WatchLog session:", error);
+        return false;
+      }
+    }
+
+    /* =========================================================
+       CREATE ACCOUNT
+       ========================================================= */
+
+    async function createAccount({ username, email, password, name }) {
+      username = normalizeUsername(username);
+      email = normalizeEmail(email);
+
+      if (username.length < 3) throw new Error("USERNAME_SHORT");
+      if (!email || !email.includes("@")) throw new Error("EMAIL_INVALID");
+      if (password.length < 6) throw new Error("PASSWORD_SHORT");
+
+      const usernameHash = await hashUsername(username);
+      const emailHash = await hashEmail(email);
+
+      if (await authGetByIndex("usernameHash", usernameHash)) throw new Error("USERNAME_EXISTS");
+      if (await authGetByIndex("emailHash", emailHash)) throw new Error("EMAIL_EXISTS");
+
+      const userKey = await createUserKey(usernameHash, emailHash);
+      const passwordRecord = await derivePasswordRecord(password);
+
+      const account = {
+        userKey,
+        usernameHash,
+        emailHash,
+        ...passwordRecord,
+        createdAt: nowISO(),
+        updatedAt: nowISO(),
+        schemaVersion: 5
+      };
+
+      await authPut(account);
+      const verifyAccount = await authGetByKey(userKey);
+      if (!verifyAccount) throw new Error("ACCOUNT_SAVE_FAILED");
+
+      await openUserDatabase(userKey);
+      const profile = await saveProfile({
+        userKey,
+        username,
+        email,
+        name: String(name || "User").trim() || "User"
+      });
+
+      const integrityHash = await computeLibraryIntegrityHash(userKey, []);
+      await userDBPut(USER_LIBRARY_STORE, {
+        key: "library",
+        items: [],
+        integrityHash,
+        updatedAt: nowISO()
+      });
+
+      const verifyLibrary = await userDBGet(USER_LIBRARY_STORE, "library");
+      if (!profile || !verifyLibrary || !Array.isArray(verifyLibrary.items)) {
+        throw new Error("USER_DATABASE_SAVE_FAILED");
+      }
+
+      currentAccountRecord = verifyAccount;
+      currentUser = profile;
+      saveSession(userKey);
+      mediaItems = [];
+      currentLibraryUpdatedAt = verifyLibrary.updatedAt || "";
+
+      return profile;
+    }
+
+    /* =========================================================
+       LOGIN
+       ========================================================= */
+
+    async function loginWithIdentifier(identifier, password) {
+      let account = await findAccountByIdentifier(identifier);
+
+      if (!account) {
+        /* One extra migration pass in case an old account appeared after the first load. */
+        await migrateLegacyAccounts();
+        account = await findAccountByIdentifier(identifier);
+      }
+
+      if (!account) {
+        /* If iCloud is signed in, attempt to import that private account before failing. */
+        if (cloudIdentity) {
+          const imported = await importCloudAccountIfIdentifierMatches(identifier);
+          if (imported) account = imported;
+        }
+      }
+
+      if (!account) throw new Error("ACCOUNT_NOT_FOUND");
+
+      let validPassword = await passwordMatchesAccount(account, password);
+
+      /*
+        Recovery for bad/partial older migrations: if the hashed registry
+        rejects the password, check every legacy credential copy tied to the
+        same email. A successful legacy match repairs the current verifier.
+      */
+      if (!validPassword) {
+        const repaired = await repairAccountPasswordFromLegacy(account, identifier, password);
+        if (repaired) {
+          account = repaired;
+          validPassword = true;
+        }
+      }
+
+      /*
+        If iCloud is configured and signed in, also allow its private account
+        verifier to repair a stale local registry record for the same login.
+      */
+      if (!validPassword && cloudIdentity) {
+        const cloudAccount = await fetchCloudAccount();
+        const normalized = normalizeIdentifier(identifier);
+        const usernameHash = await hashUsername(normalized);
+        const emailHash = await hashEmail(normalized);
+        const identifierMatchesCloud = cloudAccount &&
+          (cloudAccount.usernameHash === usernameHash || cloudAccount.emailHash === emailHash);
+
+        if (identifierMatchesCloud && await passwordMatchesAccount(cloudAccount, password)) {
+          await authPut(cloudAccount);
+          account = cloudAccount;
+          validPassword = true;
+        }
+      }
+
+      if (!validPassword) throw new Error("PASSWORD_INCORRECT");
+
+      await openUserDatabase(account.userKey);
+      const profile = await userDBGet(USER_PROFILE_STORE, "profile");
+      if (!profile || profile.userKey !== account.userKey) {
+        throw new Error("PROFILE_MISSING");
+      }
+
+      currentAccountRecord = account;
+      currentUser = profile;
+      saveSession(account.userKey);
+      await loadLibrary();
+
+      return profile;
+    }
+
+    async function restoreSession() {
+      const session = safeReadJSON(SESSION_KEY, null);
+      if (!session?.userKey) return false;
+
+      const account = await authGetByKey(session.userKey);
+      if (!account) return false;
+
+      await openUserDatabase(account.userKey);
+      const profile = await userDBGet(USER_PROFILE_STORE, "profile");
+      if (!profile) return false;
+
+      currentAccountRecord = account;
+      currentUser = profile;
+      await loadLibrary();
+      return true;
+    }
+
+    /* =========================================================
+       AUTH UI
+       ========================================================= */
+
+    function updateAuthModeUI() {
+      hideAuthMessage();
+      const passwordInput = document.getElementById("auth-password");
+
+      if (isSignUpMode) {
+        authTitle.innerText = "Create Account";
+        authSub.innerText = "Create a hashed WatchLog account with its own on-device database";
+        authNameGroup.classList.remove("hidden");
+        authUsernameGroup.classList.remove("hidden");
+        authEmailGroup.classList.remove("hidden");
+        authIdentifierGroup.classList.add("hidden");
+        authSubmitBtn.innerText = "Sign Up";
+        authToggleMode.innerText = "Already have an account? Log In";
+        passwordInput.setAttribute("autocomplete", "new-password");
+      } else {
+        authTitle.innerText = "Welcome Back";
+        authSub.innerText = "Log in using your WatchLog username or email";
+        authNameGroup.classList.add("hidden");
+        authUsernameGroup.classList.add("hidden");
+        authEmailGroup.classList.add("hidden");
+        authIdentifierGroup.classList.remove("hidden");
+        authSubmitBtn.innerText = "Log In";
+        authToggleMode.innerText = "Don't have an account? Sign Up";
+        passwordInput.setAttribute("autocomplete", "current-password");
+      }
+    }
+
+    authToggleMode.onclick = () => {
+      isSignUpMode = !isSignUpMode;
+      authForm.reset();
+      updateAuthModeUI();
+    };
+
+    authForm.onsubmit = async event => {
+      event.preventDefault();
+      hideAuthMessage();
+      authSubmitBtn.disabled = true;
+      authSubmitBtn.innerText = isSignUpMode ? "Creating Account…" : "Checking Account…";
+
+      try {
+        const password = document.getElementById("auth-password").value;
+
+        if (isSignUpMode) {
+          const username = normalizeUsername(document.getElementById("auth-username").value);
+          const email = normalizeEmail(document.getElementById("auth-email").value);
+          const name = document.getElementById("auth-name").value;
+
+          if (username.length < 3) throw new Error("USERNAME_SHORT");
+          if (!email || !email.includes("@")) throw new Error("EMAIL_INVALID");
+          if (password.length < 6) throw new Error("PASSWORD_SHORT");
+
+          /* Check local hashed registry before creating a remote auth account. */
+          if (await authGetByIndex("usernameHash", await hashUsername(username))) {
+            throw new Error("USERNAME_EXISTS");
+          }
+          if (await authGetByIndex("emailHash", await hashEmail(email))) {
+            throw new Error("EMAIL_EXISTS");
+          }
+
+          if (isSupabaseConfigured() && supabaseReady) {
+            const cloudSignup = await createSupabaseAccount({ username, email, password, name });
+
+            if (cloudSignup.session) {
+              /* Cross-device account is live immediately. */
+              await syncSupabaseLibrary();
+              authForm.reset();
+              await checkAuth();
+              showAuthMessage("Account created in the cross-device database and on this device.", "success");
+              if (cloudIdentity) await syncCurrentUserWithICloud();
+              return;
+            }
+
+            /*
+              Email confirmation is enabled. Keep a verified local copy so the
+              user does not lose the account while waiting to confirm email.
+            */
+            await createAccount({ username, email, password, name });
+            setSupabaseStatus(
+              "Cloud account created, but email confirmation is required before another device can log in. Confirm the Supabase email and then log in again.",
+              "warning"
+            );
+            authForm.reset();
+            await checkAuth();
+            return;
+          }
+
+          /* No cloud database configured: this account is device-only. */
+          await createAccount({ username, email, password, name });
+          authForm.reset();
+          await checkAuth();
+          showAuthMessage(
+            "Account created on this device. Configure SUPABASE_CONFIG to make the same login work on other devices.",
+            "info"
+          );
+          if (cloudIdentity) await syncCurrentUserWithICloud();
+          return;
+        }
+
+        const identifier = document.getElementById("auth-identifier").value;
+        if (!identifier || !password) {
+          showAuthMessage("Enter your username/email and password.");
+          return;
+        }
+
+        let cloudLoginError = null;
+
+        /*
+          Cross-device login is authoritative when configured. A fresh device
+          has no local account registry, so this must be attempted first.
+        */
+        if (isSupabaseConfigured() && supabaseReady) {
+          try {
+            await loginWithSupabase(identifier, password);
+            authForm.reset();
+            await checkAuth();
+            if (cloudIdentity) await syncCurrentUserWithICloud();
+            return;
+          } catch (error) {
+            cloudLoginError = error;
+            console.warn("Cross-device login did not succeed; checking legacy/on-device account:", error);
+          }
+        }
+
+        /*
+          Legacy/local recovery. This preserves all accounts made before the
+          cross-device database was added.
+        */
+        try {
+          await loginWithIdentifier(identifier, password);
+          authForm.reset();
+          await checkAuth();
+
+          /* Promote the verified old/local account to the cloud automatically. */
+          if (isSupabaseConfigured() && supabaseReady) {
+            try {
+              await promoteCurrentLocalAccountToSupabase(password);
+            } catch (error) {
+              console.warn("Local account login worked but cloud promotion failed:", error);
+              setSupabaseStatus(
+                "Logged in on this device, but the account could not yet be linked to the cross-device database.",
+                "warning"
+              );
+            }
+          }
+
+          if (cloudIdentity) await syncCurrentUserWithICloud();
+          return;
+        } catch (localError) {
+          console.warn("Local/legacy login also failed:", localError);
+
+          if (cloudLoginError) throw cloudLoginError;
+          throw localError;
+        }
+
+      } catch (error) {
+        console.error("Authentication error:", error);
+
+        const messages = {
+          USERNAME_SHORT: "Username must contain at least 3 characters.",
+          EMAIL_INVALID: "Enter a valid email address.",
+          PASSWORD_SHORT: "Password must contain at least 6 characters.",
+          USERNAME_EXISTS: "That username is already registered on this device.",
+          EMAIL_EXISTS: "An account using that email already exists on this device.",
+          ACCOUNT_NOT_FOUND: "No saved WatchLog account matches that username or email on this device.",
+          PASSWORD_INCORRECT: "The local account was found, but the password does not match its saved password hash.",
+          PROFILE_MISSING: "The login verifier exists, but this account's local profile database is missing.",
+          CLOUD_NOT_CONFIGURED: "The cross-device account database is not configured.",
+          CLOUD_USERNAME_NOT_FOUND: "That username is not present in the cross-device account database. If this is an older account, try the account email once so WatchLog can link it.",
+          CLOUD_ACCOUNT_NOT_FOUND: "That account is not present in the cross-device account database.",
+          CLOUD_LOGIN_REJECTED: "The cross-device account was found or checked, but the email/username and password combination was not accepted.",
+          CLOUD_SIGNUP_FAILED: "The cross-device account could not be created. If the email already has a cloud account, switch to Log In.",
+          CLOUD_ACCOUNT_ALREADY_EXISTS: "A cross-device account already exists for that email. Switch to Log In instead of creating it again.",
+          CLOUD_PROFILE_UNAVAILABLE: "The cloud login succeeded but the WatchLog profile could not be opened.",
+          CLOUD_PROFILE_SAVE_FAILED: "The cloud login succeeded but the WatchLog profile row could not be created. Check the Supabase SQL/RLS setup."
+        };
+
+        showAuthMessage(
+          messages[error.message] ||
+          "WatchLog could not complete the account check. Existing saved data was not deleted."
+        );
+      } finally {
+        authSubmitBtn.disabled = false;
+        authSubmitBtn.innerText = isSignUpMode ? "Sign Up" : "Log In";
+      }
+    };
+
+    async function checkAuth() {
+      if (!currentUser) {
+        authScreen.classList.remove("hidden");
+        mediaItems = [];
+        updateCounts();
+        return;
+      }
+
+      authScreen.classList.add("hidden");
+      navUserName.innerText = currentUser.name || currentUser.username || "User";
+      profileDisplayName.innerText = currentUser.name || "User";
+      profileDisplayUsername.innerText = `@${currentUser.username || "user"}`;
+      profileDisplayEmail.innerText = currentUser.email || "";
+      profileAvatarIcon.innerText = String(currentUser.name || currentUser.username || "U").charAt(0).toUpperCase();
+      deviceStorageStatus.innerText = `Stored in ${getUserDatabaseName(currentUser.userKey)} with a SHA-256 integrity check on the library.`;
+      render();
+      updateSupabaseUI();
+      updateICloudUI();
+    }
+
+    async function clearCurrentSession() {
+      clearSessionStorage();
+
+      if (supabaseClient && supabaseSession) {
+        try { await supabaseClient.auth.signOut(); }
+        catch (error) { console.warn("Cloud sign-out failed:", error); }
+      }
+      supabaseSession = null;
+      if (userDB) {
+        try { userDB.close(); } catch (_) {}
+      }
+      userDB = null;
+      currentUser = null;
+      currentAccountRecord = null;
+      mediaItems = [];
+      currentLibraryUpdatedAt = "";
+      activeFilter = "All";
+      searchQuery = "";
+      searchInput.value = "";
+      pillBtns.forEach(button => button.classList.toggle("active", button.dataset.filter === "All"));
+      switchTab("library");
+      render();
+      await checkAuth();
+    }
+
+    if (cloudSyncNowBtn) {
+      cloudSyncNowBtn.onclick = async () => {
+        cloudSyncNowBtn.disabled = true;
+        cloudSyncNowBtn.innerText = "Syncing…";
+        try {
+          const ok = await syncSupabaseLibrary();
+          setSupabaseStatus(
+            ok ? "Account and library are synced across devices." : "Cloud sync is not available for this session.",
+            ok ? "ok" : "warning"
+          );
+        } catch (error) {
+          console.error("Manual cross-device sync failed:", error);
+          setSupabaseStatus("Cross-device sync failed. The on-device copy remains saved.", "warning");
+        } finally {
+          cloudSyncNowBtn.disabled = !supabaseSession?.user;
+          cloudSyncNowBtn.innerText = "Sync Account & Library";
+        }
+      };
+    }
+
+    logoutBtn.onclick = clearCurrentSession;
+    switchAccountBtn.onclick = clearCurrentSession;
+    userProfilePill.onclick = () => switchTab("settings");
+
+    /* =========================================================
+       COUNTS / DATE HELPERS
+       ========================================================= */
+
+    function updateCounts() {
+      document.getElementById("count-saved").innerText = mediaItems.filter(item => item.status === "Saved").length;
+      document.getElementById("count-watching").innerText = mediaItems.filter(item => item.status === "Watching").length;
+      document.getElementById("count-watched").innerText = mediaItems.filter(item => item.status === "Watched").length;
+    }
+
+    function toLocalDatetimeInput(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+
+    function dateOnlyToLocalInput(dateString) {
+      return dateString ? `${dateString}T00:00` : "";
+    }
+
+    /* =========================================================
+       OPTIONAL IMDb VERIFICATION
+       ========================================================= */
+
+    async function verifySeasonWithIMDb(title, seasonNumber, premiereDate) {
+      if (!IMDB_VERIFY_ENDPOINT) {
+        return { confirmed: null, seasonNumber: null };
+      }
+
+      try {
+        const url = new URL(IMDB_VERIFY_ENDPOINT, window.location.href);
+        url.searchParams.set("title", title);
+        url.searchParams.set("season", String(seasonNumber));
+        if (premiereDate) url.searchParams.set("premiereDate", premiereDate);
+
+        const response = await fetch(url.toString(), { headers: { "Accept": "application/json" } });
+        if (!response.ok) return { confirmed: null, seasonNumber: null };
+        const data = await response.json();
+        return {
+          confirmed: typeof data.confirmed === "boolean" ? data.confirmed : null,
+          seasonNumber: Number.isFinite(Number(data.seasonNumber)) ? Number(data.seasonNumber) : null
+        };
+      } catch (error) {
+        console.warn("IMDb verification endpoint unavailable:", error);
+        return { confirmed: null, seasonNumber: null };
+      }
+    }
+
+    /* =========================================================
+       STRICT TVMAZE SEASON RESOLUTION
+
+       IMPORTANT: There is NO `+ 1` season calculation anywhere.
+       A season reminder can only use a season number that exists
+       in TVMaze's /seasons response.
+       ========================================================= */
+
+    async function resolveConfirmedUpcomingSeason(showId, showTitle) {
+      const [seasonsResponse, showResponse, episodesResponse] = await Promise.all([
+        fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}/seasons`),
+        fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}?embed=nextepisode`),
+        fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}/episodes`)
+      ]);
+
+      if (!seasonsResponse.ok) throw new Error("TVMAZE_SEASONS_FAILED");
+
+      const seasonsRaw = await seasonsResponse.json();
+      const showData = showResponse.ok ? await showResponse.json() : {};
+      const episodes = episodesResponse.ok ? await episodesResponse.json() : [];
+
+      const seasons = Array.isArray(seasonsRaw)
+        ? seasonsRaw
+            .filter(season => Number.isFinite(Number(season.number)))
+            .map(season => ({ ...season, number: Number(season.number) }))
+            .sort((a, b) => a.number - b.number)
+        : [];
+
+      if (!seasons.length) {
+        return {
+          knownSeasonNumbers: [],
+          highestKnownSeason: null,
+          latestAiredSeason: null,
+          currentEpisode: null,
+          upcomingSeason: null,
+          nextEpisode: null
+        };
+      }
+
+      const knownSeasonNumbers = seasons.map(season => season.number);
+      const knownSeasonSet = new Set(knownSeasonNumbers);
+      const highestKnownSeason = Math.max(...knownSeasonNumbers);
+      const now = Date.now();
+
+      const airedEpisodes = Array.isArray(episodes)
+        ? episodes.filter(episode => {
+            const stamp = episode.airstamp
+              ? new Date(episode.airstamp).getTime()
+              : episode.airdate
+                ? new Date(`${episode.airdate}T23:59:59`).getTime()
+                : 0;
+            return stamp > 0 && stamp <= now;
+          })
+        : [];
+
+      const airedSeasonNumbers = airedEpisodes
+        .map(episode => Number(episode.season))
+        .filter(Number.isFinite)
+        .filter(seasonNumber => knownSeasonSet.has(seasonNumber));
+
+      const latestAiredSeason = airedSeasonNumbers.length
+        ? Math.max(...airedSeasonNumbers)
+        : null;
+
+      let currentEpisode = null;
+      if (latestAiredSeason !== null) {
+        const episodeNumbers = airedEpisodes
+          .filter(episode => Number(episode.season) === latestAiredSeason)
+          .map(episode => Number(episode.number))
+          .filter(Number.isFinite);
+        currentEpisode = episodeNumbers.length ? Math.max(...episodeNumbers) : null;
+      }
+
+      const nextEpisode = showData?._embedded?.nextepisode || null;
+      let candidate = null;
+
+      /*
+        Check A: embedded next episode.
+        Its season number MUST exist in the /seasons response.
+        It must also be strictly above the latest season that has aired.
+      */
+      if (nextEpisode && Number.isFinite(Number(nextEpisode.season))) {
+        const nextEpisodeSeason = Number(nextEpisode.season);
+        const exactSeasonRecord = seasons.find(season => season.number === nextEpisodeSeason);
+
+        if (
+          exactSeasonRecord &&
+          (latestAiredSeason === null || nextEpisodeSeason > latestAiredSeason)
+        ) {
+          candidate = exactSeasonRecord;
+        }
+      }
+
+      /*
+        Check B: exact future premiereDate from a TVMaze season record.
+        We choose the LOWEST future season number above the aired season,
+        never highest + 1 and never seasons.length + 1.
+      */
+      if (!candidate) {
+        const futureSeasonRecords = seasons.filter(season => {
+          if (!season.premiereDate) return false;
+          const premiere = new Date(`${season.premiereDate}T00:00:00`).getTime();
+          if (!Number.isFinite(premiere) || premiere <= now) return false;
+          return latestAiredSeason === null || season.number > latestAiredSeason;
+        });
+
+        if (futureSeasonRecords.length) {
+          candidate = futureSeasonRecords.sort((a, b) => a.number - b.number)[0];
+        }
+      }
+
+      /*
+        Check C: TVMaze may have an ANNOUNCED season record before it has an
+        exact premiere date or a next-episode entry. If an exact season record
+        exists above the latest aired season and none of that season's episodes
+        have aired, that exact record is an upcoming season. Again, no +1.
+      */
+      if (!candidate) {
+        const announcedHigherSeasons = seasons.filter(season => {
+          const isAboveAired = latestAiredSeason === null || season.number > latestAiredSeason;
+          const hasAiredEpisode = airedEpisodes.some(
+            episode => Number(episode.season) === Number(season.number)
+          );
+          return isAboveAired && !hasAiredEpisode;
+        });
+
+        if (announcedHigherSeasons.length) {
+          candidate = announcedHigherSeasons.sort((a, b) => a.number - b.number)[0];
+        }
+      }
+
+      /*
+        Check D: a candidate is rejected if ANY episode in that same season
+        has already aired. That means it is a current season, not an upcoming one.
+      */
+      if (candidate) {
+        const candidateAlreadyStarted = airedEpisodes.some(
+          episode => Number(episode.season) === candidate.number
+        );
+        if (candidateAlreadyStarted) candidate = null;
+      }
+
+      /*
+        Check E: exact membership guard. This makes an invented season impossible.
+      */
+      if (candidate && !knownSeasonSet.has(candidate.number)) {
+        candidate = null;
+      }
+
+      /* Optional secondary IMDb check through your secure server endpoint. */
+      if (candidate) {
+        const imdb = await verifySeasonWithIMDb(showTitle, candidate.number, candidate.premiereDate || "");
+        if (imdb.confirmed === false) {
+          candidate = null;
+        } else if (
+          imdb.confirmed === true &&
+          imdb.seasonNumber !== null &&
+          imdb.seasonNumber !== candidate.number
+        ) {
+          candidate = null;
+        }
+      }
+
+      return {
+        knownSeasonNumbers,
+        highestKnownSeason,
+        latestAiredSeason,
+        currentEpisode,
+        upcomingSeason: candidate,
+        nextEpisode
+      };
+    }
+
+    async function autoFillTVMazeShow(showId, showTitle) {
+      try {
+        const result = await resolveConfirmedUpcomingSeason(showId, showTitle);
+
+        document.getElementById("total-seasons").value = result.highestKnownSeason ?? "";
+        document.getElementById("cur-season").value = result.latestAiredSeason ?? "";
+        document.getElementById("cur-ep").value = result.currentEpisode ?? "";
+
+        /* Keep the original convenience behavior, but never include the upcoming season as watched. */
+        document.getElementById("watched-seasons").value = result.latestAiredSeason ?? "";
+
+        const upcoming = result.upcomingSeason;
+        if (!upcoming) {
+          document.getElementById("next-season-num").value = "";
+          document.getElementById("next-season-date").value = "";
+          return;
+        }
+
+        /* Exact TVMaze number. No arithmetic. */
+        document.getElementById("next-season-num").value = upcoming.number;
+
+        const nextEpisode = result.nextEpisode;
+        const nextEpisodeMatchesSeason =
+          nextEpisode &&
+          Number(nextEpisode.season) === upcoming.number;
+
+        if (nextEpisodeMatchesSeason && nextEpisode.airstamp) {
+          document.getElementById("next-season-date").value = toLocalDatetimeInput(nextEpisode.airstamp);
+        } else if (upcoming.premiereDate) {
+          document.getElementById("next-season-date").value = dateOnlyToLocalInput(upcoming.premiereDate);
+        } else {
+          document.getElementById("next-season-date").value = "";
+        }
+      } catch (error) {
+        console.error("TVMaze season cross-check failed:", error);
+        document.getElementById("next-season-num").value = "";
+        document.getElementById("next-season-date").value = "";
+      }
+    }
+
+    async function validateUpcomingSeasonBeforeSave(showId, showTitle, requestedSeason) {
+      if (!showId || !requestedSeason) {
+        return { valid: true, correctedSeason: requestedSeason || "", correctedDate: null };
+      }
+
+      const result = await resolveConfirmedUpcomingSeason(showId, showTitle);
+      const actual = result.upcomingSeason;
+
+      if (!actual) {
+        return { valid: false, correctedSeason: "", correctedDate: "" };
+      }
+
+      if (Number(requestedSeason) !== Number(actual.number)) {
+        let correctedDate = "";
+        if (
+          result.nextEpisode &&
+          Number(result.nextEpisode.season) === actual.number &&
+          result.nextEpisode.airstamp
+        ) {
+          correctedDate = toLocalDatetimeInput(result.nextEpisode.airstamp);
+        } else if (actual.premiereDate) {
+          correctedDate = dateOnlyToLocalInput(actual.premiereDate);
+        }
+
+        return {
+          valid: false,
+          correctedSeason: String(actual.number),
+          correctedDate
+        };
+      }
+
+      return { valid: true, correctedSeason: String(actual.number), correctedDate: null };
+    }
+
+    async function findExactTVMazeShowIdByTitle(showTitle) {
+      const title = String(showTitle || "").trim();
+      if (!title) return null;
+
+      try {
+        const response = await fetch(
+          `https://api.tvmaze.com/search/shows?q=${encodeURIComponent(title)}`
+        );
+        if (!response.ok) return null;
+        const results = await response.json();
+        if (!Array.isArray(results)) return null;
+
+        const normalizedTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+        const exact = results.find(result => {
+          const candidate = String(result?.show?.name || "")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, " ")
+            .trim();
+          return candidate === normalizedTitle;
+        });
+
+        return exact?.show?.id ? String(exact.show.id) : null;
+      } catch (error) {
+        console.warn("Unable to resolve old WatchLog title against TVMaze:", error);
+        return null;
+      }
+    }
+
+    async function refreshVerifiedSeasonMetadata(showId, showTitle) {
+      if (!showId || !showTitle) return null;
+
+      const result = await resolveConfirmedUpcomingSeason(showId, showTitle);
+
+      /*
+        Known / Announced Seasons ALWAYS comes directly from TVMaze's exact
+        season records. For Black Mirror today this is 8, because TVMaze has a
+        real Season 8 record. It is never calculated from aired episode count.
+      */
+      document.getElementById("total-seasons").value = result.highestKnownSeason ?? "";
+
+      const upcoming = result.upcomingSeason;
+      if (!upcoming) {
+        document.getElementById("next-season-num").value = "";
+        document.getElementById("next-season-date").value = "";
+        return result;
+      }
+
+      const exactExists = result.knownSeasonNumbers.includes(Number(upcoming.number));
+      if (!exactExists || Number(upcoming.number) > Number(result.highestKnownSeason)) {
+        document.getElementById("next-season-num").value = "";
+        document.getElementById("next-season-date").value = "";
+        return { ...result, upcomingSeason: null };
+      }
+
+      document.getElementById("next-season-num").value = String(upcoming.number);
+
+      const nextEpisode = result.nextEpisode;
+      if (
+        nextEpisode &&
+        Number(nextEpisode.season) === Number(upcoming.number) &&
+        nextEpisode.airstamp
+      ) {
+        document.getElementById("next-season-date").value = toLocalDatetimeInput(nextEpisode.airstamp);
+      } else if (upcoming.premiereDate) {
+        document.getElementById("next-season-date").value = dateOnlyToLocalInput(upcoming.premiereDate);
+      } else {
+        document.getElementById("next-season-date").value = "";
+      }
+
+      return result;
+    }
+
+    /* =========================================================
+       TVMAZE SEARCH
+       ========================================================= */
+
+    document.addEventListener("click", event => {
+      if (!titleInput.contains(event.target) && !suggestList.contains(event.target)) {
+        suggestList.classList.add("hidden");
+      }
+    });
+
+    let debounceTimeout = null;
+
+    titleInput.addEventListener("input", () => {
+      clearTimeout(debounceTimeout);
+      const query = titleInput.value.trim();
+
+      if (query.length < 2) {
+        suggestList.classList.add("hidden");
+        return;
+      }
+
+      debounceTimeout = setTimeout(async () => {
+        try {
+          const response = await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`);
+          if (!response.ok) throw new Error(`TVMaze search ${response.status}`);
+          const results = await response.json();
+
+          if (!Array.isArray(results) || !results.length) {
+            suggestList.classList.add("hidden");
+            return;
+          }
+
+          suggestList.innerHTML = results.slice(0, 5).map(item => {
+            const show = item.show;
+            const network = show.network?.name || show.webChannel?.name || "Streaming";
+            const year = show.premiered ? show.premiered.substring(0, 4) : "";
+
+            return `
+              <div class="suggest-item"
+                   data-id="${show.id}"
+                   data-title="${escapeHTML(show.name)}"
+                   data-platform="${escapeHTML(network)}">
+                <div class="suggest-item-left">
+                  <span class="suggest-title">${escapeHTML(show.name)}</span>
+                  <span class="suggest-meta">${year ? `${year} • ` : ""}${escapeHTML(show.type || "Series")}</span>
+                </div>
+                <span class="suggest-network">${escapeHTML(network)}</span>
+              </div>
+            `;
+          }).join("");
+
+          suggestList.classList.remove("hidden");
+
+          document.querySelectorAll(".suggest-item").forEach(element => {
+            element.onclick = async () => {
+              const showId = element.dataset.id;
+              const showTitle = element.dataset.title;
+
+              titleInput.value = showTitle;
+              document.getElementById("platform").value = element.dataset.platform;
+              document.getElementById("type").value = "Series";
+              document.getElementById("tvmaze-show-id").value = showId;
+              seriesSection.style.display = "flex";
+              upcomingSection.style.display = "flex";
+              suggestList.classList.add("hidden");
+
+              await autoFillTVMazeShow(showId, showTitle);
+            };
+          });
+        } catch (error) {
+          console.error("TVMaze title search failed:", error);
+          suggestList.classList.add("hidden");
+        }
+      }, 300);
+    });
+
+    typeSelect.addEventListener("change", () => {
+      const isFilm = typeSelect.value === "Film";
+      seriesSection.style.display = isFilm ? "none" : "flex";
+      upcomingSection.style.display = isFilm ? "none" : "flex";
+    });
+
+    /* =========================================================
+       RENDER
+       ========================================================= */
+
+    function render() {
+      mediaList.innerHTML = "";
+      updateCounts();
+
+      if (!currentUser) {
+        emptyState.classList.add("hidden");
+        return;
+      }
+
+      const normalizedSearch = searchQuery.trim().toLowerCase();
+      const filtered = mediaItems.filter(item => {
+        if (!item?.title) return false;
+
+        let matchesTab = true;
+        if (currentTab === "watchlist") {
+          matchesTab = Boolean(item.nextSeasonNum || item.nextSeasonDate);
+        } else if (currentTab === "history") {
+          matchesTab = item.status === "Watched";
+        }
+
+        const matchesFilter = activeFilter === "All" || item.status === activeFilter;
+        const title = String(item.title || "").toLowerCase();
+        const platform = String(item.platform || "").toLowerCase();
+        const matchesSearch = !normalizedSearch || title.includes(normalizedSearch) || platform.includes(normalizedSearch);
+
+        return matchesTab && matchesFilter && matchesSearch;
+      });
+
+      if (!filtered.length) {
+        emptyState.classList.remove("hidden");
+        return;
+      }
+
+      emptyState.classList.add("hidden");
+
+      filtered.forEach(item => {
+        const row = document.createElement("div");
+        row.className = "title-item";
+        row.onclick = () => openEditModal(item.id);
+
+        const isFilm = item.type === "Film";
+        const iconSVG = isFilm
+          ? `<svg viewBox="0 0 24 24"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></svg>`
+          : `<svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg>`;
+
+        const seasonText = isFilm
+          ? ""
+          : `• ${item.watchedSeasons ?? item.curSeason ?? 0} of ${item.totalSeasons ?? item.curSeason ?? 1} seasons`;
+
+        const watched = Number(item.watchedSeasons ?? 0);
+        const total = Number(item.totalSeasons ?? 1);
+        const progressPercent = isFilm ? 100 : Math.min(100, Math.max(0, (watched / Math.max(1, total)) * 100));
+
+        let reminderHTML = "";
+        if (item.nextSeasonNum || item.nextSeasonDate) {
+          let dateText = "Date TBA";
+          if (item.nextSeasonDate) {
+            const dateObject = new Date(item.nextSeasonDate);
+            if (!Number.isNaN(dateObject.getTime())) {
+              const formattedDate = dateObject.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+              const formattedTime = dateObject.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+              dateText = `${formattedDate} at ${formattedTime}`;
+            }
+          }
+
+          reminderHTML = `
+            <div class="reminder-pill-banner">
+              <span>🔔 Season ${escapeHTML(String(item.nextSeasonNum || "Next"))} Premiere</span>
+              <span class="tz-local">${escapeHTML(dateText)}</span>
+            </div>
+          `;
+        }
+
+        const statusClass = String(item.status || "Saved").toLowerCase().replace(/[^a-z]/g, "");
+
+        row.innerHTML = `
+          <div class="item-header-row">
+            <div class="item-icon-box">${iconSVG}</div>
+            <div class="item-main">
+              <span class="item-name">${escapeHTML(item.title)}</span>
+              <div class="item-subline">
+                <span>${escapeHTML(item.type || "Series")}</span>
+                ${seasonText ? `<span>${escapeHTML(seasonText)}</span>` : ""}
+              </div>
+              <div class="platform-row">
+                <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                <span>${escapeHTML(item.platform || item.type || "")}</span>
+              </div>
+              ${!isFilm ? `<div class="item-progress-bar"><div class="item-progress-fill" style="width:${progressPercent}%"></div></div>` : ""}
+            </div>
+            <div class="item-right">
+              <div class="status-badge ${statusClass}">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                <span>${escapeHTML(item.status || "Saved")}</span>
+              </div>
+              <span class="item-date">${escapeHTML(item.date || "")}</span>
+            </div>
+            <span class="chevron">›</span>
+          </div>
+          ${reminderHTML}
+        `;
+
+        mediaList.appendChild(row);
+      });
+    }
+
+    /* =========================================================
+       ADD / EDIT
+       ========================================================= */
+
+    function openAddModal() {
+      if (!currentUser) return;
+      mediaForm.reset();
+      document.getElementById("item-id").value = "";
+      document.getElementById("tvmaze-show-id").value = "";
+      document.getElementById("modal-title").innerText = "Log Title";
+      suggestList.classList.add("hidden");
+      seriesSection.style.display = "flex";
+      upcomingSection.style.display = "flex";
+      deleteBtn.classList.add("hidden");
+      modal.classList.remove("hidden");
+    }
+
+    async function openEditModal(id) {
+      const item = mediaItems.find(mediaItem => mediaItem.id === id);
+      if (!item) return;
+
+      document.getElementById("item-id").value = item.id;
+      document.getElementById("tvmaze-show-id").value = item.tvmazeShowId || "";
+      document.getElementById("title").value = item.title || "";
+      document.getElementById("type").value = item.type || "Series";
+      document.getElementById("status").value = item.status || "Saved";
+      document.getElementById("total-seasons").value = item.totalSeasons ?? "";
+      document.getElementById("watched-seasons").value = item.watchedSeasons ?? "";
+      document.getElementById("cur-season").value = item.curSeason ?? "";
+      document.getElementById("cur-ep").value = item.curEp ?? "";
+      document.getElementById("next-season-num").value = item.nextSeasonNum ?? "";
+      document.getElementById("next-season-date").value = item.nextSeasonDate ? toLocalDatetimeInput(item.nextSeasonDate) : "";
+      document.getElementById("platform").value = item.platform || "";
+
+      const isFilm = item.type === "Film";
+      seriesSection.style.display = isFilm ? "none" : "flex";
+      upcomingSection.style.display = isFilm ? "none" : "flex";
+      suggestList.classList.add("hidden");
+      document.getElementById("modal-title").innerText = "Edit Title";
+      deleteBtn.classList.remove("hidden");
+      modal.classList.remove("hidden");
+
+      /*
+        Repair stale season metadata immediately when an old saved show is
+        opened. Only the catalogue metadata fields are refreshed; watched
+        seasons/current episode are deliberately left as the user's own data.
+      */
+      if (!isFilm && item.title) {
+        try {
+          let showId = item.tvmazeShowId || "";
+          if (!showId) {
+            showId = await findExactTVMazeShowIdByTitle(item.title) || "";
+            if (showId) document.getElementById("tvmaze-show-id").value = showId;
+          }
+
+          if (showId) {
+            await refreshVerifiedSeasonMetadata(showId, item.title);
+          }
+        } catch (error) {
+          console.warn("Saved show's season metadata could not be refreshed:", error);
+        }
+      }
+    }
+
+    mediaForm.onsubmit = async event => {
+      event.preventDefault();
+      if (!currentUser) return;
+
+      mediaSaveBtn.disabled = true;
+      mediaSaveBtn.innerText = "Checking…";
+
+      try {
+        const id = document.getElementById("item-id").value;
+        let tvmazeShowId = document.getElementById("tvmaze-show-id").value;
+        const title = document.getElementById("title").value.trim();
+        const type = document.getElementById("type").value;
+
+        if (!title) {
+          alert("Enter a title.");
+          return;
+        }
+
+        function numberOrNull(elementId) {
+          const raw = document.getElementById(elementId).value;
+          if (raw === "") return null;
+          const value = Number.parseInt(raw, 10);
+          return Number.isFinite(value) ? value : null;
+        }
+
+        /* Older records may pre-date tvmazeShowId. Resolve an exact title before validation. */
+        if (type !== "Film" && !tvmazeShowId) {
+          tvmazeShowId = await findExactTVMazeShowIdByTitle(title) || "";
+          if (tvmazeShowId) document.getElementById("tvmaze-show-id").value = tvmazeShowId;
+        }
+
+        let nextSeasonNum = type === "Film" ? "" : document.getElementById("next-season-num").value;
+        let nextSeasonDate = type === "Film" ? "" : document.getElementById("next-season-date").value;
+
+        /*
+          Final save-time season guard.
+          If this title came from TVMaze, WatchLog re-fetches the data and
+          refuses to save an invented season number.
+        */
+        if (tvmazeShowId && nextSeasonNum) {
+          const verification = await validateUpcomingSeasonBeforeSave(tvmazeShowId, title, nextSeasonNum);
+          if (!verification.valid) {
+            if (verification.correctedSeason) {
+              nextSeasonNum = verification.correctedSeason;
+              if (verification.correctedDate !== null) nextSeasonDate = verification.correctedDate;
+              document.getElementById("next-season-num").value = nextSeasonNum;
+              document.getElementById("next-season-date").value = nextSeasonDate;
+              alert(`WatchLog corrected the upcoming season to Season ${nextSeasonNum} after cross-checking TVMaze.`);
+            } else {
+              nextSeasonNum = "";
+              nextSeasonDate = "";
+              document.getElementById("next-season-num").value = "";
+              document.getElementById("next-season-date").value = "";
+              alert("TVMaze does not currently confirm a separate upcoming season, so the season reminder was removed instead of guessing a season number.");
+            }
+          }
+        }
+
+        const timestamp = nowISO();
+        const data = {
+          title,
+          type,
+          status: document.getElementById("status").value,
+          tvmazeShowId: tvmazeShowId || "",
+          totalSeasons: type === "Film" ? null : numberOrNull("total-seasons"),
+          watchedSeasons: type === "Film" ? null : numberOrNull("watched-seasons"),
+          curSeason: type === "Film" ? null : numberOrNull("cur-season"),
+          curEp: type === "Film" ? null : numberOrNull("cur-ep"),
+          nextSeasonNum,
+          nextSeasonDate,
+          platform: document.getElementById("platform").value.trim(),
+          date: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
+          updatedAt: timestamp
+        };
+
+        const nextItems = mediaItems.map(item => ({ ...item }));
+
+        if (id) {
+          const index = nextItems.findIndex(item => item.id === id);
+          if (index === -1) {
+            alert("This WatchLog entry could not be found.");
+            return;
+          }
+          nextItems[index] = {
+            ...nextItems[index],
+            ...data,
+            id,
+            createdAt: nextItems[index].createdAt || timestamp
+          };
+        } else {
+          nextItems.unshift({
+            id: createMediaId(),
+            createdAt: timestamp,
+            ...data
+          });
+        }
+
+        if (!await saveLibrary(nextItems)) return;
+        render();
+        modal.classList.add("hidden");
+      } finally {
+        mediaSaveBtn.disabled = false;
+        mediaSaveBtn.innerText = "Save to Log";
+      }
+    };
+
+    deleteBtn.onclick = async () => {
+      const id = document.getElementById("item-id").value;
+      if (!id) return;
+      const nextItems = mediaItems.filter(item => item.id !== id);
+      if (!await saveLibrary(nextItems)) return;
+      render();
+      modal.classList.add("hidden");
+    };
+
+    pillBtns.forEach(button => {
+      button.onclick = () => {
+        pillBtns.forEach(other => other.classList.remove("active"));
+        button.classList.add("active");
+        activeFilter = button.dataset.filter;
+        render();
+      };
+    });
+
+    function switchTab(tab) {
+      tabBtns.forEach(button => button.classList.remove("active"));
+      const activeButton = document.querySelector(`.tab-btn[data-tab="${tab}"]`);
+      if (activeButton) activeButton.classList.add("active");
+
+      currentTab = tab;
+      if (tab === "settings") {
+        mainContentView.classList.add("hidden");
+        profileContentView.classList.remove("hidden");
+        updateICloudUI();
+      } else {
+        mainContentView.classList.remove("hidden");
+        profileContentView.classList.add("hidden");
+        document.getElementById("list-label").innerText =
+          tab === "watchlist" ? "Upcoming Premieres" :
+          tab === "history" ? "Watch History" :
+          "Titles";
+        render();
+      }
+    }
+
+    tabBtns.forEach(button => { button.onclick = () => switchTab(button.dataset.tab); });
+    searchInput.oninput = event => { searchQuery = event.target.value; render(); };
+    addBtn.onclick = openAddModal;
+    closeModal.onclick = () => modal.classList.add("hidden");
+    modal.addEventListener("click", event => { if (event.target === modal) modal.classList.add("hidden"); });
+
+    /* =========================================================
+       ICLOUD / CLOUDKIT
+       ========================================================= */
+
+    function isCloudKitConfigured() {
+      return Boolean(
+        CLOUDKIT_CONFIG.containerIdentifier &&
+        CLOUDKIT_CONFIG.apiToken &&
+        !CLOUDKIT_CONFIG.containerIdentifier.startsWith("REPLACE_") &&
+        !CLOUDKIT_CONFIG.apiToken.startsWith("REPLACE_")
+      );
+    }
+
+    function setCloudStatus(message, state = "off") {
+      iCloudProfileStatus.textContent = message;
+      iCloudModalStatus.textContent = message;
+      iCloudStatusDot.className = `status-dot ${state}`;
+    }
+
+    function updateICloudUI() {
+      if (!isCloudKitConfigured()) {
+        setCloudStatus("iCloud code is included but needs your CloudKit container ID and web API token.", "off");
+        iCloudSyncNowBtn.disabled = true;
+        iCloudRestoreBtn.disabled = true;
+        return;
+      }
+
+      if (!cloudKitReady) {
+        setCloudStatus("CloudKit is not ready yet.", "warning");
+        iCloudSyncNowBtn.disabled = true;
+        iCloudRestoreBtn.disabled = true;
+        return;
+      }
+
+      if (cloudIdentity) {
+        setCloudStatus(currentUser
+          ? "Signed into iCloud. This account can sync to your private iCloud database."
+          : "Signed into iCloud. You can restore a WatchLog account from your private iCloud database.", "ok");
+        iCloudSyncNowBtn.disabled = !currentUser;
+        iCloudRestoreBtn.disabled = false;
+      } else {
+        setCloudStatus("Sign into iCloud to enable private backup and recovery.", "warning");
+        iCloudSyncNowBtn.disabled = true;
+        iCloudRestoreBtn.disabled = true;
+      }
+    }
+
+    async function initializeCloudKit() {
+      if (!isCloudKitConfigured()) {
+        updateICloudUI();
+        return;
+      }
+
+      if (typeof CloudKit === "undefined") {
+        setCloudStatus("Apple CloudKit JS could not be loaded.", "warning");
+        return;
+      }
+
+      try {
+        CloudKit.configure({
+          locale: "en-gb",
+          containers: [{
+            containerIdentifier: CLOUDKIT_CONFIG.containerIdentifier,
+            environment: CLOUDKIT_CONFIG.environment,
+            apiTokenAuth: {
+              apiToken: CLOUDKIT_CONFIG.apiToken,
+              persist: true,
+              signInButton: { id: "apple-sign-in-button", theme: "black" },
+              signOutButton: { id: "apple-sign-out-button", theme: "black" }
+            }
+          }]
+        });
+
+        cloudContainer = CloudKit.getDefaultContainer();
+        cloudDatabase = cloudContainer.privateCloudDatabase;
+        cloudKitReady = true;
+        cloudIdentity = await cloudContainer.setUpAuth();
+        updateICloudUI();
+
+        cloudContainer.whenUserSignsIn().then(async identity => {
+          cloudIdentity = identity;
+          updateICloudUI();
+          if (currentUser) {
+            try { await syncCurrentUserWithICloud(); } catch (error) { console.error(error); }
+          }
+        }).catch(() => {});
+
+        cloudContainer.whenUserSignsOut().then(() => {
+          cloudIdentity = null;
+          updateICloudUI();
+        }).catch(() => {});
+      } catch (error) {
+        console.error("CloudKit initialisation failed:", error);
+        cloudKitReady = false;
+        setCloudStatus("CloudKit configuration failed. On-device data is still available.", "warning");
+      }
+    }
+
+    function cloudField(record, key) {
+      return record?.fields?.[key]?.value ?? null;
+    }
+
+    async function fetchCloudRecord(recordName) {
+      if (!cloudDatabase || !cloudIdentity) return null;
+      try {
+        const response = await cloudDatabase.fetchRecords(recordName);
+        if (response.hasErrors) return null;
+        return response.records?.[0] || null;
+      } catch (error) {
+        console.warn(`Unable to fetch ${recordName}:`, error);
+        return null;
+      }
+    }
+
+    async function fetchCloudAccount() {
+      const record = await fetchCloudRecord("watchlog-account-v4");
+      if (!record) return null;
+
+      return {
+        userKey: cloudField(record, "userKey"),
+        usernameHash: cloudField(record, "usernameHash"),
+        emailHash: cloudField(record, "emailHash"),
+        passwordHash: cloudField(record, "passwordHash"),
+        passwordSalt: cloudField(record, "passwordSalt"),
+        passwordIterations: Number(cloudField(record, "passwordIterations") || PASSWORD_ITERATIONS),
+        passwordVersion: Number(cloudField(record, "passwordVersion") || 2),
+        updatedAt: cloudField(record, "updatedAt") || ""
+      };
+    }
+
+    async function fetchCloudProfile() {
+      const record = await fetchCloudRecord("watchlog-profile-v4");
+      if (!record) return null;
+      const payload = cloudField(record, "payload");
+      try { return JSON.parse(payload || "null"); } catch (_) { return null; }
+    }
+
+    async function fetchCloudLibrary() {
+      const record = await fetchCloudRecord("watchlog-library-v4");
+      if (!record) return null;
+      try {
+        const items = JSON.parse(cloudField(record, "payload") || "[]");
+        return {
+          items: Array.isArray(items) ? items : [],
+          integrityHash: cloudField(record, "integrityHash") || "",
+          updatedAt: cloudField(record, "updatedAt") || ""
+        };
+      } catch (_) {
+        return null;
+      }
+    }
+
+    async function uploadCurrentUserToICloud() {
+      if (!currentUser || !currentAccountRecord || !cloudDatabase || !cloudIdentity) return false;
+
+      const library = await userDBGet(USER_LIBRARY_STORE, "library");
+      const timestamp = nowISO();
+
+      const accountRecord = {
+        recordType: "WatchLogAccountV4",
+        recordName: "watchlog-account-v4",
+        fields: {
+          userKey: { value: currentAccountRecord.userKey },
+          usernameHash: { value: currentAccountRecord.usernameHash },
+          emailHash: { value: currentAccountRecord.emailHash },
+          passwordHash: { value: currentAccountRecord.passwordHash },
+          passwordSalt: { value: currentAccountRecord.passwordSalt },
+          passwordIterations: { value: Number(currentAccountRecord.passwordIterations || PASSWORD_ITERATIONS) },
+          passwordVersion: { value: Number(currentAccountRecord.passwordVersion || 2) },
+          updatedAt: { value: timestamp }
+        }
+      };
+
+      const profileRecord = {
+        recordType: "WatchLogProfileV4",
+        recordName: "watchlog-profile-v4",
+        fields: {
+          userKey: { value: currentAccountRecord.userKey },
+          payload: { value: JSON.stringify(currentUser) },
+          updatedAt: { value: timestamp }
+        }
+      };
+
+      const libraryRecord = {
+        recordType: "WatchLogLibraryV4",
+        recordName: "watchlog-library-v4",
+        fields: {
+          userKey: { value: currentAccountRecord.userKey },
+          payload: { value: JSON.stringify(library?.items || []) },
+          integrityHash: { value: library?.integrityHash || await computeLibraryIntegrityHash(currentAccountRecord.userKey, library?.items || []) },
+          updatedAt: { value: library?.updatedAt || timestamp }
+        }
+      };
+
+      const response = await cloudDatabase.newRecordsBatch()
+        .forceUpdate([accountRecord, profileRecord, libraryRecord])
+        .commit();
+
+      if (response.hasErrors) throw response.errors?.[0] || new Error("CloudKit sync failed.");
+      return true;
+    }
+
+    async function importCloudAccountIfIdentifierMatches(identifier) {
+      if (!cloudIdentity) return null;
+      const cloudAccount = await fetchCloudAccount();
+      const cloudProfile = await fetchCloudProfile();
+      if (!cloudAccount || !cloudProfile) return null;
+
+      const normalized = normalizeIdentifier(identifier);
+      const usernameHash = await hashUsername(normalized);
+      const emailHash = await hashEmail(normalized);
+
+      if (cloudAccount.usernameHash !== usernameHash && cloudAccount.emailHash !== emailHash) {
+        return null;
+      }
+
+      await authPut(cloudAccount);
+      await openUserDatabase(cloudAccount.userKey);
+      await saveProfile({ ...cloudProfile, userKey: cloudAccount.userKey });
+
+      const cloudLibrary = await fetchCloudLibrary();
+      const items = cloudLibrary?.items || [];
+      const integrityHash = await computeLibraryIntegrityHash(cloudAccount.userKey, items);
+      await userDBPut(USER_LIBRARY_STORE, {
+        key: "library",
+        items,
+        integrityHash,
+        updatedAt: cloudLibrary?.updatedAt || nowISO()
+      });
+
+      return cloudAccount;
+    }
+
+    async function restoreAccountFromICloud() {
+      if (!cloudIdentity) {
+        setCloudStatus("Sign into iCloud first.", "warning");
+        return false;
+      }
+
+      iCloudRestoreBtn.disabled = true;
+      iCloudRestoreBtn.innerText = "Restoring…";
+
+      try {
+        const cloudAccount = await fetchCloudAccount();
+        const cloudProfile = await fetchCloudProfile();
+        const cloudLibrary = await fetchCloudLibrary();
+
+        if (!cloudAccount || !cloudProfile) {
+          setCloudStatus("No WatchLog account backup was found in this iCloud private database.", "warning");
+          return false;
+        }
+
+        await authPut(cloudAccount);
+        await openUserDatabase(cloudAccount.userKey);
+        await saveProfile({ ...cloudProfile, userKey: cloudAccount.userKey });
+
+        const items = cloudLibrary?.items || [];
+        const integrityHash = await computeLibraryIntegrityHash(cloudAccount.userKey, items);
+        await userDBPut(USER_LIBRARY_STORE, {
+          key: "library",
+          items,
+          integrityHash,
+          updatedAt: cloudLibrary?.updatedAt || nowISO()
+        });
+
+        setCloudStatus("Account restored to this device. Log in using the saved username/email and WatchLog password.", "ok");
+        showAuthMessage("iCloud account restored. Enter its username/email and password to log in.", "success");
+        iCloudModal.classList.add("hidden");
+        return true;
+      } catch (error) {
+        console.error("iCloud restore failed:", error);
+        setCloudStatus("iCloud restore failed. Existing on-device data was not deleted.", "warning");
+        return false;
+      } finally {
+        iCloudRestoreBtn.disabled = false;
+        iCloudRestoreBtn.innerText = "Restore from iCloud";
+      }
+    }
+
+    async function syncCurrentUserWithICloud() {
+      if (!currentUser || !cloudIdentity) return false;
+      setCloudStatus("Syncing WatchLog with iCloud…", "warning");
+
+      const cloudAccount = await fetchCloudAccount();
+      if (!cloudAccount) {
+        await uploadCurrentUserToICloud();
+        setCloudStatus("WatchLog is backed up to your private iCloud database.", "ok");
+        return true;
+      }
+
+      if (cloudAccount.userKey !== currentUser.userKey) {
+        setCloudStatus("This iCloud private database already contains a different WatchLog account.", "warning");
+        return false;
+      }
+
+      const cloudLibrary = await fetchCloudLibrary();
+      const localLibrary = await userDBGet(USER_LIBRARY_STORE, "library");
+
+      if (cloudLibrary && timestampValue(cloudLibrary.updatedAt) > timestampValue(localLibrary?.updatedAt)) {
+        const expected = await computeLibraryIntegrityHash(currentUser.userKey, cloudLibrary.items);
+        if (cloudLibrary.integrityHash && cloudLibrary.integrityHash !== expected) {
+          throw new Error("iCloud library integrity check failed.");
+        }
+
+        await userDBPut(USER_LIBRARY_STORE, {
+          key: "library",
+          items: cloudLibrary.items,
+          integrityHash: expected,
+          updatedAt: cloudLibrary.updatedAt
+        });
+        mediaItems = cloudLibrary.items;
+        currentLibraryUpdatedAt = cloudLibrary.updatedAt;
+        render();
+        setCloudStatus("A newer WatchLog library was restored from iCloud.", "ok");
+        return true;
+      }
+
+      await uploadCurrentUserToICloud();
+      setCloudStatus("WatchLog is up to date on this device and iCloud.", "ok");
+      return true;
+    }
+
+    function queueICloudSync() {
+      if (!cloudIdentity || !currentUser) return;
+      clearTimeout(cloudSyncTimer);
+      cloudSyncTimer = setTimeout(async () => {
+        try {
+          await syncCurrentUserWithICloud();
+        } catch (error) {
+          console.error("Automatic iCloud sync failed:", error);
+          setCloudStatus("Saved on this device. iCloud sync needs to be retried.", "warning");
+        }
+      }, 700);
+    }
+
+    function openICloudModal() {
+      iCloudModal.classList.remove("hidden");
+      updateICloudUI();
+      if (cloudContainer && cloudKitReady) {
+        cloudContainer.setUpAuth().then(identity => {
+          cloudIdentity = identity;
+          updateICloudUI();
+        }).catch(() => {});
+      }
+    }
+
+    iCloudRecoveryBtn.onclick = openICloudModal;
+    openICloudBtn.onclick = openICloudModal;
+    closeICloudModalBtn.onclick = () => iCloudModal.classList.add("hidden");
+    iCloudModal.addEventListener("click", event => { if (event.target === iCloudModal) iCloudModal.classList.add("hidden"); });
+    iCloudRestoreBtn.onclick = restoreAccountFromICloud;
+    iCloudSyncNowBtn.onclick = async () => {
+      iCloudSyncNowBtn.disabled = true;
+      iCloudSyncNowBtn.innerText = "Syncing…";
+      try { await syncCurrentUserWithICloud(); }
+      catch (error) { console.error(error); setCloudStatus("iCloud sync failed. On-device data remains saved.", "warning"); }
+      finally { iCloudSyncNowBtn.disabled = false; iCloudSyncNowBtn.innerText = "Sync Now"; }
+    };
+
+    /* =========================================================
+       BOOTSTRAP
+       ========================================================= */
+
+    async function bootstrapWatchLog() {
+      updateAuthModeUI();
+      updateSupabaseUI();
+
+      if (!("indexedDB" in window)) {
+        showAuthMessage("This browser does not support the on-device database required by WatchLog.");
+        return;
+      }
+
+      try {
+        await openAuthDatabase();
+        await migrateLegacyAccounts();
+
+        /*
+          Initialise the real cross-device auth/database before restoring a
+          local session. If Supabase already has a valid persisted session,
+          that cloud identity wins and its library is pulled onto this device.
+        */
+        await initializeSupabase();
+
+        let restored = false;
+        if (supabaseReady && supabaseSession?.user) {
+          restored = await restoreFromSupabaseSession();
+        }
+
+        if (!restored) {
+          restored = await restoreSession();
+        }
+
+        await checkAuth();
+      } catch (error) {
+        console.error("WatchLog startup failed:", error);
+        clearSessionStorage();
+        currentUser = null;
+        showAuthMessage(
+          "WatchLog could not open its account database. Existing browser data was not deleted."
+        );
+        authScreen.classList.remove("hidden");
+      }
+
+      initializeCloudKit().catch(error => console.error("iCloud startup failed:", error));
+    }
+
+    bootstrapWatchLog();
+  </script>
+</body>
+</html>
+
     :root {
       --bg: #000000;
       --card-bg: #15181e;
