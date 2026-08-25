@@ -5,38 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>WatchLog</title>
 
-  <!-- iOS / Standalone PWA Settings -->
+  <!-- iOS PWA Settings -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="WatchLog" />
-  <meta name="theme-color" content="#0d1117" />
+  <meta name="theme-color" content="#0a0c10" />
 
-  <!-- Embedded App Icon -->
-  <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='110' fill='%23161b22'/><circle cx='256' cy='256' r='180' fill='%2321262d'/><polygon points='210,160 360,256 210,352' fill='%233b82f6'/></svg>" />
-  <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='110' fill='%23161b22'/><circle cx='256' cy='256' r='180' fill='%2321262d'/><polygon points='210,160 360,256 210,352' fill='%233b82f6'/></svg>" />
-
-  <!-- Embedded Web Manifest -->
-  <link rel="manifest" href='data:application/manifest+json,{"name":"WatchLog","short_name":"WatchLog","start_url":".","display":"standalone","background_color":"%230d1117","theme_color":"%230d1117","icons":[{"src":"data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\"><rect width=\"512\" height=\"512\" rx=\"110\" fill=\"%23161b22\"/><circle cx=\"256\" cy=\"256\" r=\"180\" fill=\"%2321262d\"/><polygon points=\"210,160 360,256 210,352\" fill=\"%233b82f6\"/></svg>","sizes":"512x512","type":"image/svg+xml"}]}' />
+  <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='120' fill='%2312161f'/><polygon points='210,160 360,256 210,352' fill='%233b82f6'/></svg>" />
+  <link rel="manifest" href='data:application/manifest+json,{"name":"WatchLog","short_name":"WatchLog","start_url":".","display":"standalone","background_color":"%230a0c10","theme_color":"%230a0c10","icons":[{"src":"data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\"><rect width=\"512\" height=\"512\" rx=\"120\" fill=\"%2312161f\"/><polygon points=\"210,160 360,256 210,352\" fill=\"%233b82f6\"/></svg>","sizes":"512x512","type":"image/svg+xml"}]}' />
 
   <style>
     :root {
-      --bg: #0d1117;
-      --card-bg: #161b22;
-      --card-inner: #21262d;
+      --bg: #0a0c10;
+      --card-bg: #141822;
+      --card-inner: #1c2230;
       --accent: #3b82f6;
-      --text: #f0f6fc;
-      --text-muted: #8b949e;
-      --border: #30363d;
+      --text: #f1f5f9;
+      --text-muted: #828d9f;
+      --border: #232a3b;
       --danger: #ef4444;
-      --success: #22c55e;
-      --radius: 14px;
+      --success: #10b981;
+      --radius: 16px;
     }
 
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", sans-serif;
       -webkit-tap-highlight-color: transparent;
     }
 
@@ -50,11 +46,11 @@
     .app-header {
       position: sticky;
       top: 0;
-      background-color: rgba(13, 17, 23, 0.88);
+      background-color: rgba(10, 12, 16, 0.85);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border-bottom: 1px solid var(--border);
-      padding: env(safe-area-inset-top, 16px) 16px 8px 16px;
+      padding: env(safe-area-inset-top, 16px) 16px 10px 16px;
       z-index: 50;
     }
 
@@ -62,22 +58,22 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
 
     h1 {
-      font-size: 1.6rem;
+      font-size: 1.65rem;
       font-weight: 800;
-      letter-spacing: -0.6px;
+      letter-spacing: -0.5px;
     }
 
     .icon-btn {
       background: var(--accent);
       border: none;
       color: white;
-      font-size: 1.6rem;
-      width: 38px;
-      height: 38px;
+      font-size: 1.5rem;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       cursor: pointer;
       display: flex;
@@ -85,18 +81,15 @@
       justify-content: center;
     }
 
-    .search-box {
-      margin-bottom: 10px;
-    }
-
     .search-input {
       width: 100%;
       background: var(--card-bg);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 8px 12px;
-      border-radius: 10px;
+      padding: 10px 14px;
+      border-radius: 12px;
       font-size: 0.9rem;
+      margin-bottom: 10px;
     }
 
     .filter-bar {
@@ -113,8 +106,8 @@
       border: 1px solid var(--border);
       color: var(--text-muted);
       padding: 6px 14px;
-      border-radius: 18px;
-      font-size: 0.8rem;
+      border-radius: 20px;
+      font-size: 0.82rem;
       font-weight: 600;
       cursor: pointer;
       white-space: nowrap;
@@ -135,17 +128,17 @@
     .media-list {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 14px;
     }
 
     .media-card {
       background: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 14px;
+      padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
     }
 
     .card-top {
@@ -155,20 +148,13 @@
       cursor: pointer;
     }
 
-    .card-title-group {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
     .card-title {
-      font-size: 1.1rem;
+      font-size: 1.15rem;
       font-weight: 700;
+      letter-spacing: -0.3px;
     }
 
     .card-meta {
-      font-size: 0.78rem;
-      color: var(--text-muted);
       display: flex;
       gap: 6px;
       align-items: center;
@@ -176,66 +162,76 @@
     }
 
     .badge {
-      font-size: 0.72rem;
-      padding: 2px 7px;
+      font-size: 0.7rem;
+      padding: 3px 8px;
       border-radius: 6px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
 
-    .badge-type { background: rgba(59, 130, 246, 0.15); color: var(--accent); }
-    .badge-status { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+    .badge-type { background: rgba(59, 130, 246, 0.12); color: var(--accent); }
+    .badge-status { background: rgba(16, 185, 129, 0.12); color: var(--success); }
 
-    .season-card-block {
+    /* Streamlined Episode Bar */
+    .ep-tracker {
       background: var(--card-inner);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 12px;
+      border-radius: 12px;
+      padding: 10px 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
 
-    .season-card-label {
-      font-size: 0.9rem;
+    .ep-info {
+      font-size: 0.95rem;
       font-weight: 600;
     }
 
-    .upcoming-banner {
-      background: rgba(59, 130, 246, 0.1);
-      border: 1px solid rgba(59, 130, 246, 0.3);
-      border-radius: 8px;
-      padding: 8px 12px;
-      font-size: 0.8rem;
-      color: var(--accent);
+    .ep-actions {
       display: flex;
-      justify-content: space-between;
+      gap: 8px;
       align-items: center;
     }
 
-    .progress-controls {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-    }
-
-    .ctrl-btn {
+    .step-btn {
       background: var(--border);
       border: none;
       color: var(--text);
       font-size: 1.1rem;
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: bold;
     }
-    .ctrl-btn:active { background: var(--accent); color: white; }
-    .ctrl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .step-btn:active { background: var(--accent); color: white; }
+
+    .finish-season-btn {
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      color: var(--accent);
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .reminder-badge {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      color: #fbbf24;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
 
     .card-footer {
       display: flex;
@@ -243,15 +239,15 @@
       align-items: center;
       font-size: 0.8rem;
       color: var(--text-muted);
-      border-top: 1px solid var(--border);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
       padding-top: 8px;
     }
 
-    .platform-tag {
-      background: #23272e;
+    .tag {
+      background: var(--card-inner);
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 2px 6px;
+      padding: 2px 8px;
       font-size: 0.75rem;
     }
 
@@ -265,14 +261,14 @@
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.75);
+      background: rgba(0, 0, 0, 0.7);
       display: flex;
       align-items: flex-end;
       z-index: 100;
     }
 
     .modal-content {
-      background: #161b22;
+      background: #141822;
       border-top: 1px solid var(--border);
       width: 100%;
       max-width: 600px;
@@ -305,11 +301,13 @@
     }
 
     label {
-      font-size: 0.78rem;
+      font-size: 0.75rem;
       color: var(--text-muted);
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.4px;
+      margin-bottom: 2px;
+      display: block;
     }
 
     input, select, textarea {
@@ -317,8 +315,8 @@
       background: var(--card-inner);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 10px;
-      border-radius: 8px;
+      padding: 10px 12px;
+      border-radius: 10px;
       font-size: 0.95rem;
     }
 
@@ -331,26 +329,16 @@
       flex: 1;
     }
 
-    .section-box {
-      border: 1px solid var(--border);
-      background: #10141a;
-      border-radius: 10px;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
     .modal-actions {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-top: 12px;
+      margin-top: 14px;
     }
 
     .btn {
-      padding: 10px 18px;
-      border-radius: 8px;
+      padding: 12px 20px;
+      border-radius: 10px;
       border: none;
       font-weight: 700;
       font-size: 0.95rem;
@@ -367,11 +355,9 @@
   <header class="app-header">
     <div class="header-top">
       <h1>WatchLog</h1>
-      <button id="add-btn" class="icon-btn" aria-label="Add Media">+</button>
+      <button id="add-btn" class="icon-btn">+</button>
     </div>
-    <div class="search-box">
-      <input type="text" id="search-input" class="search-input" placeholder="Search titles, platforms..." />
-    </div>
+    <input type="text" id="search-input" class="search-input" placeholder="Search shows, movies, platforms..." />
     <div class="filter-bar">
       <button class="filter-btn active" data-filter="All">All</button>
       <button class="filter-btn" data-filter="Watching">Watching</button>
@@ -400,8 +386,10 @@
       <form id="media-form">
         <input type="hidden" id="item-id" />
 
-        <label for="title">Title</label>
-        <input type="text" id="title" required placeholder="e.g. Severance" />
+        <div class="form-group">
+          <label for="title">Title</label>
+          <input type="text" id="title" required placeholder="e.g. NCIS" />
+        </div>
 
         <div class="form-row">
           <div class="form-group">
@@ -425,57 +413,42 @@
           </div>
         </div>
 
-        <!-- Current Season Section -->
-        <div id="current-season-section" class="section-box">
-          <label>Current Season Progress</label>
-          <div class="form-row">
-            <div class="form-group" style="flex: 0.8;">
-              <label for="cur-season-num">Season #</label>
-              <input type="number" id="cur-season-num" min="1" value="1" />
-            </div>
-            <div class="form-group">
-              <label for="cur-ep-watched">Watched Ep</label>
-              <input type="number" id="cur-ep-watched" min="0" value="0" />
-            </div>
-            <div class="form-group">
-              <label for="cur-season-total">Total Eps</label>
-              <input type="number" id="cur-season-total" min="1" placeholder="e.g. 10" />
-            </div>
+        <!-- Clean Series Fields -->
+        <div id="series-fields" class="form-row">
+          <div class="form-group">
+            <label for="season-num">Season #</label>
+            <input type="number" id="season-num" min="1" value="1" />
           </div>
-        </div>
-
-        <!-- Upcoming Season & Air Date Reminder Section -->
-        <div id="upcoming-season-section" class="section-box">
-          <label>Upcoming Season & Release Reminder</label>
-          <div class="form-row">
-            <div class="form-group" style="flex: 0.8;">
-              <label for="up-season-num">Next Season #</label>
-              <input type="number" id="up-season-num" min="2" placeholder="e.g. 2" />
-            </div>
-            <div class="form-group">
-              <label for="up-season-date">Air / Release Date</label>
-              <input type="datetime-local" id="up-season-date" />
-            </div>
+          <div class="form-group">
+            <label for="ep-watched">Watched Ep</label>
+            <input type="number" id="ep-watched" min="0" value="0" />
           </div>
         </div>
 
         <div class="form-row">
           <div class="form-group">
-            <label for="platform">Streaming / Platform</label>
-            <input type="text" id="platform" placeholder="Apple TV+, Netflix, Disney+..." />
+            <label for="platform">Platform</label>
+            <input type="text" id="platform" placeholder="Paramount+, Netflix..." />
           </div>
           <div class="form-group">
-            <label for="rating">Rating (1–10)</label>
+            <label for="rating">Rating</label>
             <input type="number" id="rating" min="1" max="10" placeholder="★ /10" />
           </div>
         </div>
 
-        <label for="notes">Notes</label>
-        <textarea id="notes" rows="3" placeholder="Review, thoughts, theories..."></textarea>
+        <div class="form-group">
+          <label for="reminder-date">Next Air / Premiere Date</label>
+          <input type="datetime-local" id="reminder-date" />
+        </div>
+
+        <div class="form-group">
+          <label for="notes">Notes</label>
+          <textarea id="notes" rows="2" placeholder="Thoughts, theories..."></textarea>
+        </div>
 
         <div class="modal-actions">
           <button type="button" id="delete-btn" class="btn btn-danger hidden">Delete</button>
-          <button type="submit" class="btn btn-primary">Save to Log</button>
+          <button type="submit" class="btn btn-primary">Save</button>
         </div>
       </form>
     </div>
@@ -496,38 +469,35 @@
     const mediaForm = document.getElementById('media-form');
     const deleteBtn = document.getElementById('delete-btn');
     const typeSelect = document.getElementById('type');
-    const currentSeasonSection = document.getElementById('current-season-section');
-    const upcomingSeasonSection = document.getElementById('upcoming-season-section');
+    const seriesFields = document.getElementById('series-fields');
 
     typeSelect.addEventListener('change', () => {
-      const isMovie = typeSelect.value === 'Movie';
-      currentSeasonSection.style.display = isMovie ? 'none' : 'flex';
-      upcomingSeasonSection.style.display = isMovie ? 'none' : 'flex';
+      seriesFields.style.display = (typeSelect.value === 'Movie') ? 'none' : 'flex';
     });
 
     function save() {
       localStorage.setItem('watchlog_items', JSON.stringify(mediaItems));
     }
 
-    function changeEpisode(itemId, delta) {
-      const item = mediaItems.find(i => i.id === itemId);
+    function changeEp(id, delta) {
+      const item = mediaItems.find(i => i.id === id);
       if (item) {
-        let current = parseInt(item.currentEp) || 0;
-        let total = parseInt(item.totalEps) || Infinity;
-
-        let newCount = current + delta;
-        if (newCount < 0) newCount = 0;
-        if (newCount > total) newCount = total;
-
-        item.currentEp = newCount;
-
-        // Auto update status if reached max
-        if (total !== Infinity && newCount >= total) {
-          item.status = item.upcomingSeason ? 'Completed' : 'Completed';
-        } else if (item.status === 'Completed' && delta < 0) {
+        item.currentEp = Math.max(0, (parseInt(item.currentEp) || 0) + delta);
+        if (item.currentEp > 0 && item.status === 'Plan to Watch') {
           item.status = 'Watching';
         }
+        save();
+        render();
+      }
+    }
 
+    function finishSeason(id) {
+      const item = mediaItems.find(i => i.id === id);
+      if (item) {
+        const nextSeason = (parseInt(item.season) || 1) + 1;
+        item.season = nextSeason;
+        item.currentEp = 0;
+        item.status = 'Completed';
         save();
         render();
       }
@@ -557,36 +527,10 @@
           card.className = 'media-card';
 
           const isSeries = item.type !== 'Movie';
-          const current = parseInt(item.currentEp) || 0;
-          const total = parseInt(item.totalEps) || null;
-          const isMax = total !== null && current >= total;
-
-          let seriesHTML = '';
-          if (isSeries) {
-            seriesHTML = `
-              <div class="season-card-block">
-                <span class="season-card-label">Season ${item.currentSeason || 1}: <strong>Ep ${current}${total ? ` / ${total}` : ''}</strong></span>
-                <div class="progress-controls">
-                  <button class="ctrl-btn" onclick="changeEpisode('${item.id}', -1)" ${current <= 0 ? 'disabled' : ''}>−</button>
-                  <button class="ctrl-btn" onclick="changeEpisode('${item.id}', 1)" ${isMax ? 'disabled' : ''}>+</button>
-                </div>
-              </div>
-            `;
-
-            if (item.upcomingSeason && item.upcomingDate) {
-              const airDate = new Date(item.upcomingDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-              seriesHTML += `
-                <div class="upcoming-banner">
-                  <span>🔔 <strong>Season ${item.upcomingSeason}</strong> Premiere</span>
-                  <span>${airDate}</span>
-                </div>
-              `;
-            }
-          }
 
           card.innerHTML = `
             <div class="card-top" onclick="openEditModal('${item.id}')">
-              <div class="card-title-group">
+              <div>
                 <span class="card-title">${escapeHTML(item.title)}</span>
                 <div class="card-meta">
                   <span class="badge badge-type">${item.type}</span>
@@ -596,13 +540,28 @@
               </div>
             </div>
 
-            ${seriesHTML}
+            ${isSeries ? `
+              <div class="ep-tracker">
+                <span class="ep-info">Season ${item.season || 1} • <strong>Ep ${item.currentEp || 0}</strong></span>
+                <div class="ep-actions">
+                  <button class="step-btn" onclick="changeEp('${item.id}', -1)">−</button>
+                  <button class="step-btn" onclick="changeEp('${item.id}', 1)">+</button>
+                  <button class="finish-season-btn" onclick="finishSeason('${item.id}')">End Season</button>
+                </div>
+              </div>
+            ` : ''}
+
+            ${item.reminderDate ? `
+              <div class="reminder-badge">
+                <span>🔔 Air Date / Premiere</span>
+                <strong>${new Date(item.reminderDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</strong>
+              </div>
+            ` : ''}
 
             <div class="card-footer">
-              <span>${item.platform ? `<span class="platform-tag">${escapeHTML(item.platform)}</span>` : ''}</span>
-              ${item.type === 'Movie' && item.upcomingDate ? `<span>⏰ ${new Date(item.upcomingDate).toLocaleDateString()}</span>` : ''}
+              <span>${item.platform ? `<span class="tag">${escapeHTML(item.platform)}</span>` : ''}</span>
+              ${item.notes ? `<span style="color:var(--text-muted); font-size:0.8rem;">${escapeHTML(item.notes)}</span>` : ''}
             </div>
-            ${item.notes ? `<p style="font-size:0.8rem; color:var(--text-muted);">${escapeHTML(item.notes)}</p>` : ''}
           `;
           mediaList.appendChild(card);
         });
@@ -613,10 +572,9 @@
       mediaForm.reset();
       document.getElementById('item-id').value = '';
       document.getElementById('modal-title').innerText = 'Add Media';
-      document.getElementById('cur-season-num').value = 1;
-      document.getElementById('cur-ep-watched').value = 0;
-      currentSeasonSection.style.display = 'flex';
-      upcomingSeasonSection.style.display = 'flex';
+      document.getElementById('season-num').value = 1;
+      document.getElementById('ep-watched').value = 0;
+      seriesFields.style.display = 'flex';
       deleteBtn.classList.add('hidden');
       modal.classList.remove('hidden');
     }
@@ -629,19 +587,14 @@
       document.getElementById('title').value = item.title;
       document.getElementById('type').value = item.type;
       document.getElementById('status').value = item.status;
-      document.getElementById('cur-season-num').value = item.currentSeason || 1;
-      document.getElementById('cur-ep-watched').value = item.currentEp || 0;
-      document.getElementById('cur-season-total').value = item.totalEps || '';
-      document.getElementById('up-season-num').value = item.upcomingSeason || '';
-      document.getElementById('up-season-date').value = item.upcomingDate || '';
+      document.getElementById('season-num').value = item.season || 1;
+      document.getElementById('ep-watched').value = item.currentEp || 0;
       document.getElementById('platform').value = item.platform || '';
       document.getElementById('rating').value = item.rating || '';
+      document.getElementById('reminder-date').value = item.reminderDate || '';
       document.getElementById('notes').value = item.notes || '';
 
-      const isMovie = item.type === 'Movie';
-      currentSeasonSection.style.display = isMovie ? 'none' : 'flex';
-      upcomingSeasonSection.style.display = isMovie ? 'none' : 'flex';
-
+      seriesFields.style.display = (item.type === 'Movie') ? 'none' : 'flex';
       document.getElementById('modal-title').innerText = 'Edit Media';
       deleteBtn.classList.remove('hidden');
       modal.classList.remove('hidden');
@@ -650,23 +603,15 @@
     mediaForm.onsubmit = (e) => {
       e.preventDefault();
       const id = document.getElementById('item-id').value;
-      const type = document.getElementById('type').value;
-
-      let watched = parseInt(document.getElementById('cur-ep-watched').value) || 0;
-      let total = document.getElementById('cur-season-total').value ? parseInt(document.getElementById('cur-season-total').value) : '';
-      if (total && watched > total) watched = total;
-
       const data = {
         title: document.getElementById('title').value,
-        type: type,
+        type: document.getElementById('type').value,
         status: document.getElementById('status').value,
-        currentSeason: parseInt(document.getElementById('cur-season-num').value) || 1,
-        currentEp: watched,
-        totalEps: total,
-        upcomingSeason: document.getElementById('up-season-num').value || '',
-        upcomingDate: document.getElementById('up-season-date').value || '',
+        season: parseInt(document.getElementById('season-num').value) || 1,
+        currentEp: parseInt(document.getElementById('ep-watched').value) || 0,
         platform: document.getElementById('platform').value,
         rating: document.getElementById('rating').value,
+        reminderDate: document.getElementById('reminder-date').value,
         notes: document.getElementById('notes').value
       };
 
