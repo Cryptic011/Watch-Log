@@ -11,9 +11,31 @@ self.addEventListener("activate",event=>{
   event.waitUntil(self.clients.claim());
 });
 
+self.addEventListener("push",event=>{
+  let payload={
+    title:"Watched Logger",
+    body:"A Planned title reminder is ready.",
+    tag:"watchlog-reminder",
+    data:{url:"./"}
+  };
+  try{
+    if(event.data)payload={...payload,...event.data.json()};
+  }catch(_){
+    if(event.data)payload.body=event.data.text()||payload.body;
+  }
+  event.waitUntil(
+    self.registration.showNotification(payload.title||"Watched Logger",{
+      body:payload.body||"",
+      tag:payload.tag||"watchlog-reminder",
+      renotify:true,
+      data:payload.data||{url:"./"}
+    })
+  );
+});
+
 self.addEventListener("notificationclick",event=>{
   event.notification.close();
-  const appUrl=new URL("./",self.registration.scope).href;
+  const appUrl=new URL(event.notification.data?.url||"./",self.registration.scope).href;
   event.waitUntil(
     self.clients.matchAll({type:"window",includeUncontrolled:true}).then(windows=>{
       const existing=windows.find(client=>client.url.startsWith(self.registration.scope));
