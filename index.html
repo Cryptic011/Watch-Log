@@ -682,6 +682,10 @@
     const value=item?.date?new Date(`${item.date}T12:00:00`).getTime():0;
     return Number.isFinite(value)?value:0;
   }
+  function addedSortTime(item){
+    const value=item?.createdAt?new Date(item.createdAt).getTime():0;
+    return Number.isFinite(value)?value:0;
+  }
   function sortMediaRows(rows){
     const list=[...rows];
     if(activeSort==="title")return list.sort((a,b)=>titleCollator.compare(a.title||"",b.title||""));
@@ -696,7 +700,13 @@
       const ag=showGroupInfo(a,list),bg=showGroupInfo(b,list);
       return titleCollator.compare(ag.key,bg.key)||titleCollator.compare(a.title||"",b.title||"");
     });
-    return list;
+    if(currentTab==="library"&&activeFilter==="All"){
+      return list.sort((a,b)=>{
+        const aPlanned=a.status==="Planned"||a.status==="Saved",bPlanned=b.status==="Planned"||b.status==="Saved";
+        return Number(bPlanned)-Number(aPlanned)||addedSortTime(b)-addedSortTime(a);
+      });
+    }
+    return list.sort((a,b)=>addedSortTime(b)-addedSortTime(a));
   }
   function updateCounts(){$("count-planned").textContent=mediaItems.filter(x=>x.status==="Planned"||x.status==="Saved").length;$("count-watching").textContent=mediaItems.filter(x=>x.status==="Watching").length;$("count-watched").textContent=mediaItems.filter(x=>x.status==="Watched").length;}
   function updateFloatingAddVisibility(){addBtn.classList.toggle("hidden",!(currentUser&&currentTab==="library"&&activeFilter==="All"));}
