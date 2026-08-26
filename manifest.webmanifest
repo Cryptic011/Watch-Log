@@ -1,0 +1,11 @@
+{
+  "id": "/Watched-Tracker/",
+  "name": "Watched Logger",
+  "short_name": "Watched Logger",
+  "description": "Plan, track and remember films and series.",
+  "start_url": "/Watched-Tracker/",
+  "scope": "/Watched-Tracker/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000"
+}
