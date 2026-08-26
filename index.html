@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="Watched Logger" />
   <meta name="theme-color" content="#000000" />
   <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='120' fill='%23181b20'/><polygon points='210,160 360,256 210,352' fill='%233b82f6'/></svg>" />
-  <link rel="manifest" href='data:application/manifest+json,{"name":"Watched Logger","short_name":"Watched Logger","start_url":".","display":"standalone","background_color":"%23000000","theme_color":"%23000000"}' />
+  <link rel="manifest" href="./manifest.webmanifest" />
   <style>
     :root{--bg:#000;--card:#15181e;--inner:#1e222a;--blue:#2563eb;--blue2:#60a5fa;--text:#fff;--muted:#8e95a2;--border:#232730;--green:#34d399;--red:#ef4444;--amber:#fbbf24;--radius:20px}
     *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",sans-serif;-webkit-tap-highlight-color:transparent}
@@ -36,10 +36,13 @@
     html[data-theme="light"] .localized-date-shell .localized-native-date::-webkit-calendar-picker-indicator{filter:none}
     .appearance-card{margin-bottom:22px}
     .appearance-copy{font-size:.82rem;line-height:1.45;color:var(--muted);margin-top:8px}
-    .reminder-test-card{margin-bottom:22px}
+    .background-reminder-card,.reminder-test-card{margin-bottom:22px}
     .reminder-test-title{font-size:1rem;font-weight:850;margin-bottom:7px}
     .notification-status{min-height:38px;margin-top:7px;color:var(--muted);font-size:.82rem;line-height:1.45}
     .notification-actions{display:grid;grid-template-columns:1fr;gap:9px;margin-top:13px}
+    .notification-rule{display:flex;align-items:flex-start;gap:9px;margin-top:9px;color:var(--muted);font-size:.8rem;line-height:1.4}
+    .notification-rule strong{color:var(--text)}
+    .notification-rule-dot{width:8px;height:8px;flex:0 0 8px;margin-top:4px;border-radius:50%;background:var(--blue2)}
     .item-row{display:grid;grid-template-columns:48px minmax(0,1fr) auto 12px;align-items:center;gap:12px}
     .item-main{grid-column:2}
     .item-right{grid-column:3}
@@ -97,7 +100,7 @@
 
   <main class="container">
     <div id="library-view"><div id="list-toolbar" class="list-toolbar"><div class="list-toolbar-row"><div id="list-label" class="section-label">Titles</div><label class="sort-control" for="sort-mode"><span>Sort</span><select id="sort-mode" aria-label="Sort titles"><option value="recent">Recent</option><option value="title">Title A–Z</option><option value="platform">Platform watched on</option><option value="watched">Date watched</option><option value="shows">Show groups</option></select></label></div><div class="filter-pills" aria-label="Filter titles by status"><button class="pill-btn active" data-filter="All">All</button><button class="pill-btn" data-filter="Planned">Planned</button><button class="pill-btn" data-filter="Watching">Watching</button><button class="pill-btn" data-filter="Watched">Watched</button></div></div><div id="media-list" class="titles-group"></div><div id="empty-state" class="hidden" style="text-align:center;margin-top:40px;color:var(--muted)">No titles found. Tap <strong>+</strong> to start.</div></div>
-    <div id="settings-view" class="hidden"><div class="section-label">Appearance</div><div class="profile-card appearance-card"><div class="form-group"><label for="appearance-mode">Colour mode</label><select id="appearance-mode"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div><div class="appearance-copy">System follows your iPhone setting. Light and Dark keep your chosen appearance on this device.</div></div><div id="notification-test-settings" class="hidden"><div class="section-label">Reminder Test</div><div class="profile-card reminder-test-card"><div class="reminder-test-title">Planned show notification</div><div id="notification-test-status" class="notification-status">Checking notification support…</div><div class="notification-actions"><button id="enable-test-notifications" class="btn btn-secondary btn-full" type="button">Enable Notifications</button><button id="send-planned-test" class="btn btn-primary btn-full" type="button">Send Planned-Show Test</button></div><div class="small-note" style="margin-top:11px">The test arrives after five seconds and uses your nearest Planned title. Keep Watched Logger open until it appears. This verifies notification permission; automatic future background alerts require server push.</div></div></div><div class="section-label">Account & Sync</div><div class="profile-card"><div class="profile-header"><div id="avatar" class="avatar">U</div><div class="profile-info"><h3 id="profile-name">User</h3><p id="profile-email"></p></div></div><div class="sync-box"><div class="sync-title"><div id="sync-dot" class="sync-dot ok"></div>Watched Logger Cloud Sync</div><div id="sync-status" class="sync-text">Your library is linked to this email account and can be loaded on another device with the same 4-digit PIN.</div><button id="sync-now" class="btn btn-secondary btn-full" type="button">Sync Now</button></div><div class="sync-box"><div class="sync-title">Change 4-digit PIN</div><div class="form-group"><label for="new-pin">New PIN</label><input id="new-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="••••" /></div><button id="change-pin" class="btn btn-secondary btn-full" type="button">Change PIN</button><div class="small-note">PIN changes apply to every device. Five incorrect PIN attempts temporarily lock sign-in for 15 minutes.</div></div><button id="logout-btn" class="btn btn-danger btn-full">Log Out</button></div></div>
+    <div id="settings-view" class="hidden"><div class="section-label">Appearance</div><div class="profile-card appearance-card"><div class="form-group"><label for="appearance-mode">Colour mode</label><select id="appearance-mode"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div><div class="appearance-copy">System follows your iPhone setting. Light and Dark keep your chosen appearance on this device.</div></div><div class="section-label">Background Reminders</div><div class="profile-card background-reminder-card"><div class="reminder-test-title">Planned titles when the app is closed</div><div id="background-reminder-status" class="notification-status">Checking notification support…</div><div class="notification-rule"><span class="notification-rule-dot"></span><span><strong>1 day before</strong> the Planned date and time</span></div><div class="notification-rule"><span class="notification-rule-dot"></span><span><strong>6 hours before</strong> the Planned date and time</span></div><div class="notification-actions"><button id="enable-background-reminders" class="btn btn-primary btn-full" type="button">Enable Background Reminders</button><button id="disable-background-reminders" class="btn btn-secondary btn-full hidden" type="button">Turn Off on This Device</button></div><div class="small-note" style="margin-top:11px">iPhone delivers these through Web Push, so Watched Logger does not stay running or use background battery. If a title has only a date, noon in this device’s timezone is used.</div></div><div id="notification-test-settings" class="hidden"><div class="section-label">Private Reminder Test</div><div class="profile-card reminder-test-card"><div class="reminder-test-title">Background push test</div><div id="notification-test-status" class="notification-status">Checking notification support…</div><div class="notification-actions"><button id="send-planned-test" class="btn btn-primary btn-full" type="button">Queue Private Background Test</button></div><div class="small-note" style="margin-top:11px">This control is restricted to your account. It uses a Planned title and arrives through the server within about one minute, so you can close Watched Logger immediately after tapping it.</div></div></div><div class="section-label">Account & Sync</div><div class="profile-card"><div class="profile-header"><div id="avatar" class="avatar">U</div><div class="profile-info"><h3 id="profile-name">User</h3><p id="profile-email"></p></div></div><div class="sync-box"><div class="sync-title"><div id="sync-dot" class="sync-dot ok"></div>Watched Logger Cloud Sync</div><div id="sync-status" class="sync-text">Your library is linked to this email account and can be loaded on another device with the same 4-digit PIN.</div><button id="sync-now" class="btn btn-secondary btn-full" type="button">Sync Now</button></div><div class="sync-box"><div class="sync-title">Change 4-digit PIN</div><div class="form-group"><label for="new-pin">New PIN</label><input id="new-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="••••" /></div><button id="change-pin" class="btn btn-secondary btn-full" type="button">Change PIN</button><div class="small-note">PIN changes apply to every device. Five incorrect PIN attempts temporarily lock sign-in for 15 minutes.</div></div><button id="logout-btn" class="btn btn-danger btn-full">Log Out</button></div></div>
   </main>
 
   <nav class="bottom-tabs">
@@ -125,6 +128,7 @@
 
   const IMDB_VERIFY_ENDPOINT = "";
   const PIN_API = "https://okkwteywtgfsnlrjdyhv.supabase.co/functions/v1/watchlog-pin";
+  const REMINDER_API = "https://okkwteywtgfsnlrjdyhv.supabase.co/functions/v1/watchlog-reminders";
   const PIN_SESSION_KEY = "watchlog_pin_session_v1";
   const LEGACY_LOCAL_ACCOUNTS_KEY = "watchlog_local_accounts_v1";
   const LEGACY_LOCAL_SESSION_KEY = "watchlog_local_session_v1";
@@ -145,7 +149,8 @@
   const $ = id => document.getElementById(id);
   const authScreen = $("auth-screen"), authForm = $("auth-form"), authTitle = $("auth-title"), authSub = $("auth-sub"), authNameGroup = $("auth-name-group"), authEmail = $("auth-email"), authPin = $("auth-pin"), authName = $("auth-name"), authSubmit = $("auth-submit"), authToggle = $("auth-toggle"), authMessage = $("auth-message");
   const navName = $("nav-name"), userPill = $("user-pill"), libraryView = $("library-view"), settingsView = $("settings-view"), profileName = $("profile-name"), profileEmail = $("profile-email"), avatar = $("avatar"), syncDot = $("sync-dot"), syncStatus = $("sync-status"), syncNowBtn = $("sync-now"), changePinBtn = $("change-pin"), newPinInput = $("new-pin"), logoutBtn = $("logout-btn");
-  const notificationTestSettings=$("notification-test-settings"),notificationTestStatus=$("notification-test-status"),enableTestNotifications=$("enable-test-notifications"),sendPlannedTest=$("send-planned-test");
+  const backgroundReminderStatus=$("background-reminder-status"),enableBackgroundReminders=$("enable-background-reminders"),disableBackgroundReminders=$("disable-background-reminders");
+  const notificationTestSettings=$("notification-test-settings"),notificationTestStatus=$("notification-test-status"),sendPlannedTest=$("send-planned-test");
   const mediaList = $("media-list"), emptyState = $("empty-state"), searchInput = $("search-input"), sortMode = $("sort-mode"), modal = $("modal"), addBtn = $("add-btn"), closeModal = $("close-modal"), mediaForm = $("media-form"), deleteBtn = $("delete-btn"), saveBtn = $("save-btn"), typeSelect = $("type"), seriesSection = $("series-section"), progressVerifyNote = $("progress-verify-note"), airingSection = $("airing-section"), airingNote = $("airing-note"), upcomingSection = $("upcoming-section"), seasonVerifyNote = $("season-verify-note"), filmSection = $("film-section"), filmVerifyNote = $("film-verify-note"), filmReleaseDate = $("film-release-date"), filmReleaseSource = $("film-release-source"), titleInput = $("title"), suggestList = $("suggest-list");
   const pillBtns = document.querySelectorAll(".pill-btn"), tabBtns = document.querySelectorAll(".tab-btn");
 
@@ -264,21 +269,144 @@
   function isStandaloneWebApp(){
     return window.matchMedia?.("(display-mode: standalone)")?.matches||navigator.standalone===true;
   }
+  function setBackgroundReminderStatus(message,state=""){
+    if(!backgroundReminderStatus)return;
+    backgroundReminderStatus.textContent=message;
+    backgroundReminderStatus.style.color=state==="error"?"#fca5a5":state==="ok"?"var(--green)":"var(--muted)";
+  }
   function setNotificationTestStatus(message,state=""){
     if(!notificationTestStatus)return;
     notificationTestStatus.textContent=message;
     notificationTestStatus.style.color=state==="error"?"#fca5a5":state==="ok"?"var(--green)":"var(--muted)";
   }
+  function pushSupportError(){
+    if(!("Notification" in window)||!("serviceWorker" in navigator)||!("PushManager" in window))return"Background notifications are not supported in this browser.";
+    if(/iPhone|iPad|iPod/i.test(navigator.userAgent)&&!isStandaloneWebApp())return"Add Watched Logger to your Home Screen, then open it from the icon to enable iPhone background reminders.";
+    if(Notification.permission==="denied")return"Notifications are blocked. Enable Watched Logger in iPhone Settings → Notifications.";
+    return"";
+  }
+  function urlBase64ToUint8Array(value){
+    const padding="=".repeat((4-value.length%4)%4),base64=(value+padding).replace(/-/g,"+").replace(/_/g,"/");
+    const raw=atob(base64);return Uint8Array.from(raw,char=>char.charCodeAt(0));
+  }
+  async function reminderApi(action,payload={},token=cloudSessionToken){
+    const headers={"Content-Type":"application/json"};
+    if(token)headers["X-WatchLog-Session"]=token;
+    let response;
+    try{response=await fetch(REMINDER_API,{method:"POST",headers,body:JSON.stringify({action,...payload})});}
+    catch(_){const error=new Error("Could not reach the Watched Logger reminder service.");error.code="network";throw error;}
+    let data={};try{data=await response.json();}catch(_){}
+    if(!response.ok){const error=new Error(data.error||`Reminder service error (${response.status})`);error.code=data.code||"reminder_error";error.status=response.status;throw error;}
+    return data;
+  }
+  async function notificationWorker(){
+    await navigator.serviceWorker.register("./sw.js",{scope:"./",updateViaCache:"none"});
+    return navigator.serviceWorker.ready;
+  }
+  async function currentPushSubscription(){
+    if(pushSupportError()&&Notification.permission!=="granted")return null;
+    try{return(await notificationWorker()).pushManager.getSubscription();}catch(_){return null;}
+  }
+  async function ensureBackgroundPush({askPermission=false}={}){
+    const supportError=pushSupportError();
+    if(supportError)throw new Error(supportError);
+    if(Notification.permission!=="granted"){
+      if(!askPermission)throw new Error("Background reminders are not enabled on this device.");
+      const permission=await Notification.requestPermission();
+      if(permission!=="granted")throw new Error("Notification permission was not allowed.");
+    }
+    const registration=await notificationWorker();
+    const keyResult=await reminderApi("public_key",{},"");
+    if(!keyResult.publicKey)throw new Error("The reminder service did not return a push key.");
+    let subscription=await registration.pushManager.getSubscription();
+    if(!subscription){
+      subscription=await registration.pushManager.subscribe({
+        userVisibleOnly:true,
+        applicationServerKey:urlBase64ToUint8Array(keyResult.publicKey)
+      });
+    }
+    await reminderApi("subscribe",{
+      subscription:subscription.toJSON(),
+      timeZone:DEVICE_TIME_ZONE||"UTC",
+      locale:USER_LOCALE
+    });
+    return subscription;
+  }
+  async function refreshBackgroundReminderStatus(){
+    const supportError=pushSupportError();
+    if(supportError){
+      setBackgroundReminderStatus(supportError,"error");
+      enableBackgroundReminders?.classList.remove("hidden");disableBackgroundReminders?.classList.add("hidden");
+      return false;
+    }
+    if(Notification.permission!=="granted"){
+      setBackgroundReminderStatus("Not enabled on this device. Planned alerts will not arrive while the app is closed.");
+      enableBackgroundReminders?.classList.remove("hidden");disableBackgroundReminders?.classList.add("hidden");
+      return false;
+    }
+    const subscription=await currentPushSubscription();
+    if(!subscription){
+      setBackgroundReminderStatus("Permission is allowed, but background reminders are not connected on this device.");
+      enableBackgroundReminders?.classList.remove("hidden");disableBackgroundReminders?.classList.add("hidden");
+      return false;
+    }
+    try{
+      const result=await reminderApi("status",{endpoint:subscription.endpoint});
+      if(!result.enabled){
+        setBackgroundReminderStatus("Background reminders are off on this device.");
+        enableBackgroundReminders?.classList.remove("hidden");disableBackgroundReminders?.classList.add("hidden");
+        return false;
+      }
+    }catch(error){
+      if(error.status===401)return false;
+      setBackgroundReminderStatus("This device has notification permission, but the server connection needs refreshing.");
+      enableBackgroundReminders?.classList.remove("hidden");disableBackgroundReminders?.classList.add("hidden");
+      return false;
+    }
+    setBackgroundReminderStatus("Enabled — alerts can arrive when Watched Logger is closed.","ok");
+    enableBackgroundReminders?.classList.add("hidden");disableBackgroundReminders?.classList.remove("hidden");
+    return true;
+  }
+  async function syncExistingBackgroundPush(){
+    if(!cloudSessionToken||Notification.permission!=="granted")return refreshBackgroundReminderStatus();
+    const subscription=await currentPushSubscription();
+    if(subscription){
+      await reminderApi("subscribe",{
+        subscription:subscription.toJSON(),
+        timeZone:DEVICE_TIME_ZONE||"UTC",
+        locale:USER_LOCALE
+      });
+    }
+    return refreshBackgroundReminderStatus();
+  }
+  async function removeBackgroundPush(){
+    const subscription=await currentPushSubscription();
+    if(subscription){
+      try{if(cloudSessionToken)await reminderApi("unsubscribe",{endpoint:subscription.endpoint});}catch(error){console.warn(error);}
+      try{await subscription.unsubscribe();}catch(error){console.warn(error);}
+    }
+    setBackgroundReminderStatus("Background reminders are off on this device.");
+    enableBackgroundReminders?.classList.remove("hidden");disableBackgroundReminders?.classList.add("hidden");
+  }
+  enableBackgroundReminders.onclick=async()=>{
+    enableBackgroundReminders.disabled=true;
+    try{
+      setBackgroundReminderStatus("Connecting this device…");
+      await ensureBackgroundPush({askPermission:true});
+      await refreshBackgroundReminderStatus();
+      if(!notificationTestSettings?.classList.contains("hidden"))setNotificationTestStatus("Background push is ready. You can queue the private test.","ok");
+    }catch(error){setBackgroundReminderStatus(error.message||"Could not enable background reminders.","error");}
+    finally{enableBackgroundReminders.disabled=false;}
+  };
+  disableBackgroundReminders.onclick=async()=>{
+    disableBackgroundReminders.disabled=true;
+    try{await removeBackgroundPush();}
+    finally{disableBackgroundReminders.disabled=false;}
+  };
   function refreshNotificationTestStatus(){
-    if(!("Notification" in window)||!("serviceWorker" in navigator)){
-      setNotificationTestStatus("Notifications are not supported in this browser.","error");return;
-    }
-    if(/iPhone|iPad|iPod/i.test(navigator.userAgent)&&!isStandaloneWebApp()){
-      setNotificationTestStatus("Open Watched Logger from its Home Screen icon to enable iPhone notifications.","error");return;
-    }
-    if(Notification.permission==="granted")setNotificationTestStatus("Notifications are enabled. You can send a Planned-show test.","ok");
-    else if(Notification.permission==="denied")setNotificationTestStatus("Notifications are blocked. Enable Watched Logger in iPhone Settings → Notifications.","error");
-    else setNotificationTestStatus("Notifications have not been enabled on this iPhone.");
+    if(pushSupportError()){setNotificationTestStatus(pushSupportError(),"error");return;}
+    if(Notification.permission!=="granted"){setNotificationTestStatus("Enable Background Reminders above before using the private test.");return;}
+    setNotificationTestStatus("The private server-push test is ready.","ok");
   }
   async function updateNotificationTestVisibility(){
     notificationTestSettings?.classList.add("hidden");
@@ -290,64 +418,14 @@
     if(allowed)refreshNotificationTestStatus();
     return allowed;
   }
-  function plannedReminderTime(item){
-    const raw=item?.nextEpisodeDate||item?.nextSeasonDate||(item?.type==="Film"?item?.filmReleaseDate:"");
-    if(!raw)return Number.POSITIVE_INFINITY;
-    const date=new Date(String(raw).length===10?`${raw}T12:00:00`:raw);
-    const time=date.getTime();
-    return Number.isFinite(time)&&time>=Date.now()?time:Number.POSITIVE_INFINITY;
-  }
-  function nearestPlannedTitle(){
-    return mediaItems
-      .filter(item=>item&&(item.status==="Planned"||item.status==="Saved"))
-      .sort((a,b)=>plannedReminderTime(a)-plannedReminderTime(b)||String(a.title||"").localeCompare(String(b.title||"")))[0]||null;
-  }
-  function plannedNotificationCopy(item){
-    const raw=item.nextEpisodeDate||item.nextSeasonDate||(item.type==="Film"?item.filmReleaseDate:"");
-    let dateText="Date to be announced";
-    if(raw){
-      const date=new Date(String(raw).length===10?`${raw}T12:00:00`:raw);
-      if(!Number.isNaN(date.getTime()))dateText=String(raw).length===10?formatLocalDate(date):formatLocalDateTime(date);
-    }
-    let detail="This title is in your Planned list.";
-    if(item.nextEpisodeNum)detail=`Episode ${item.nextEpisodeNum} is planned for ${dateText}.`;
-    else if(item.nextSeasonNum)detail=`Season ${item.nextSeasonNum} is planned for ${dateText}.`;
-    else if(item.type==="Film")detail=`The film is planned for ${dateText}.`;
-    return{title:`Watched Logger test: ${item.title}`,body:`Test reminder • ${detail}`};
-  }
-  async function requestTestNotificationPermission(){
-    if(!("Notification" in window)||!("serviceWorker" in navigator))throw new Error("Notifications are not supported in this browser.");
-    if(/iPhone|iPad|iPod/i.test(navigator.userAgent)&&!isStandaloneWebApp())throw new Error("Open Watched Logger from its Home Screen icon, then try again.");
-    if(Notification.permission==="denied")throw new Error("Notifications are blocked. Enable Watched Logger in iPhone Settings → Notifications.");
-    if(Notification.permission!=="granted"){
-      const permission=await Notification.requestPermission();
-      if(permission!=="granted")throw new Error("Notification permission was not allowed.");
-    }
-    await navigator.serviceWorker.register("./sw.js",{scope:"./",updateViaCache:"none"});
-    return navigator.serviceWorker.ready;
-  }
-  enableTestNotifications.onclick=async()=>{
-    enableTestNotifications.disabled=true;
-    try{await requestTestNotificationPermission();setNotificationTestStatus("Notifications enabled. Tap Send Planned-Show Test.","ok");}
-    catch(error){setNotificationTestStatus(error.message||"Could not enable notifications.","error");}
-    finally{enableTestNotifications.disabled=false;}
-  };
   sendPlannedTest.onclick=async()=>{
-    const item=nearestPlannedTitle();
-    if(!item){setNotificationTestStatus("Add a title with Planned status before sending the test.","error");return;}
     sendPlannedTest.disabled=true;
     try{
-      const registration=await requestTestNotificationPermission();
-      const copy=plannedNotificationCopy(item);
-      setNotificationTestStatus(`Test scheduled for ${item.title}. It will arrive in five seconds.`,"ok");
-      window.setTimeout(async()=>{
-        try{
-          await registration.showNotification(copy.title,{body:copy.body,tag:"watchlog-planned-test",renotify:true,data:{url:"./"}});
-          setNotificationTestStatus(`Test notification sent for ${item.title}.`,"ok");
-        }catch(error){setNotificationTestStatus(error.message||"The test notification could not be displayed.","error");}
-        finally{sendPlannedTest.disabled=false;}
-      },5000);
-    }catch(error){setNotificationTestStatus(error.message||"Could not send the test notification.","error");sendPlannedTest.disabled=false;}
+      await ensureBackgroundPush({askPermission:true});
+      const result=await reminderApi("schedule_private_test");
+      setNotificationTestStatus(result.message||"Background test queued. Close Watched Logger now; it should arrive within about one minute.","ok");
+    }catch(error){setNotificationTestStatus(error.message||"Could not queue the background test.","error");}
+    finally{sendPlannedTest.disabled=false;}
   };
 
   async function pinApi(action,payload={},token=cloudSessionToken){
@@ -470,6 +548,7 @@
     hideMessage();authScreen.classList.add("hidden");
     const original=Array.isArray(items)?items:[],migration=migratePlannedStatuses(original),cleaned=cleanShadowTitleEntries(migration.rows);
     mediaItems=cleaned;render();setSync(syncText,syncState);
+    try{await syncExistingBackgroundPush();}catch(error){console.warn("Background reminder sync skipped",error);}
     await updateNotificationTestVisibility();
     if(migration.changed||cleaned.length!==original.length)await persistLibrary(cleaned);
   }
@@ -510,7 +589,7 @@
     }
   }
 
-  async function clearUserState(){mediaItems=[];currentProfile=null;currentUser=null;cloudSessionToken="";notificationTestSettings?.classList.add("hidden");if(cacheDB){try{cacheDB.close();}catch(_){}}cacheDB=null;render();}
+  async function clearUserState(){mediaItems=[];currentProfile=null;currentUser=null;cloudSessionToken="";notificationTestSettings?.classList.add("hidden");setBackgroundReminderStatus("Sign in to manage background reminders.");if(cacheDB){try{cacheDB.close();}catch(_){}}cacheDB=null;render();}
   function showAuth(){authScreen.classList.remove("hidden");}
   function updateAuthMode(){
     hideMessage();authNameGroup.classList.toggle("hidden",!isSignUp);
@@ -532,6 +611,7 @@
   };
 
   logoutBtn.onclick=async()=>{
+    try{await removeBackgroundPush();}catch(_){}
     try{if(cloudSessionToken)await pinApi("logout");}catch(_){}
     localStorage.removeItem(PIN_SESSION_KEY);await clearUserState();authPin.value="";isSignUp=false;updateAuthMode();showAuth();
   };
