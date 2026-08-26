@@ -632,41 +632,51 @@
     return null;
   }
 
-  async function wikipediaSeasonData(title,{tvHighest=null,tvLatestAired=null}={}){
+  async function wikipediaSeasonData(title,{tvHighest=null,tvLatestAired=null,tvStatus=""}={}){
     const seriesPage=await wikipediaFindSeriesPage(title);
-    if(!seriesPage)return {available:false,highest:null,latestAired:null,upcoming:null,known:new Set(),pageTitle:null};
+    if(!seriesPage)return {available:false,highest:null,latestAired:null,upcoming:null,known:new Set(),pageTitle:null,ended:false};
     const count=parseWikipediaSeasonCount(seriesPage.wikitext);
-    const announced=extractWikipediaAnnouncedSeasons(seriesPage.wikitext);
+    const rawAnnounced=extractWikipediaAnnouncedSeasons(seriesPage.wikitext);
+    const baseline=Math.max(tvHighest||0,tvLatestAired||0,count||0);
+    const ended=String(tvStatus||"").toLowerCase()==="ended";
+    const announcementCeiling=ended?baseline:(baseline?baseline+1:(rawAnnounced.length?Math.min(...rawAnnounced):1));
+    const announced=rawAnnounced.filter(n=>n<=announcementCeiling);
     const known=new Set();
     if(count)for(let n=1;n<=count;n++)known.add(n);
     announced.forEach(n=>known.add(n));
-    let highest=Math.max(tvHighest||0,count||0,...announced,0)||null;
+    let highest=ended&&tvHighest?Math.max(tvHighest||0,count||0)||null:Math.max(tvHighest||0,count||0,...announced,0)||null;
     let latestAired=tvLatestAired;
     const baseMax=Math.max(highest||0,tvHighest||0,tvLatestAired||0);
-    const start=tvLatestAired!==null&&tvLatestAired!==undefined?Math.max(1,tvLatestAired+1):Math.max(1,baseMax-2);
-    const end=Math.min(Math.max(baseMax+2,start+2),start+5);
+    const start=tvLatestAired!==null&&tvLatestAired!==undefined?Math.max(1,tvLatestAired+1):Math.max(1,baseMax-1);
+    const end=tvLatestAired!==null&&tvLatestAired!==undefined?start:Math.min(Math.max(baseMax+1,start),start+2);
     const pageChecks=[];
-    for(let n=start;n<=end;n++)pageChecks.push(wikipediaFindSeasonPage(title,n).then(page=>({n,page})));
+    if(!ended)for(let n=start;n<=end;n++)pageChecks.push(wikipediaFindSeasonPage(title,n).then(page=>({n,page})));
     const pages=await Promise.all(pageChecks);
     const futureCandidates=[];
     const now=Date.now();
     for(const {n,page} of pages){
-      if(!page)continue;
+      if(!page||n>Math.max(baseline+1,start))continue;
       known.add(n);highest=Math.max(highest||0,n);
       const premiereDate=wikipediaDateFromWikitext(page.wikitext);
       const premiereTime=premiereDate?new Date(`${premiereDate}T23:59:59`).getTime():0;
-      if(premiereTime&&premiereTime<=now){if(tvLatestAired===null||tvLatestAired===undefined||n<=tvLatestAired)latestAired=Math.max(latestAired||0,n);else if(announced.includes(n)||wikipediaLooksFuture(page.wikitext))futureCandidates.push({number:n,premiereDate:null,source:"Wikipedia",pageTitle:page.title});continue;}
+      if(premiereTime&&premiereTime<=now){
+        if(tvLatestAired===null||tvLatestAired===undefined||n<=tvLatestAired)latestAired=Math.max(latestAired||0,n);
+        else if(announced.includes(n)||wikipediaLooksFuture(page.wikitext))futureCandidates.push({number:n,premiereDate:null,source:"Wikipedia",pageTitle:page.title});
+        continue;
+      }
       if((premiereTime&&premiereTime>now)||announced.includes(n)||wikipediaLooksFuture(page.wikitext)){
         futureCandidates.push({number:n,premiereDate:premiereDate||null,source:"Wikipedia",pageTitle:page.title});
       }
     }
-    for(const n of announced){
-      if((latestAired===null||latestAired===undefined||n>latestAired)&&!futureCandidates.some(c=>c.number===n)){
-        futureCandidates.push({number:n,premiereDate:null,source:"Wikipedia",pageTitle:seriesPage.title});
+    if(!ended){
+      for(const n of announced){
+        if((latestAired===null||latestAired===undefined||n>latestAired)&&!futureCandidates.some(c=>c.number===n)){
+          futureCandidates.push({number:n,premiereDate:null,source:"Wikipedia",pageTitle:seriesPage.title});
+        }
       }
     }
-    const upcoming=futureCandidates.filter(c=>latestAired===null||latestAired===undefined||c.number>latestAired).sort((a,b)=>a.number-b.number||Boolean(b.premiereDate)-Boolean(a.premiereDate))[0]||null;
-    return {available:true,highest:highest||null,latestAired:latestAired||null,upcoming,known,pageTitle:seriesPage.title};
+    const upcoming=ended?null:futureCandidates.filter(c=>latestAired===null||latestAired===undefined||c.number>latestAired).sort((a,b)=>a.number-b.number||Boolean(b.premiereDate)-Boolean(a.premiereDate))[0]||null;
+    return {available:true,highest:highest||null,latestAired:latestAired||null,upcoming,known,pageTitle:seriesPage.title,ended,rawAnnounced,announced};
   }
 
   function episodeAirTime(episode){
@@ -757,19 +767,20 @@
     }
 
     const tvHighest=schedule.highest,tvLatestAired=schedule.latestAired;
-    const wikiPromise=wikipediaSeasonData(title,{tvHighest,tvLatestAired}).catch(e=>{console.warn("Wikipedia season verification unavailable",e);return{available:false,highest:null,latestAired:null,upcoming:null,known:new Set()};});
+    const wikiPromise=wikipediaSeasonData(title,{tvHighest,tvLatestAired,tvStatus:show?.status||""}).catch(e=>{console.warn("Wikipedia season verification unavailable",e);return{available:false,highest:null,latestAired:null,upcoming:null,known:new Set()};});
     const tvImdbId=String(show?.externals?.imdb||"");
     const expectedImdbId=String(imdbId||tvImdbId||"");
     const imdbPromise=imdbSeriesCrossCheck(title,{imdbId:expectedImdbId,year:year||show?.premiered?.slice?.(0,4)||""}).catch(e=>{console.warn("IMDb series cross-check unavailable",e);return{available:false,confirmed:null,imdbId:expectedImdbId,match:null};});
     const [wiki,imdb]=await Promise.all([wikiPromise,imdbPromise]);
 
-    const highest=Math.max(tvHighest||0,wiki.highest||0)||null;
+    const tvEnded=tvAvailable&&String(show?.status||"").toLowerCase()==="ended"&&!schedule.nextEpisode;
+    const highest=tvEnded&&tvHighest?tvHighest:(Math.max(tvHighest||0,wiki.highest||0)||null);
     const latestAired=tvAvailable&&tvLatestAired!==null?tvLatestAired:(Number.isFinite(Number(wiki.latestAired))?Number(wiki.latestAired):null);
     const currentEpisode=tvAvailable?schedule.currentEpisode:null;
-    const known=new Set([...schedule.known,...(wiki.known||[])]);
+    const known=new Set([...schedule.known,...(wiki.known||[])].filter(n=>!tvEnded||!tvHighest||Number(n)<=tvHighest));
     const candidates=[];
-    if(schedule.upcomingSeason)candidates.push({number:Number(schedule.upcomingSeason.number),premiereDate:schedule.upcomingSeason.premiereDate||schedule.nextEpisode?.airdate||null,source:"TVMaze",raw:schedule.upcomingSeason});
-    if(wiki.upcoming)candidates.push({...wiki.upcoming,number:Number(wiki.upcoming.number)});
+    if(!tvEnded&&schedule.upcomingSeason)candidates.push({number:Number(schedule.upcomingSeason.number),premiereDate:schedule.upcomingSeason.premiereDate||schedule.nextEpisode?.airdate||null,source:"TVMaze",raw:schedule.upcomingSeason});
+    if(!tvEnded&&wiki.upcoming)candidates.push({...wiki.upcoming,number:Number(wiki.upcoming.number)});
     let upcoming=candidates.filter(c=>Number.isFinite(c.number)&&(latestAired===null||c.number>latestAired)).sort((a,b)=>a.number-b.number||Boolean(b.premiereDate)-Boolean(a.premiereDate))[0]||null;
     if(upcoming){
       const same=candidates.filter(c=>c.number===upcoming.number);
@@ -786,7 +797,7 @@
     return {
       highest,latestAired,currentEpisode,completedSeasons:schedule.completedSeasons,upcoming,nextEpisode:schedule.nextEpisode,airing:schedule.airing,
       episodeCounts:schedule.episodeCounts,airedEpisodeCounts:schedule.airedEpisodeCounts,known,sources,tvAvailable,
-      resolvedShowId,imdbId:resolvedImdbId,imdbConfirmed:imdb?.confirmed===true,show
+      resolvedShowId,imdbId:resolvedImdbId,imdbConfirmed:imdb?.confirmed===true,show,ended:tvEnded
     };
   }
 
