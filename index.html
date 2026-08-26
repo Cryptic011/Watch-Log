@@ -323,7 +323,8 @@
       const permission=await Notification.requestPermission();
       if(permission!=="granted")throw new Error("Notification permission was not allowed.");
     }
-    return navigator.serviceWorker.register("./sw.js",{scope:"./",updateViaCache:"none"});
+    await navigator.serviceWorker.register("./sw.js",{scope:"./",updateViaCache:"none"});
+    return navigator.serviceWorker.ready;
   }
   enableTestNotifications.onclick=async()=>{
     enableTestNotifications.disabled=true;
