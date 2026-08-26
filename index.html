@@ -36,6 +36,10 @@
     html[data-theme="light"] .localized-date-shell .localized-native-date::-webkit-calendar-picker-indicator{filter:none}
     .appearance-card{margin-bottom:22px}
     .appearance-copy{font-size:.82rem;line-height:1.45;color:var(--muted);margin-top:8px}
+    .reminder-test-card{margin-bottom:22px}
+    .reminder-test-title{font-size:1rem;font-weight:850;margin-bottom:7px}
+    .notification-status{min-height:38px;margin-top:7px;color:var(--muted);font-size:.82rem;line-height:1.45}
+    .notification-actions{display:grid;grid-template-columns:1fr;gap:9px;margin-top:13px}
     .item-row{display:grid;grid-template-columns:48px minmax(0,1fr) auto 12px;align-items:center;gap:12px}
     .item-main{grid-column:2}
     .item-right{grid-column:3}
@@ -93,7 +97,7 @@
 
   <main class="container">
     <div id="library-view"><div id="list-toolbar" class="list-toolbar"><div class="list-toolbar-row"><div id="list-label" class="section-label">Titles</div><label class="sort-control" for="sort-mode"><span>Sort</span><select id="sort-mode" aria-label="Sort titles"><option value="recent">Recent</option><option value="title">Title A–Z</option><option value="platform">Platform watched on</option><option value="watched">Date watched</option><option value="shows">Show groups</option></select></label></div><div class="filter-pills" aria-label="Filter titles by status"><button class="pill-btn active" data-filter="All">All</button><button class="pill-btn" data-filter="Planned">Planned</button><button class="pill-btn" data-filter="Watching">Watching</button><button class="pill-btn" data-filter="Watched">Watched</button></div></div><div id="media-list" class="titles-group"></div><div id="empty-state" class="hidden" style="text-align:center;margin-top:40px;color:var(--muted)">No titles found. Tap <strong>+</strong> to start.</div></div>
-    <div id="settings-view" class="hidden"><div class="section-label">Appearance</div><div class="profile-card appearance-card"><div class="form-group"><label for="appearance-mode">Colour mode</label><select id="appearance-mode"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div><div class="appearance-copy">System follows your iPhone setting. Light and Dark keep your chosen appearance on this device.</div></div><div class="section-label">Account & Sync</div><div class="profile-card"><div class="profile-header"><div id="avatar" class="avatar">U</div><div class="profile-info"><h3 id="profile-name">User</h3><p id="profile-email"></p></div></div><div class="sync-box"><div class="sync-title"><div id="sync-dot" class="sync-dot ok"></div>Watched Logger Cloud Sync</div><div id="sync-status" class="sync-text">Your library is linked to this email account and can be loaded on another device with the same 4-digit PIN.</div><button id="sync-now" class="btn btn-secondary btn-full" type="button">Sync Now</button></div><div class="sync-box"><div class="sync-title">Change 4-digit PIN</div><div class="form-group"><label for="new-pin">New PIN</label><input id="new-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="••••" /></div><button id="change-pin" class="btn btn-secondary btn-full" type="button">Change PIN</button><div class="small-note">PIN changes apply to every device. Five incorrect PIN attempts temporarily lock sign-in for 15 minutes.</div></div><button id="logout-btn" class="btn btn-danger btn-full">Log Out</button></div></div>
+    <div id="settings-view" class="hidden"><div class="section-label">Appearance</div><div class="profile-card appearance-card"><div class="form-group"><label for="appearance-mode">Colour mode</label><select id="appearance-mode"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div><div class="appearance-copy">System follows your iPhone setting. Light and Dark keep your chosen appearance on this device.</div></div><div id="notification-test-settings" class="hidden"><div class="section-label">Reminder Test</div><div class="profile-card reminder-test-card"><div class="reminder-test-title">Planned show notification</div><div id="notification-test-status" class="notification-status">Checking notification support…</div><div class="notification-actions"><button id="enable-test-notifications" class="btn btn-secondary btn-full" type="button">Enable Notifications</button><button id="send-planned-test" class="btn btn-primary btn-full" type="button">Send Planned-Show Test</button></div><div class="small-note" style="margin-top:11px">The test arrives after five seconds and uses your nearest Planned title. Keep Watched Logger open until it appears.</div></div></div><div class="section-label">Account & Sync</div><div class="profile-card"><div class="profile-header"><div id="avatar" class="avatar">U</div><div class="profile-info"><h3 id="profile-name">User</h3><p id="profile-email"></p></div></div><div class="sync-box"><div class="sync-title"><div id="sync-dot" class="sync-dot ok"></div>Watched Logger Cloud Sync</div><div id="sync-status" class="sync-text">Your library is linked to this email account and can be loaded on another device with the same 4-digit PIN.</div><button id="sync-now" class="btn btn-secondary btn-full" type="button">Sync Now</button></div><div class="sync-box"><div class="sync-title">Change 4-digit PIN</div><div class="form-group"><label for="new-pin">New PIN</label><input id="new-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="••••" /></div><button id="change-pin" class="btn btn-secondary btn-full" type="button">Change PIN</button><div class="small-note">PIN changes apply to every device. Five incorrect PIN attempts temporarily lock sign-in for 15 minutes.</div></div><button id="logout-btn" class="btn btn-danger btn-full">Log Out</button></div></div>
   </main>
 
   <nav class="bottom-tabs">
@@ -124,6 +128,7 @@
   const PIN_SESSION_KEY = "watchlog_pin_session_v1";
   const LEGACY_LOCAL_ACCOUNTS_KEY = "watchlog_local_accounts_v1";
   const LEGACY_LOCAL_SESSION_KEY = "watchlog_local_session_v1";
+  const NOTIFICATION_TEST_ACCOUNT_HASH = "ea67160ff90d5a1b54a6b7fe8522c1573ec9dea8fb18fff38969f42b09c27f0b";
 
   let currentUser = null;
   let currentProfile = null;
@@ -140,6 +145,7 @@
   const $ = id => document.getElementById(id);
   const authScreen = $("auth-screen"), authForm = $("auth-form"), authTitle = $("auth-title"), authSub = $("auth-sub"), authNameGroup = $("auth-name-group"), authEmail = $("auth-email"), authPin = $("auth-pin"), authName = $("auth-name"), authSubmit = $("auth-submit"), authToggle = $("auth-toggle"), authMessage = $("auth-message");
   const navName = $("nav-name"), userPill = $("user-pill"), libraryView = $("library-view"), settingsView = $("settings-view"), profileName = $("profile-name"), profileEmail = $("profile-email"), avatar = $("avatar"), syncDot = $("sync-dot"), syncStatus = $("sync-status"), syncNowBtn = $("sync-now"), changePinBtn = $("change-pin"), newPinInput = $("new-pin"), logoutBtn = $("logout-btn");
+  const notificationTestSettings=$("notification-test-settings"),notificationTestStatus=$("notification-test-status"),enableTestNotifications=$("enable-test-notifications"),sendPlannedTest=$("send-planned-test");
   const mediaList = $("media-list"), emptyState = $("empty-state"), searchInput = $("search-input"), sortMode = $("sort-mode"), modal = $("modal"), addBtn = $("add-btn"), closeModal = $("close-modal"), mediaForm = $("media-form"), deleteBtn = $("delete-btn"), saveBtn = $("save-btn"), typeSelect = $("type"), seriesSection = $("series-section"), progressVerifyNote = $("progress-verify-note"), airingSection = $("airing-section"), airingNote = $("airing-note"), upcomingSection = $("upcoming-section"), seasonVerifyNote = $("season-verify-note"), filmSection = $("film-section"), filmVerifyNote = $("film-verify-note"), filmReleaseDate = $("film-release-date"), filmReleaseSource = $("film-release-source"), titleInput = $("title"), suggestList = $("suggest-list");
   const pillBtns = document.querySelectorAll(".pill-btn"), tabBtns = document.querySelectorAll(".tab-btn");
 
@@ -254,6 +260,94 @@
   }
   appearanceQuery.addEventListener?.("change",()=>{if(savedAppearance()==="system")applyAppearance("system");});
   async function sha256(value){const bytes=new TextEncoder().encode(String(value));const digest=await crypto.subtle.digest("SHA-256",bytes);return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");}
+
+  function isStandaloneWebApp(){
+    return window.matchMedia?.("(display-mode: standalone)")?.matches||navigator.standalone===true;
+  }
+  function setNotificationTestStatus(message,state=""){
+    if(!notificationTestStatus)return;
+    notificationTestStatus.textContent=message;
+    notificationTestStatus.style.color=state==="error"?"#fca5a5":state==="ok"?"var(--green)":"var(--muted)";
+  }
+  function refreshNotificationTestStatus(){
+    if(!("Notification" in window)||!("serviceWorker" in navigator)){
+      setNotificationTestStatus("Notifications are not supported in this browser.","error");return;
+    }
+    if(/iPhone|iPad|iPod/i.test(navigator.userAgent)&&!isStandaloneWebApp()){
+      setNotificationTestStatus("Open Watched Logger from its Home Screen icon to enable iPhone notifications.","error");return;
+    }
+    if(Notification.permission==="granted")setNotificationTestStatus("Notifications are enabled. You can send a Planned-show test.","ok");
+    else if(Notification.permission==="denied")setNotificationTestStatus("Notifications are blocked. Enable Watched Logger in iPhone Settings → Notifications.","error");
+    else setNotificationTestStatus("Notifications have not been enabled on this iPhone.");
+  }
+  async function updateNotificationTestVisibility(){
+    notificationTestSettings?.classList.add("hidden");
+    const email=normalizeEmail(currentProfile?.email||"");
+    if(!email)return false;
+    const accountHash=await sha256(`watchlog-notification-test:${email}`);
+    const allowed=accountHash===NOTIFICATION_TEST_ACCOUNT_HASH;
+    notificationTestSettings?.classList.toggle("hidden",!allowed);
+    if(allowed)refreshNotificationTestStatus();
+    return allowed;
+  }
+  function plannedReminderTime(item){
+    const raw=item?.nextEpisodeDate||item?.nextSeasonDate||(item?.type==="Film"?item?.filmReleaseDate:"");
+    if(!raw)return Number.POSITIVE_INFINITY;
+    const date=new Date(String(raw).length===10?`${raw}T12:00:00`:raw);
+    const time=date.getTime();
+    return Number.isFinite(time)&&time>=Date.now()?time:Number.POSITIVE_INFINITY;
+  }
+  function nearestPlannedTitle(){
+    return mediaItems
+      .filter(item=>item&&(item.status==="Planned"||item.status==="Saved"))
+      .sort((a,b)=>plannedReminderTime(a)-plannedReminderTime(b)||String(a.title||"").localeCompare(String(b.title||"")))[0]||null;
+  }
+  function plannedNotificationCopy(item){
+    const raw=item.nextEpisodeDate||item.nextSeasonDate||(item.type==="Film"?item.filmReleaseDate:"");
+    let dateText="Date to be announced";
+    if(raw){
+      const date=new Date(String(raw).length===10?`${raw}T12:00:00`:raw);
+      if(!Number.isNaN(date.getTime()))dateText=String(raw).length===10?formatLocalDate(date):formatLocalDateTime(date);
+    }
+    let detail="This title is in your Planned list.";
+    if(item.nextEpisodeNum)detail=`Episode ${item.nextEpisodeNum} is planned for ${dateText}.`;
+    else if(item.nextSeasonNum)detail=`Season ${item.nextSeasonNum} is planned for ${dateText}.`;
+    else if(item.type==="Film")detail=`The film is planned for ${dateText}.`;
+    return{title:`Watched Logger test: ${item.title}`,body:`Test reminder • ${detail}`};
+  }
+  async function requestTestNotificationPermission(){
+    if(!("Notification" in window)||!("serviceWorker" in navigator))throw new Error("Notifications are not supported in this browser.");
+    if(/iPhone|iPad|iPod/i.test(navigator.userAgent)&&!isStandaloneWebApp())throw new Error("Open Watched Logger from its Home Screen icon, then try again.");
+    if(Notification.permission==="denied")throw new Error("Notifications are blocked. Enable Watched Logger in iPhone Settings → Notifications.");
+    if(Notification.permission!=="granted"){
+      const permission=await Notification.requestPermission();
+      if(permission!=="granted")throw new Error("Notification permission was not allowed.");
+    }
+    return navigator.serviceWorker.register("./sw.js",{scope:"./",updateViaCache:"none"});
+  }
+  enableTestNotifications.onclick=async()=>{
+    enableTestNotifications.disabled=true;
+    try{await requestTestNotificationPermission();setNotificationTestStatus("Notifications enabled. Tap Send Planned-Show Test.","ok");}
+    catch(error){setNotificationTestStatus(error.message||"Could not enable notifications.","error");}
+    finally{enableTestNotifications.disabled=false;}
+  };
+  sendPlannedTest.onclick=async()=>{
+    const item=nearestPlannedTitle();
+    if(!item){setNotificationTestStatus("Add a title with Planned status before sending the test.","error");return;}
+    sendPlannedTest.disabled=true;
+    try{
+      const registration=await requestTestNotificationPermission();
+      const copy=plannedNotificationCopy(item);
+      setNotificationTestStatus(`Test scheduled for ${item.title}. It will arrive in five seconds.`,"ok");
+      window.setTimeout(async()=>{
+        try{
+          await registration.showNotification(copy.title,{body:copy.body,tag:"watchlog-planned-test",renotify:true,data:{url:"./"}});
+          setNotificationTestStatus(`Test notification sent for ${item.title}.`,"ok");
+        }catch(error){setNotificationTestStatus(error.message||"The test notification could not be displayed.","error");}
+        finally{sendPlannedTest.disabled=false;}
+      },5000);
+    }catch(error){setNotificationTestStatus(error.message||"Could not send the test notification.","error");sendPlannedTest.disabled=false;}
+  };
 
   async function pinApi(action,payload={},token=cloudSessionToken){
     const headers={"Content-Type":"application/json"};
@@ -375,6 +469,7 @@
     hideMessage();authScreen.classList.add("hidden");
     const original=Array.isArray(items)?items:[],migration=migratePlannedStatuses(original),cleaned=cleanShadowTitleEntries(migration.rows);
     mediaItems=cleaned;render();setSync(syncText,syncState);
+    await updateNotificationTestVisibility();
     if(migration.changed||cleaned.length!==original.length)await persistLibrary(cleaned);
   }
 
@@ -414,7 +509,7 @@
     }
   }
 
-  async function clearUserState(){mediaItems=[];currentProfile=null;currentUser=null;cloudSessionToken="";if(cacheDB){try{cacheDB.close();}catch(_){}}cacheDB=null;render();}
+  async function clearUserState(){mediaItems=[];currentProfile=null;currentUser=null;cloudSessionToken="";notificationTestSettings?.classList.add("hidden");if(cacheDB){try{cacheDB.close();}catch(_){}}cacheDB=null;render();}
   function showAuth(){authScreen.classList.remove("hidden");}
   function updateAuthMode(){
     hideMessage();authNameGroup.classList.toggle("hidden",!isSignUp);
