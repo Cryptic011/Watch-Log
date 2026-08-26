@@ -44,7 +44,9 @@
     .item-kind{font-weight:650;color:var(--muted)}
     .item-progress-copy{display:block;max-width:100%;white-space:normal;color:var(--muted)}
     .item-right .badge,.item-date{white-space:nowrap}
-    body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:#000;z-index:55;pointer-events:none}\n    .list-toolbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:45;margin:0 -16px 10px;padding:10px 16px 11px;background:var(--bg);border-bottom:1px solid var(--border)}
+    :root{--sticky-safe-top:env(safe-area-inset-top,0px)}
+    body::before{content:"";position:fixed;inset:0 0 auto;height:var(--sticky-safe-top);background:#000;z-index:55;pointer-events:none}
+    .list-toolbar{position:sticky;top:var(--sticky-safe-top);z-index:45;margin:0 -16px 10px;padding:10px 16px 11px;background:var(--bg);border-bottom:1px solid var(--border)}
     .list-toolbar-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
     .list-toolbar .section-label{margin:0;font-size:1.08rem;font-weight:850;letter-spacing:-.15px;white-space:nowrap}
     .list-toolbar .filter-pills{margin:9px 0 0}.list-toolbar .pill-btn.active{font-weight:800}
@@ -53,6 +55,7 @@
     .show-group-heading{padding:8px 14px;background:var(--inner);border-bottom:1px solid var(--border);color:var(--blue2);font-size:.76rem;font-weight:800;letter-spacing:.25px;text-transform:uppercase}
     html[data-theme="light"] .user-pill,html[data-theme="light"] .circle-btn{background:#fff;color:var(--text)}
     @media(max-width:520px){
+      :root{--sticky-safe-top:max(env(safe-area-inset-top,0px),54px)}
       .list-toolbar{padding:9px 12px 10px;margin-left:-16px;margin-right:-16px}
       .sort-control span{display:none}
       .sort-control select{max-width:146px;font-size:.76rem}
