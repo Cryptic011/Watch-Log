@@ -1274,6 +1274,13 @@
         row={...row,status:"Planned"};changed=true;
       }
       if(upcomingSortInfo(row).rank>0){
+        if(row.upcomingStatusOverride&&row.status!=="Planned"){
+          if(!row.autoPlanned&&!row.statusBeforeUpcoming)return row;
+          const overridden={...row};delete overridden.autoPlanned;delete overridden.statusBeforeUpcoming;changed=true;return overridden;
+        }
+        if(row.upcomingStatusOverride){
+          row={...row};delete row.upcomingStatusOverride;changed=true;
+        }
         if(row.status==="Planned")return row;
         changed=true;
         return{...row,statusBeforeUpcoming:row.status||"Planned",autoPlanned:true,status:"Planned"};
@@ -1281,6 +1288,9 @@
       if(row.autoPlanned){
         const restoredStatus=row.statusBeforeUpcoming==="Saved"?"Planned":(row.statusBeforeUpcoming||"Planned");
         const restored={...row,status:restoredStatus};delete restored.autoPlanned;delete restored.statusBeforeUpcoming;changed=true;return restored;
+      }
+      if(row.upcomingStatusOverride){
+        const cleaned={...row};delete cleaned.upcomingStatusOverride;changed=true;return cleaned;
       }
       return row;
     });
@@ -2115,6 +2125,7 @@
       if(previous?.autoPlanned&&item.status==="Planned"){
         item.autoPlanned=true;item.statusBeforeUpcoming=previous.statusBeforeUpcoming||"Planned";
       }
+      if(upcomingSortInfo(item).rank>0&&item.status!=="Planned")item.upcomingStatusOverride=true;
       item=migratePlannedStatuses([item]).rows[0];
       const sameTitleSeries=mediaItems.find(x=>String(x.id)!==String(id)&&x.type!=="Film"&&normalizeTitle(x.title)===normalizeTitle(title));
       if(isWeakFilmRecord(item)&&sameTitleSeries)throw new Error(`“${title}” is already saved as a verified series. Choose a verified film result with a year or release date if you mean a separate film.`);
