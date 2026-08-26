@@ -44,7 +44,7 @@
     .item-kind{font-weight:650;color:var(--muted)}
     .item-progress-copy{display:block;max-width:100%;white-space:normal;color:var(--muted)}
     .item-right .badge,.item-date{white-space:nowrap}
-    .list-toolbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:45;margin:0 -16px 10px;padding:10px 16px 11px;background:var(--bg);border-bottom:1px solid var(--border)}
+    body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:#000;z-index:55;pointer-events:none}\n    .list-toolbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:45;margin:0 -16px 10px;padding:10px 16px 11px;background:var(--bg);border-bottom:1px solid var(--border)}
     .list-toolbar-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
     .list-toolbar .section-label{margin:0;font-size:1.08rem;font-weight:850;letter-spacing:-.15px;white-space:nowrap}
     .list-toolbar .filter-pills{margin:9px 0 0}.list-toolbar .pill-btn.active{font-weight:800}
@@ -247,7 +247,7 @@
     document.documentElement.dataset.theme=resolved;
     const control=document.getElementById("appearance-mode");if(control)control.value=mode;
     const themeMeta=document.querySelector('meta[name="theme-color"]');if(themeMeta)themeMeta.content=resolved==="dark"?"#000000":"#f4f6f8";
-    const statusMeta=document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');if(statusMeta)statusMeta.content=resolved==="dark"?"black-translucent":"default";
+    const statusMeta=document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');if(statusMeta)statusMeta.content="black-translucent";
   }
   appearanceQuery.addEventListener?.("change",()=>{if(savedAppearance()==="system")applyAppearance("system");});
   async function sha256(value){const bytes=new TextEncoder().encode(String(value));const digest=await crypto.subtle.digest("SHA-256",bytes);return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");}
