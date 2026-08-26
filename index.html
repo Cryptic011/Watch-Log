@@ -535,6 +535,9 @@
   }
 
   async function persistLibrary(items){
+    const migration=migratePlannedStatuses(items);
+    if(items===mediaItems)mediaItems=migration.rows;
+    items=migration.rows;
     await saveCache(items);
     if(!cloudSessionToken)return;
     markPending(true);setSync("Saving to this device and syncing…","warn");
@@ -625,7 +628,7 @@
     try{
       const cached=await loadCacheRecord();
       if(hasPending()&&cached?.items){await pinApi("save",{items:cached.items});markPending(false);}
-      const result=await pinApi("load");mediaItems=Array.isArray(result.items)?result.items:[];applyAccount(result.account);await saveProfile(currentProfile);await saveCache(mediaItems);render();setSync("Synced. This library is available on your other devices.","ok");
+      const result=await pinApi("load"),original=Array.isArray(result.items)?result.items:[],migration=migratePlannedStatuses(original);mediaItems=cleanShadowTitleEntries(migration.rows);applyAccount(result.account);await saveProfile(currentProfile);await saveCache(mediaItems);if(migration.changed||mediaItems.length!==original.length)await persistLibrary(mediaItems);render();setSync("Synced. This library is available on your other devices.","ok");
     }catch(e){console.error(e);setSync(e.message||"Sync failed.","warn");}
     finally{syncNowBtn.disabled=false;}
   };
@@ -719,7 +722,7 @@
       const ag=showGroupInfo(a,list),bg=showGroupInfo(b,list);
       return titleCollator.compare(ag.key,bg.key)||titleCollator.compare(a.title||"",b.title||"");
     });
-    if(currentTab==="library"&&activeFilter==="All"){
+    if(currentTab==="library"&&(activeFilter==="All"||activeFilter==="Planned")){
       return list.sort((a,b)=>{
         const aUpcoming=upcomingSortInfo(a),bUpcoming=upcomingSortInfo(b);
         if(aUpcoming.rank!==bUpcoming.rank)return bUpcoming.rank-aUpcoming.rank;
@@ -1265,8 +1268,21 @@
   function migratePlannedStatuses(items){
     let changed=false;
     const rows=(Array.isArray(items)?items:[]).map(item=>{
-      if(item?.status!=="Saved")return item;
-      changed=true;return{...item,status:"Planned"};
+      if(!item)return item;
+      let row=item;
+      if(row.status==="Saved"){
+        row={...row,status:"Planned"};changed=true;
+      }
+      if(upcomingSortInfo(row).rank>0){
+        if(row.status==="Planned")return row;
+        changed=true;
+        return{...row,statusBeforeUpcoming:row.status||"Planned",autoPlanned:true,status:"Planned"};
+      }
+      if(row.autoPlanned){
+        const restoredStatus=row.statusBeforeUpcoming==="Saved"?"Planned":(row.statusBeforeUpcoming||"Planned");
+        const restored={...row,status:restoredStatus};delete restored.autoPlanned;delete restored.statusBeforeUpcoming;changed=true;return restored;
+      }
+      return row;
     });
     return{rows,changed};
   }
@@ -2086,7 +2102,7 @@
       const episodeCounts=type==="Film"?{}:(verified?.episodeCounts||previous?.episodeCounts||{});
       const airedEpisodeCounts=type==="Film"?{}:(verified?.airedEpisodeCounts||previous?.airedEpisodeCounts||episodeCountsForForm||{});
       const curSeason=type==="Film"?null:numOrNull("cur-season");
-      const item={
+      let item={
         id,title,type,status:$("status").value,tvmazeShowId:type==="Film"?"":(sid||""),imdbId:$("imdb-id").value||requestedImdbId,releaseYear,
         totalSeasons:total,watchedSeasons:type==="Film"?null:numOrNull("watched-seasons"),curSeason,curEp:type==="Film"?null:numOrNull("cur-ep"),
         currentSeasonEpisodeCount:type==="Film"?null:Number(airedEpisodeCounts?.[curSeason]||0)||null,currentSeasonTotalEpisodes:type==="Film"?null:Number(episodeCounts?.[curSeason]||0)||null,episodeCounts:type==="Film"?{}:episodeCounts,airedEpisodeCounts:type==="Film"?{}:airedEpisodeCounts,
@@ -2096,6 +2112,10 @@
         filmReleaseDate:type==="Film"?(filmReleaseDate.value||""):"",filmReleaseSource:type==="Film"?(filmReleaseDate.value?(filmReleaseSource.value||"Manual"):""):"",
         platform,date:localISODate(),createdAt:previous?.createdAt||nowISO(),updatedAt:nowISO()
       };
+      if(previous?.autoPlanned&&item.status==="Planned"){
+        item.autoPlanned=true;item.statusBeforeUpcoming=previous.statusBeforeUpcoming||"Planned";
+      }
+      item=migratePlannedStatuses([item]).rows[0];
       const sameTitleSeries=mediaItems.find(x=>String(x.id)!==String(id)&&x.type!=="Film"&&normalizeTitle(x.title)===normalizeTitle(title));
       if(isWeakFilmRecord(item)&&sameTitleSeries)throw new Error(`“${title}” is already saved as a verified series. Choose a verified film result with a year or release date if you mean a separate film.`);
       const idx=mediaItems.findIndex(x=>String(x.id)===String(id));if(idx>=0)mediaItems[idx]=item;else mediaItems.unshift(item);
