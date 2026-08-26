@@ -686,6 +686,25 @@
     const value=item?.createdAt?new Date(item.createdAt).getTime():0;
     return Number.isFinite(value)?value:0;
   }
+  function upcomingSortInfo(item){
+    const now=Date.now(),times=[];let announced=false;
+    if(item?.type==="Film"){
+      if(item.filmReleaseDate){
+        const value=new Date(`${item.filmReleaseDate}T12:00:00`).getTime();
+        if(Number.isFinite(value)&&value>=new Date().setHours(0,0,0,0))times.push(value);
+      }
+    }else{
+      if(item?.nextEpisodeDate){
+        const value=new Date(item.nextEpisodeDate).getTime();
+        if(Number.isFinite(value)&&value>=now-6*60*60*1000)times.push(value);
+      }else if(item?.nextEpisodeNum)announced=true;
+      if(item?.nextSeasonDate){
+        const value=new Date(item.nextSeasonDate).getTime();
+        if(Number.isFinite(value)&&value>=now-6*60*60*1000)times.push(value);
+      }else if(item?.nextSeasonNum)announced=true;
+    }
+    return times.length?{rank:2,time:Math.min(...times)}:(announced?{rank:1,time:Number.POSITIVE_INFINITY}:{rank:0,time:Number.POSITIVE_INFINITY});
+  }
   function sortMediaRows(rows){
     const list=[...rows];
     if(activeSort==="title")return list.sort((a,b)=>titleCollator.compare(a.title||"",b.title||""));
@@ -702,6 +721,9 @@
     });
     if(currentTab==="library"&&activeFilter==="All"){
       return list.sort((a,b)=>{
+        const aUpcoming=upcomingSortInfo(a),bUpcoming=upcomingSortInfo(b);
+        if(aUpcoming.rank!==bUpcoming.rank)return bUpcoming.rank-aUpcoming.rank;
+        if(aUpcoming.rank===2&&aUpcoming.time!==bUpcoming.time)return aUpcoming.time-bUpcoming.time;
         const aPlanned=a.status==="Planned"||a.status==="Saved",bPlanned=b.status==="Planned"||b.status==="Saved";
         return Number(bPlanned)-Number(aPlanned)||addedSortTime(b)-addedSortTime(a);
       });
