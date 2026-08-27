@@ -149,6 +149,10 @@
   let searchQuery = "";
   let activeSort = "recent";
   let searchTimer = null;
+  let searchRequestId = 0;
+  let editorVerification = null;
+  let cloudSaveInFlight = null;
+  let queuedCloudSnapshot = null;
 
   const $ = id => document.getElementById(id);
   const authScreen = $("auth-screen"), authForm = $("auth-form"), authTitle = $("auth-title"), authSub = $("auth-sub"), authNameGroup = $("auth-name-group"), authEmail = $("auth-email"), authPin = $("auth-pin"), authName = $("auth-name"), authSubmit = $("auth-submit"), authToggle = $("auth-toggle"), authMessage = $("auth-message");
@@ -534,15 +538,41 @@
     if(Array.isArray(snap.items)&&snap.items.length)showMessage(`Found ${snap.items.length} title(s) from the previous on-device Watched Logger account. Creating a PIN account with this email will carry them into cloud sync.`,"info");
   }
 
-  async function persistLibrary(items){
+  function queueCloudLibrarySave(items){
+    if(!cloudSessionToken)return Promise.resolve(true);
+
+    /* Keep only the newest snapshot when several edits are saved quickly. This
+       prevents an older, slower request from overwriting a newer library. */
+    queuedCloudSnapshot=items.map(item=>({...item}));
+    markPending(true);setSync("Saved on this device. Syncing in the background…","warn");
+    if(cloudSaveInFlight)return cloudSaveInFlight;
+
+    cloudSaveInFlight=(async()=>{
+      while(queuedCloudSnapshot){
+        const snapshot=queuedCloudSnapshot;
+        queuedCloudSnapshot=null;
+        try{await pinApi("save",{items:snapshot});}
+        catch(e){
+          console.warn(e);
+          queuedCloudSnapshot=null;
+          setSync("Saved on this device, but cloud sync is pending. Tap Sync Now when online.","warn");
+          return false;
+        }
+      }
+      markPending(false);setSync("Synced. This library is available on your other devices.","ok");
+      return true;
+    })().finally(()=>{cloudSaveInFlight=null;});
+    return cloudSaveInFlight;
+  }
+
+  async function persistLibrary(items,{background=false}={}){
     const migration=migratePlannedStatuses(items);
     if(items===mediaItems)mediaItems=migration.rows;
     items=migration.rows;
     await saveCache(items);
     if(!cloudSessionToken)return;
-    markPending(true);setSync("Saving to this device and syncing…","warn");
-    try{await pinApi("save",{items});markPending(false);setSync("Synced. This library is available on your other devices.","ok");}
-    catch(e){console.warn(e);setSync("Saved on this device, but cloud sync is pending. Tap Sync Now when online.","warn");}
+    const cloudSave=queueCloudLibrarySave(items);
+    if(!background)await cloudSave;
   }
 
   function storePinSession(account,token,expiresAt){safeWriteJSON(PIN_SESSION_KEY,{token,expiresAt,account});}
@@ -1231,10 +1261,15 @@
     }
     configureProgressOptions(r);
     updateAiringFields(r);
-    if(!r.upcoming){$("next-season-num").value="";$("next-season-date").value="";return r;}
+    if(!r.upcoming){
+      $("next-season-num").value="";$("next-season-date").value="";
+      rememberEditorVerification("Series",r);
+      return r;
+    }
     $("next-season-num").value=String(r.upcoming.number);
     if(r.nextEpisode&&Number(r.nextEpisode.season)===r.upcoming.number)$("next-season-date").value=episodeLocalInput(r.nextEpisode);
     else $("next-season-date").value=r.upcoming.premiereDate?dateOnlyInput(r.upcoming.premiereDate):"";
+    rememberEditorVerification("Series",r);
     return r;
   }
 
@@ -1398,6 +1433,7 @@
   }
 
   const titleSearchCache=new Map();
+  const titleSearchInFlight=new Map();
   function cacheGetSearch(key){
     const v=titleSearchCache.get(key);
     if(!v)return null;
@@ -1856,10 +1892,33 @@
     if(filmVerifyNote)filmVerifyNote.textContent="Films and series are checked through multiple sources.";
   }
 
+  function editorVerificationKey(type=typeSelect.value,title=titleInput.value){
+    return [
+      type,
+      normalizeTitle(title),
+      String($("imdb-id").value||""),
+      String($("tvmaze-id").value||""),
+      String($("release-year").value||""),
+      normalizeTitle($("platform").value||"")
+    ].join("|");
+  }
+
+  function rememberEditorVerification(type,result){
+    editorVerification={key:editorVerificationKey(type),type,result,verifiedAt:Date.now()};
+  }
+
+  function freshEditorVerification(type,title){
+    if(!editorVerification||editorVerification.type!==type)return null;
+    if(Date.now()-editorVerification.verifiedAt>10*60*1000)return null;
+    return editorVerification.key===editorVerificationKey(type,title)?editorVerification.result:null;
+  }
+
   async function fillFilmReleaseData(title,{imdbId="",seedDate="",seedSource="",preserveManual=false}={}){
     if(preserveManual&&filmReleaseDate.value){
       if(filmVerifyNote)filmVerifyNote.textContent="Films and series are checked through multiple sources.";
-      return {date:filmReleaseDate.value,source:"Manual",sources:[]};
+      const manual={date:filmReleaseDate.value,source:"Manual",sources:[]};
+      rememberEditorVerification("Film",manual);
+      return manual;
     }
     if(filmVerifyNote)filmVerifyNote.textContent="Films and series are checked through multiple sources.";
     const result=await verifiedFilmReleaseData(title,{imdbId,seedDate,seedSource});
@@ -1867,6 +1926,7 @@
     filmReleaseDate.value=result.date||"";
     filmReleaseSource.value=result.date?(result.source||"Verified sources"):"";
     updateFilmVerifyNote(result);
+    rememberEditorVerification("Film",result);
     return result;
   }
 
@@ -1940,28 +2000,37 @@
   let activeSuggestions=[];
 
   async function searchAllTitles(query){
-    const corrected=correctedCatalogueQuery(query);
-    const q=corrected||query;
+    const searchKey=`all:${normalizeTitle(query)}`;
+    const cached=cacheGetSearch(searchKey);if(cached)return cached;
+    const running=titleSearchInFlight.get(searchKey);if(running)return running;
 
-    /* Three independent catalogues are always queried together. IMDb + Apple
-       provide films; IMDb + TVMaze provide series. No source is used alone. */
-    const primary=await Promise.allSettled([
-      searchIMDbTitles(q),
-      searchAppleMovies(q),
-      searchTVMaze(q)
-    ]);
-    let merged=primary.flatMap(r=>r.status==="fulfilled"?r.value:[]);
+    const task=(async()=>{
+      const corrected=correctedCatalogueQuery(query);
+      const q=corrected||query;
 
-    if(corrected&&normalizeTitle(query)!==corrected){
-      const literal=await Promise.allSettled([
-        searchIMDbOne(query),
-        searchAppleMovies(query),
-        searchTVMaze(query)
+      /* Three independent catalogues are always queried together. IMDb + Apple
+         provide films; IMDb + TVMaze provide series. No source is used alone. */
+      const primary=await Promise.allSettled([
+        searchIMDbTitles(q),
+        searchAppleMovies(q),
+        searchTVMaze(q)
       ]);
-      merged=merged.concat(literal.flatMap(r=>r.status==="fulfilled"?r.value:[]));
-    }
+      let merged=primary.flatMap(r=>r.status==="fulfilled"?r.value:[]);
 
-    return dedupeAndRankSuggestions(merged,q);
+      if(corrected&&normalizeTitle(query)!==corrected){
+        const literal=await Promise.allSettled([
+          searchIMDbOne(query),
+          searchAppleMovies(query),
+          searchTVMaze(query)
+        ]);
+        merged=merged.concat(literal.flatMap(r=>r.status==="fulfilled"?r.value:[]));
+      }
+
+      const ranked=dedupeAndRankSuggestions(merged,q);
+      return ranked.length?cacheSetSearch(searchKey,ranked):ranked;
+    })().finally(()=>titleSearchInFlight.delete(searchKey));
+    titleSearchInFlight.set(searchKey,task);
+    return task;
   }
 
   function renderSuggestions(items){
@@ -1983,6 +2052,7 @@
       el.onclick=async()=>{
         const item=activeSuggestions[Number(el.dataset.suggestionIndex)];
         if(!item)return;
+        clearTimeout(searchTimer);searchRequestId++;
         titleInput.value=item.title;
         suggestList.classList.add("hidden");
         $("platform").value=item.platform||"";
@@ -2021,23 +2091,28 @@
 
   titleInput.addEventListener("input",()=>{
     clearTimeout(searchTimer);
+    editorVerification=null;
+    const requestId=++searchRequestId;
     const q=titleInput.value.trim();
     if(q.length<2){suggestList.classList.add("hidden");return;}
+    const cached=cacheGetSearch(`all:${normalizeTitle(q)}`);
+    if(cached){renderSuggestions(cached);return;}
     suggestList.innerHTML=`<div class="suggest-item" style="cursor:default"><div><div class="suggest-name">Searching films & series…</div><div class="suggest-meta">Checking IMDb, TVMaze, Wikipedia and Apple Movies together — recent and currently airing titles are prioritised</div></div></div>`;
     suggestList.classList.remove("hidden");
     searchTimer=setTimeout(async()=>{
       try{
         const items=await searchAllTitles(q);
-        if(titleInput.value.trim()!==q)return;
+        if(requestId!==searchRequestId||titleInput.value.trim()!==q)return;
         renderSuggestions(items);
       }catch(e){
         console.warn(e);
-        if(titleInput.value.trim()===q)suggestList.classList.add("hidden");
+        if(requestId===searchRequestId&&titleInput.value.trim()===q)suggestList.classList.add("hidden");
       }
-    },420);
+    },180);
   });
   document.addEventListener("click",e=>{if(!titleInput.contains(e.target)&&!suggestList.contains(e.target))suggestList.classList.add("hidden");});
   typeSelect.onchange=()=>{
+    editorVerification=null;
     const film=typeSelect.value==="Film";
     seriesSection.style.display=film?"none":"flex";
     upcomingSection.style.display=film?"none":"flex";
@@ -2045,7 +2120,7 @@
     if(film){clearAiringFields();if(filmVerifyNote)filmVerifyNote.textContent="Films and series are checked through multiple sources.";}
     else{filmReleaseDate.value="";filmReleaseSource.value="";}
   };
-  filmReleaseDate.addEventListener("input",()=>{if(typeSelect.value==="Film")filmReleaseSource.value="Manual";});
+  filmReleaseDate.addEventListener("input",()=>{editorVerification=null;if(typeSelect.value==="Film")filmReleaseSource.value="Manual";});
 
   function loadStoredAiringFields(item){
     if(!item?.airingSeason&&!item?.nextEpisodeNum&&!item?.nextEpisodeDate){clearAiringFields();return;}
@@ -2063,6 +2138,7 @@
   }
 
   function openAdd(){
+    editorVerification=null;
     mediaForm.reset();
     $("item-id").value="";$("tvmaze-id").value="";$("imdb-id").value="";$("release-year").value="";filmReleaseSource.value="";
     clearAiringFields();configureProgressOptions({highest:null,episodeCounts:{},latestAired:null});
@@ -2073,6 +2149,7 @@
   }
 
   async function openEdit(id){
+    editorVerification=null;
     const item=mediaItems.find(x=>String(x.id)===String(id));if(!item)return;
     $("item-id").value=item.id;$("tvmaze-id").value=item.tvmazeShowId||"";$("imdb-id").value=item.imdbId||"";$("release-year").value=item.releaseYear||"";
     $("title").value=item.title||"";$("type").value=item.type||"Series";$("status").value=item.status==="Saved"?"Planned":(item.status||"Planned");
@@ -2103,16 +2180,22 @@
       if(!title)throw new Error("Enter a title.");
       const platform=$("platform").value.trim(),releaseYear=$("release-year").value||"",requestedImdbId=$("imdb-id").value||"";
       let sid=$("tvmaze-id").value,verified=null;
+      const recentVerification=freshEditorVerification(type,title);
       if(type!=="Film"){
-        if(requestedImdbId||!sid){
-          const exact=await exactTVMazeShow(title,{imdbId:requestedImdbId,year:releaseYear,platform});
-          if(exact?.id&&(!requestedImdbId||String(exact?.externals?.imdb||"")===requestedImdbId||!sid))sid=String(exact.id);
+        if(recentVerification){verified=recentVerification;sid=verified.resolvedShowId||sid;}
+        else{
+          if(requestedImdbId||!sid){
+            const exact=await exactTVMazeShow(title,{imdbId:requestedImdbId,year:releaseYear,platform});
+            if(exact?.id&&(!requestedImdbId||String(exact?.externals?.imdb||"")===requestedImdbId||!sid))sid=String(exact.id);
+          }
+          try{verified=await fillSeasonData(sid||"",title,{preserveProgress:true,imdbId:requestedImdbId,year:releaseYear,platform});sid=verified.resolvedShowId||sid;}
+          catch(err){console.warn("Series verification failed while saving",err);}
         }
-        try{verified=await fillSeasonData(sid||"",title,{preserveProgress:true,imdbId:requestedImdbId,year:releaseYear,platform});sid=verified.resolvedShowId||sid;}
-        catch(err){console.warn("Series verification failed while saving",err);}
       }else if(filmReleaseSource.value!=="Manual"){
-        try{await fillFilmReleaseData(title,{imdbId:requestedImdbId,seedDate:filmReleaseDate.value||"",seedSource:filmReleaseSource.value||""});}
-        catch(err){console.warn("Film release save-time verification failed",err);}
+        if(!recentVerification){
+          try{await fillFilmReleaseData(title,{imdbId:requestedImdbId,seedDate:filmReleaseDate.value||"",seedSource:filmReleaseSource.value||""});}
+          catch(err){console.warn("Film release save-time verification failed",err);}
+        }
       }
       const previous=mediaItems.find(x=>String(x.id)===String(id));
       const numOrNull=x=>$(x).value===""?null:Number.parseInt($(x).value,10);
@@ -2138,7 +2221,7 @@
       const sameTitleSeries=mediaItems.find(x=>String(x.id)!==String(id)&&x.type!=="Film"&&normalizeTitle(x.title)===normalizeTitle(title));
       if(isWeakFilmRecord(item)&&sameTitleSeries)throw new Error(`“${title}” is already saved as a verified series. Choose a verified film result with a year or release date if you mean a separate film.`);
       const idx=mediaItems.findIndex(x=>String(x.id)===String(id));if(idx>=0)mediaItems[idx]=item;else mediaItems.unshift(item);
-      await persistLibrary(mediaItems);render();modal.classList.add("hidden");
+      await persistLibrary(mediaItems,{background:true});render();modal.classList.add("hidden");
     }catch(err){console.error(err);alert(err.message||"Save failed.");}
     finally{saveBtn.disabled=false;saveBtn.textContent="Save";}
   };
