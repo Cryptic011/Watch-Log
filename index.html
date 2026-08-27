@@ -1137,7 +1137,7 @@
   }
 
   async function verifiedSeasonData(showId,title,{imdbId="",year="",platform=""}={}){
-    let resolvedShowId=String(showId||""),tvAvailable=false,show={},schedule=analyzeTVSchedule([],[],{},Date.now());
+    let resolvedShowId=String(showId||""),tvAvailable=false,episodeScheduleAvailable=false,show={},schedule=analyzeTVSchedule([],[],{},Date.now());
     if(resolvedShowId&&imdbId){try{const matched=await exactTVMazeShow(title,{imdbId,year,platform});if(matched?.id&&String(matched?.externals?.imdb||"")===String(imdbId)){resolvedShowId=String(matched.id);show=matched;}}catch(_){}}
     if(!resolvedShowId){
       try{const match=await exactTVMazeShow(title,{imdbId,year,platform});if(match){resolvedShowId=String(match.id||"");show=match;}}catch(_){}
@@ -1153,6 +1153,7 @@
         show=shr.ok?await shr.json():show;
         const episodes=er.ok?await er.json():[];
         tvAvailable=sr.ok||shr.ok||er.ok;
+        episodeScheduleAvailable=er.ok&&Array.isArray(episodes);
         schedule=analyzeTVSchedule(seasonsRaw,episodes,show,Date.now());
       }catch(e){console.warn("TVMaze episode verification unavailable",e);}
     }
@@ -1193,7 +1194,7 @@
     const resolvedImdbId=imdb?.imdbId||expectedImdbId||"";
     return {
       highest,latestAired,currentEpisode,completedSeasons:schedule.completedSeasons,upcoming,nextEpisode:schedule.nextEpisode,airing:schedule.airing,
-      episodeCounts:schedule.episodeCounts,airedEpisodeCounts:schedule.airedEpisodeCounts,known,sources,tvAvailable,
+      episodeCounts:schedule.episodeCounts,airedEpisodeCounts:schedule.airedEpisodeCounts,known,sources,tvAvailable,episodeScheduleAvailable,
       resolvedShowId,imdbId:resolvedImdbId,imdbConfirmed:imdb?.confirmed===true,show,ended:tvEnded
     };
   }
@@ -1214,9 +1215,18 @@
 
   function configureProgressOptions(result){
     episodeCountsForForm=Object.keys(result?.airedEpisodeCounts||{}).length?result.airedEpisodeCounts:(result?.episodeCounts||{});
-    const highest=Number(result?.highest||0),seasonOptions=$("season-options");
-    if(seasonOptions)seasonOptions.innerHTML=`<option value="0">Not started</option>${highest?Array.from({length:highest},(_,i)=>`<option value="${i+1}">Season ${i+1}</option>`).join(""):""}`;
-    if(highest){$("cur-season").max=String(highest);$("watched-seasons").max=String(highest);}else{$("cur-season").removeAttribute("max");$("watched-seasons").removeAttribute("max");}
+    const highest=Number(result?.highest||0),verifiedEpisodes=result?.episodeScheduleAvailable===true;
+    const latestReleased=verifiedEpisodes?Math.max(0,Number(result?.latestAired||0)):highest;
+    const fullyReleased=verifiedEpisodes?Math.min(latestReleased,Math.max(0,Number(result?.completedSeasons||0))):highest;
+    const seasonOptions=$("season-options");
+    if(seasonOptions)seasonOptions.innerHTML=`<option value="0">Not started</option>${latestReleased?Array.from({length:latestReleased},(_,i)=>`<option value="${i+1}">Season ${i+1}</option>`).join(""):""}`;
+    if(verifiedEpisodes){
+      $("cur-season").max=String(latestReleased);$("watched-seasons").max=String(fullyReleased);
+    }else if(highest){
+      $("cur-season").max=String(highest);$("watched-seasons").max=String(highest);
+    }else{
+      $("cur-season").removeAttribute("max");$("watched-seasons").removeAttribute("max");
+    }
     refreshEpisodeOptions();
     if(!progressVerifyNote)return;
     if(result?.airing){
@@ -1276,6 +1286,20 @@
       $("cur-ep").value=hasReleasedSeason?(r.currentEpisode??0):0;
       $("watched-seasons").value=hasReleasedSeason&&Number.isFinite(Number(r.completedSeasons))?r.completedSeasons:0;
       if(!hasReleasedSeason&&r.upcoming)$("status").value="Planned";
+    }else if(r.episodeScheduleAvailable){
+      const completedMax=Math.max(0,Number(r.completedSeasons||0)),latestMax=Math.max(0,Number(r.latestAired||0));
+      const savedWatched=Math.max(0,Number($("watched-seasons").value||0));
+      const correctedWatched=Math.min(savedWatched,completedMax);
+      if(savedWatched!==correctedWatched)$("watched-seasons").value=String(correctedWatched);
+      let savedSeason=Math.max(0,Number($("cur-season").value||0));
+      if(savedSeason>latestMax){
+        savedSeason=Math.min(latestMax,correctedWatched);
+        $("cur-season").value=String(savedSeason);
+        $("cur-ep").value=String(savedSeason?Number(r.airedEpisodeCounts?.[savedSeason]||0):0);
+      }else{
+        const releasedEpisodeMax=Math.max(0,Number(r.airedEpisodeCounts?.[savedSeason]||0));
+        if(Number($("cur-ep").value||0)>releasedEpisodeMax)$("cur-ep").value=String(releasedEpisodeMax);
+      }
     }
     configureProgressOptions(r);
     updateAiringFields(r);
@@ -1331,7 +1355,19 @@
         row={...row,status:"Planned"};changed=true;
       }
       if(row.type!=="Film"&&(row.tvmazeShowId||row.imdbId)){
-        const storedTotal=Number(row.totalSeasons||0),verifiedNext=Number(row.nextSeasonNum||0);
+        const verifiedNext=Number(row.nextSeasonNum||0),premiereTime=row.nextSeasonDate?new Date(row.nextSeasonDate).getTime():0;
+        const futureSeason=verifiedNext>0&&((Number.isFinite(premiereTime)&&premiereTime>Date.now())||(!premiereTime&&verifiedNext>Math.max(Number(row.curSeason||0),Number(row.airingSeason||0))));
+        if(futureSeason&&Number(row.watchedSeasons||0)>=verifiedNext){
+          const watchedSeasons=Math.max(0,verifiedNext-1);
+          const repair={...row,watchedSeasons};
+          if(Number(row.curSeason||0)>=verifiedNext){
+            const curSeason=Math.min(watchedSeasons,verifiedNext-1);
+            repair.curSeason=curSeason;
+            repair.curEp=curSeason?Number(row.airedEpisodeCounts?.[curSeason]||row.episodeCounts?.[curSeason]||0):0;
+          }
+          row=repair;changed=true;
+        }
+        const storedTotal=Number(row.totalSeasons||0);
         const progressFloor=Math.max(Number(row.watchedSeasons||0),Number(row.curSeason||0),Number(row.airingSeason||0));
         if(verifiedNext>=progressFloor&&verifiedNext>0&&storedTotal>verifiedNext+1){
           row={...row,totalSeasons:Math.max(verifiedNext,progressFloor)};changed=true;
