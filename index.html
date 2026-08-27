@@ -847,7 +847,9 @@
   }
 
   function parseWikipediaSeasonCount(wikitext){
-    const match=String(wikitext||"").match(/\|\s*(?:num_seasons|num_series)\s*=\s*([^\n\r]+)/i);
+    /* Horizontal whitespace only is intentional. Using \s here can cross the
+       newline from an empty num_seasons field and read num_episodes instead. */
+    const match=String(wikitext||"").match(/\|[ \t]*(?:num_seasons|num_series)[ \t]*=[ \t]*([^\n\r]*)/i);
     if(!match)return null;
     const cleaned=cleanWikiValue(match[1]);
     const numberMatch=cleaned.match(/\b(\d{1,2})\b/);
@@ -963,18 +965,28 @@
     return score;
   }
 
+  function wikipediaSeriesTitleMatches(candidate,title){
+    const page=normalizeTitle(candidate),wanted=normalizeTitle(title);
+    if(!page||!wanted)return false;
+    if(page===wanted)return true;
+    if(!page.startsWith(`${wanted} `))return false;
+    const suffix=page.slice(wanted.length).trim();
+    return /^(?:(?:19|20)\d{2}\s+)?(?:(?:american|british|english|canadian|australian|new zealand|indian|japanese|korean|french|german|spanish|italian|irish)\s+)?(?:tv|television|web|streaming)\s+(?:series|programme|program|serial|miniseries)$/.test(suffix);
+  }
+
   async function wikipediaFindSeriesPage(title){
-    const searches=[`\"${title}\" television series`,`\"${title}\" TV series`,title];
+    const searches=[title,`\"${title}\" television series`,`\"${title}\" TV series`];
     const candidateTitles=[];
     for(const q of searches){
       try{
         const data=await wikipediaApi({action:"query",list:"search",srsearch:q,srnamespace:0,srlimit:6,srprop:""});
         for(const row of data?.query?.search||[])if(row?.title&&!candidateTitles.includes(row.title))candidateTitles.push(row.title);
       }catch(_){}
-      if(candidateTitles.length>=6)break;
+      if(candidateTitles.some(candidate=>wikipediaSeriesCandidateScore(candidate,title)>=90&&wikipediaSeriesTitleMatches(candidate,title)))break;
     }
     candidateTitles.sort((a,b)=>wikipediaSeriesCandidateScore(b,title)-wikipediaSeriesCandidateScore(a,title));
-    for(const pageTitle of candidateTitles.slice(0,6)){
+    for(const pageTitle of candidateTitles.slice(0,10)){
+      if(!wikipediaSeriesTitleMatches(pageTitle,title))continue;
       const page=await wikipediaWikitext(pageTitle);
       if(!page)continue;
       if(/\{\{\s*Infobox television/i.test(page.wikitext)||/\|\s*(?:num_seasons|num_series)\s*=/i.test(page.wikitext))return page;
@@ -1153,13 +1165,19 @@
     const [wiki,imdb]=await Promise.all([wikiPromise,imdbPromise]);
 
     const tvEnded=tvAvailable&&String(show?.status||"").toLowerCase()==="ended"&&!schedule.nextEpisode;
-    const highest=tvEnded&&tvHighest?tvHighest:(Math.max(tvHighest||0,wiki.highest||0)||null);
+    /* Wikipedia may know the next renewal before TVMaze, but it must not leap
+       several seasons beyond a matched episode schedule. When TVMaze already
+       includes a future season, it is the ceiling; otherwise Wikipedia may add
+       the single next announced season. */
+    const wikiCeiling=tvAvailable&&tvHighest?tvHighest+(schedule.upcomingSeason?0:1):Number.POSITIVE_INFINITY;
+    const boundedWikiHighest=Number.isFinite(Number(wiki.highest))?Math.min(Number(wiki.highest),wikiCeiling):0;
+    const highest=tvEnded&&tvHighest?tvHighest:(Math.max(tvHighest||0,boundedWikiHighest||0)||null);
     const latestAired=tvAvailable&&tvLatestAired!==null?tvLatestAired:(Number.isFinite(Number(wiki.latestAired))?Number(wiki.latestAired):null);
     const currentEpisode=tvAvailable?schedule.currentEpisode:null;
-    const known=new Set([...schedule.known,...(wiki.known||[])].filter(n=>!tvEnded||!tvHighest||Number(n)<=tvHighest));
+    const known=new Set([...schedule.known,...(wiki.known||[])].filter(n=>(!tvEnded||!tvHighest||Number(n)<=tvHighest)&&Number(n)<=wikiCeiling));
     const candidates=[];
     if(!tvEnded&&schedule.upcomingSeason)candidates.push({number:Number(schedule.upcomingSeason.number),premiereDate:schedule.upcomingSeason.premiereDate||schedule.nextEpisode?.airdate||null,source:"TVMaze",raw:schedule.upcomingSeason});
-    if(!tvEnded&&wiki.upcoming)candidates.push({...wiki.upcoming,number:Number(wiki.upcoming.number)});
+    if(!tvEnded&&wiki.upcoming&&Number(wiki.upcoming.number)<=wikiCeiling)candidates.push({...wiki.upcoming,number:Number(wiki.upcoming.number)});
     let upcoming=candidates.filter(c=>Number.isFinite(c.number)&&(latestAired===null||c.number>latestAired)).sort((a,b)=>a.number-b.number||Boolean(b.premiereDate)-Boolean(a.premiereDate))[0]||null;
     if(upcoming){
       const same=candidates.filter(c=>c.number===upcoming.number);
@@ -1311,6 +1329,13 @@
       let row=item;
       if(row.status==="Saved"){
         row={...row,status:"Planned"};changed=true;
+      }
+      if(row.type!=="Film"&&(row.tvmazeShowId||row.imdbId)){
+        const storedTotal=Number(row.totalSeasons||0),verifiedNext=Number(row.nextSeasonNum||0);
+        const progressFloor=Math.max(Number(row.watchedSeasons||0),Number(row.curSeason||0),Number(row.airingSeason||0));
+        if(verifiedNext>=progressFloor&&verifiedNext>0&&storedTotal>verifiedNext+1){
+          row={...row,totalSeasons:Math.max(verifiedNext,progressFloor)};changed=true;
+        }
       }
       const seasonTotal=knownSeasonTotal(row);
       if(row.type!=="Film"&&seasonTotal>Number(row.totalSeasons||0)){
