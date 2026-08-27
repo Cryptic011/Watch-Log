@@ -897,7 +897,7 @@
       if(!target&&!feedback)return;
       const action=document.createElement("div");action.className=`episode-quick-row${feedback?.logged?" logged":""}`;
       const button=document.createElement("button");button.type="button";button.className="episode-quick-button";
-      button.textContent=feedback?.label||"✓ Episode watched";button.disabled=episodeLogBusy.has(key);
+      button.textContent=feedback?.label||"✓ Episode watched";button.disabled=episodeLogBusy.has(key)||Boolean(feedback);
       button.setAttribute("aria-label",target?`Mark season ${target.season} episode ${target.episode} watched`:button.textContent);
       button.addEventListener("click",event=>{event.stopPropagation();quickLogEpisode(item.id);});
       const next=document.createElement("span");next.className="episode-quick-next";next.textContent=target?`Next: S${target.season} E${target.episode}`:"Caught up";
