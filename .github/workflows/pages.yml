@@ -1,3 +1,4 @@
+# Node.js 24-compatible GitHub Pages deployment
 name: Deploy Watched Logger (Node 24)
 
 on:
