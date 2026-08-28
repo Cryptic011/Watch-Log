@@ -1,4 +1,4 @@
-name: Deploy Watched Logger to GitHub Pages
+name: Deploy Watched Logger (Node 24)
 
 on:
   push:
