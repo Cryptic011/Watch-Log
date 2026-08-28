@@ -15,7 +15,7 @@
     *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",sans-serif;-webkit-tap-highlight-color:transparent}
     html,body{background:var(--bg);color:var(--text);min-height:100%}body{min-height:100vh;padding-bottom:110px}button,input,select{font:inherit}.hidden{display:none!important}
     .auth-overlay{position:fixed;inset:0;background:#000;z-index:500;display:flex;align-items:center;justify-content:center;padding:max(24px,env(safe-area-inset-top)) 24px max(24px,env(safe-area-inset-bottom))}
-    .auth-card{width:100%;max-width:390px;background:var(--card);border:1px solid var(--border);border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:16px}.auth-header{text-align:center}.auth-header h2{font-size:1.8rem;font-weight:800;margin-bottom:6px}.auth-header p{color:var(--muted);font-size:.86rem;line-height:1.45}.auth-toggle{color:var(--blue2);font-size:.86rem;text-align:center;cursor:pointer;font-weight:700}.message{border-radius:11px;padding:10px 12px;font-size:.82rem;line-height:1.45}.message.error{background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}.message.success{background:rgba(52,211,153,.1);color:#6ee7b7;border:1px solid rgba(52,211,153,.25)}.message.info{background:rgba(59,130,246,.12);color:#93c5fd;border:1px solid rgba(59,130,246,.3)}
+    .auth-card{width:100%;max-width:390px;background:var(--card);border:1px solid var(--border);border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:16px}.auth-header{text-align:center}.auth-header h2{font-size:1.8rem;font-weight:800;margin-bottom:6px}.auth-header p{color:var(--muted);font-size:.86rem;line-height:1.45}.auth-toggle{color:var(--blue2);font-size:.86rem;text-align:center;cursor:pointer;font-weight:700}.message{border-radius:11px;padding:10px 12px;font-size:.82rem;line-height:1.45}.message.error{background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}.message.success{background:rgba(52,211,153,.1);color:#6ee7b7;border:1px solid rgba(52,211,153,.25)}.message.info{background:rgba(59,130,246,.12);color:#93c5fd;border:1px solid rgba(59,130,246,.3)}.duplicate-warning{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid rgba(251,191,36,.34);border-radius:11px;background:rgba(251,191,36,.1);color:var(--amber);font-size:.78rem;font-weight:700;line-height:1.35}.duplicate-warning button{flex:0 0 auto;border:0;background:transparent;color:var(--blue2);font-size:.76rem;font-weight:850;cursor:pointer}.app-toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 86px);z-index:600;width:min(calc(100% - 32px),440px);padding:12px 15px;border:1px solid rgba(96,165,250,.35);border-radius:14px;background:#1d2531;color:#fff;box-shadow:0 12px 35px rgba(0,0,0,.45);font-size:.8rem;font-weight:750;line-height:1.4;transform:translate(-50%,18px);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}.app-toast.show{transform:translate(-50%,0);opacity:1}.app-toast.success{border-color:rgba(52,211,153,.4);background:#12271f;color:#6ee7b7}.app-toast.warn{border-color:rgba(251,191,36,.4);background:#2a2314;color:#fcd34d}
     form{display:flex;flex-direction:column;gap:12px}label{font-size:.75rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;display:block}input,select{width:100%;min-width:0;max-width:100%;background:var(--inner);border:1px solid var(--border);color:var(--text);padding:11px 12px;border-radius:10px;font-size:.95rem}.form-row{display:flex;gap:10px}.form-group{flex:1;min-width:0}.localized-date-shell{position:relative;width:100%;min-width:0}.localized-date-shell .localized-native-date{position:relative;z-index:1;width:100%;color:transparent!important;-webkit-text-fill-color:transparent!important;caret-color:transparent}.localized-date-shell .localized-native-date::-webkit-datetime-edit,.localized-date-shell .localized-native-date::-webkit-date-and-time-value,.localized-date-shell .localized-native-date::-webkit-datetime-edit-fields-wrapper,.localized-date-shell .localized-native-date::-webkit-datetime-edit-text,.localized-date-shell .localized-native-date::-webkit-datetime-edit-month-field,.localized-date-shell .localized-native-date::-webkit-datetime-edit-day-field,.localized-date-shell .localized-native-date::-webkit-datetime-edit-year-field,.localized-date-shell .localized-native-date::-webkit-datetime-edit-hour-field,.localized-date-shell .localized-native-date::-webkit-datetime-edit-minute-field,.localized-date-shell .localized-native-date::-webkit-datetime-edit-ampm-field{color:transparent!important;-webkit-text-fill-color:transparent!important}.localized-date-shell .localized-native-date::-webkit-calendar-picker-indicator{opacity:.9;cursor:pointer;filter:invert(1);position:relative;z-index:3}.localized-date-overlay{position:absolute;z-index:2;inset:0;display:flex;align-items:center;min-width:0;padding:11px 48px 11px 12px;color:var(--text);font-size:.95rem;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}.localized-date-overlay.empty{color:var(--muted)}.btn{padding:12px 18px;border-radius:10px;border:none;font-weight:700;font-size:.95rem;cursor:pointer}.btn:disabled{opacity:.55;cursor:default}.btn-primary{background:var(--blue);color:#fff}.btn-secondary{background:#252a34;color:#fff;border:1px solid #343a46}.btn-danger{background:var(--red);color:#fff}.btn-full{width:100%}
     .top-nav{position:relative;background:var(--bg);padding:max(12px,env(safe-area-inset-top)) 16px 10px;z-index:1}.nav-header{display:flex;justify-content:flex-start;align-items:center;margin-bottom:14px}.user-pill{background:#181c24;border:1px solid var(--border);color:#fff;padding:6px 14px;border-radius:20px;display:flex;align-items:center;gap:8px;font-size:.85rem;font-weight:700;cursor:pointer}.user-dot{width:8px;height:8px;background:var(--green);border-radius:50%}h1{font-size:2.1rem;font-weight:800;letter-spacing:-.6px;margin-bottom:12px}.search-box{background:var(--card);border:1px solid var(--border);border-radius:12px;display:flex;align-items:center;padding:10px 14px;gap:10px;margin-bottom:14px}.search-box svg{width:18px;height:18px;fill:var(--muted)}.search-box input{background:transparent;border:none;padding:0;outline:none}
     .stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}.stat-card{background:var(--card);border-radius:14px;padding:12px 6px;text-align:center;display:flex;flex-direction:column;gap:2px}.stat-card .num{font-size:1.35rem;font-weight:800}.stat-card .label{font-size:.78rem;color:var(--muted);font-weight:600}.filter-pills{display:flex;gap:6px;background:var(--card);padding:4px;border-radius:14px;margin-bottom:20px}.pill-btn{flex:1;background:transparent;border:none;color:var(--muted);padding:8px 0;border-radius:10px;font-size:.88rem;font-weight:600;cursor:pointer}.pill-btn.active{background:#3e4552;color:#fff}
@@ -172,6 +172,12 @@
   const backgroundReminderStatus=$("background-reminder-status"),enableBackgroundReminders=$("enable-background-reminders"),disableBackgroundReminders=$("disable-background-reminders");
   const notificationTestSettings=$("notification-test-settings"),notificationTestStatus=$("notification-test-status"),sendPlannedTest=$("send-planned-test");
   const mediaList = $("media-list"), emptyState = $("empty-state"), searchInput = $("search-input"), sortMode = $("sort-mode"), modal = $("modal"), addBtn = $("add-btn"), closeModal = $("close-modal"), mediaForm = $("media-form"), deleteBtn = $("delete-btn"), saveBtn = $("save-btn"), typeSelect = $("type"), seriesSection = $("series-section"), progressVerifyNote = $("progress-verify-note"), airingSection = $("airing-section"), airingNote = $("airing-note"), upcomingSection = $("upcoming-section"), seasonVerifyNote = $("season-verify-note"), filmSection = $("film-section"), filmVerifyNote = $("film-verify-note"), filmReleaseDate = $("film-release-date"), filmReleaseSource = $("film-release-source"), titleInput = $("title"), suggestList = $("suggest-list");
+  const duplicateWarning=document.createElement("div");
+  duplicateWarning.id="duplicate-warning";duplicateWarning.className="duplicate-warning hidden";duplicateWarning.setAttribute("role","alert");duplicateWarning.innerHTML='<span id="duplicate-warning-text"></span><button id="open-duplicate" type="button">Open existing</button>';
+  mediaForm.insertBefore(duplicateWarning,mediaForm.querySelector(".form-row"));
+  const duplicateWarningText=$("duplicate-warning-text"),openDuplicateBtn=$("open-duplicate");
+  const appToast=document.createElement("div");appToast.id="app-toast";appToast.className="app-toast";appToast.setAttribute("role","status");appToast.setAttribute("aria-live","polite");document.body.appendChild(appToast);
+  let appToastTimer=null,duplicateWarningItemId="";
   const episodeTrackerModal=document.createElement("div");
   episodeTrackerModal.id="episode-tracker-modal";episodeTrackerModal.className="episode-tracker-overlay hidden";
   episodeTrackerModal.innerHTML='<section class="episode-tracker-sheet" role="dialog" aria-modal="true" aria-labelledby="episode-tracker-title"><header class="episode-tracker-header"><div><span class="episode-tracker-kicker">Episode Tracker</span><h2 id="episode-tracker-title"></h2></div><button id="close-episode-tracker" class="episode-tracker-close" type="button" aria-label="Close episode tracker">&times;</button></header><div class="episode-tracker-progress"><span>Latest watched</span><strong id="episode-tracker-progress"></strong><small id="episode-tracker-release"></small></div><div class="episode-tracker-season-row"><label class="episode-tracker-season-field"><span>Season</span><select id="episode-tracker-season" class="episode-tracker-season-select" aria-label="Choose season"></select></label><strong id="episode-tracker-season-summary" class="episode-tracker-season-summary"></strong></div><div id="episode-tracker-grid" class="episode-tracker-grid" aria-label="Released episodes"></div><p class="episode-tracker-help">Tap any released episode to mark or unmark it. Changes save automatically.</p><div id="episode-tracker-last" class="episode-tracker-last" aria-live="polite"></div><button id="episode-tracker-edit" class="episode-tracker-edit" type="button">✎ Edit show details</button></section>';
@@ -271,6 +277,24 @@
   function esc(v){return String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));}
   function showMessage(text,type="error"){authMessage.textContent=text;authMessage.className=`message ${type}`;}
   function hideMessage(){authMessage.textContent="";authMessage.className="message hidden";}
+  function showAppToast(text,type="success",duration=4200){
+    clearTimeout(appToastTimer);appToast.textContent=text;appToast.className=`app-toast ${type}`;
+    requestAnimationFrame(()=>appToast.classList.add("show"));
+    appToastTimer=setTimeout(()=>appToast.classList.remove("show"),duration);
+  }
+  function hideDuplicateWarning(){duplicateWarningItemId="";duplicateWarning.classList.add("hidden");duplicateWarningText.textContent="";}
+  function showDuplicateWarning(item){
+    if(!item)return hideDuplicateWarning();
+    duplicateWarningItemId=String(item.id||"");
+    duplicateWarningText.textContent=`“${item.title}” is already tracked.`;
+    duplicateWarning.classList.remove("hidden");
+  }
+  function refreshEditorDuplicateWarning(){
+    const duplicate=findTrackedDuplicate({title:titleInput.value.trim(),type:typeSelect.value,imdbId:$("imdb-id").value,tvmazeShowId:$("tvmaze-id").value,releaseYear:$("release-year").value,filmReleaseDate:filmReleaseDate.value},mediaItems,$("item-id").value);
+    if(duplicate)showDuplicateWarning(duplicate);else hideDuplicateWarning();
+    return duplicate;
+  }
+  openDuplicateBtn.onclick=()=>{const id=duplicateWarningItemId;hideDuplicateWarning();if(id)void openEdit(id);};
   function uuid(){return crypto.randomUUID?crypto.randomUUID():`item_${Date.now()}_${Math.random().toString(36).slice(2)}`;}
   function toMillis(v){const n=new Date(v||0).getTime();return Number.isFinite(n)?n:0;}
   function isEmail(v){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||"").trim());}
@@ -611,9 +635,10 @@
   }
 
   function persistLibrary(items,{background=false}={}){
-    const migration=migratePlannedStatuses(items);
-    if(items===mediaItems)mediaItems=migration.rows;
-    items=migration.rows;
+    const migration=migratePlannedStatuses(items),cleanup=cleanLibraryRecords(migration.rows);
+    if(items===mediaItems)mediaItems=cleanup.items;
+    items=cleanup.items;
+    const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);
     /* Start the on-device and cloud writes together. The UI can close
        immediately, while both queues retain only the newest safe snapshot. */
     const localSave=queueLocalLibrarySave(items);
@@ -702,7 +727,9 @@
         };
       }
       mediaItems[index]=migratePlannedStatuses([refreshed]).rows[0];
+      const cleanup=cleanLibraryRecords(mediaItems);mediaItems=cleanup.items;
       render();
+      const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);
       void persistLibrary(mediaItems,{background:true});
       return true;
     })().catch(error=>{console.warn("Background title refresh postponed",error);return false;}).finally(()=>metadataRefreshInFlight.delete(id));
@@ -718,11 +745,12 @@
   }
   async function enterAccount(items,{syncText="Synced. This library is available on your other devices.",syncState="ok"}={}){
     hideMessage();authScreen.classList.add("hidden");
-    const original=Array.isArray(items)?items:[],migration=migratePlannedStatuses(original),cleaned=cleanShadowTitleEntries(migration.rows);
+    const original=Array.isArray(items)?items:[],migration=migratePlannedStatuses(original),cleanup=cleanLibraryRecords(migration.rows),cleaned=cleanup.items;
     mediaItems=cleaned;render();setSync(syncText,syncState);
+    const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);
     try{await syncExistingBackgroundPush();}catch(error){console.warn("Background reminder sync skipped",error);}
     await updateNotificationTestVisibility();
-    if(migration.changed||cleaned.length!==original.length)await persistLibrary(cleaned);
+    if(migration.changed||cleanup.removedCount||cleaned.length!==original.length)await persistLibrary(cleaned);
   }
 
   async function establishCloudSession(result,items){
@@ -793,7 +821,7 @@
     try{
       const cached=await loadCacheRecord();
       if(hasPending()&&cached?.items){await pinApi("save",{items:cached.items});markPending(false);}
-      const result=await pinApi("load"),original=Array.isArray(result.items)?result.items:[],migration=migratePlannedStatuses(original);mediaItems=cleanShadowTitleEntries(migration.rows);applyAccount(result.account);await saveProfile(currentProfile);await saveCache(mediaItems);if(migration.changed||mediaItems.length!==original.length)await persistLibrary(mediaItems);render();setSync("Synced. This library is available on your other devices.","ok");
+      const result=await pinApi("load"),original=Array.isArray(result.items)?result.items:[],migration=migratePlannedStatuses(original),cleanup=cleanLibraryRecords(migration.rows);mediaItems=cleanup.items;applyAccount(result.account);await saveProfile(currentProfile);await saveCache(mediaItems);if(migration.changed||cleanup.removedCount||mediaItems.length!==original.length)await persistLibrary(mediaItems);render();setSync("Synced. This library is available on your other devices.","ok");const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);
     }catch(e){console.error(e);setSync(e.message||"Sync failed.","warn");}
     finally{syncNowBtn.disabled=false;}
   };
@@ -1744,6 +1772,127 @@
       .trim();
   }
 
+  function mediaIdentityKind(item){
+    const type=String(item?.type||"Series").toLowerCase();
+    if(type==="film")return"film";
+    if(type==="game")return"game";
+    return"series";
+  }
+
+  function identityReleaseYear(item){
+    const explicit=String(item?.releaseYear||"").match(/\b(19|20)\d{2}\b/)?.[0];
+    return explicit||String(item?.filmReleaseDate||"").match(/^(19|20)\d{2}/)?.[0]||"";
+  }
+
+  function itemsAreDuplicate(a,b){
+    if(!a?.title||!b?.title||mediaIdentityKind(a)!==mediaIdentityKind(b))return false;
+    const aImdb=String(a.imdbId||"").trim().toLowerCase(),bImdb=String(b.imdbId||"").trim().toLowerCase();
+    if(aImdb&&bImdb)return aImdb===bImdb;
+    if(mediaIdentityKind(a)==="series"){
+      const aMaze=String(a.tvmazeShowId||"").trim(),bMaze=String(b.tvmazeShowId||"").trim();
+      if(aMaze&&bMaze)return aMaze===bMaze;
+    }
+    if(normalizeTitle(a.title)!==normalizeTitle(b.title))return false;
+    const aYear=identityReleaseYear(a),bYear=identityReleaseYear(b);
+    if(aYear&&bYear&&aYear!==bYear)return false;
+    return true;
+  }
+
+  function findTrackedDuplicate(candidate,items=mediaItems,ignoreId=""){
+    return (Array.isArray(items)?items:[]).find(item=>String(item.id)!==String(ignoreId||"")&&itemsAreDuplicate(candidate,item))||null;
+  }
+
+  function mergeEpisodeCountMaps(a,b){
+    const merged={...positiveEpisodeMap(a),...positiveEpisodeMap(b)};
+    for(const [season,count] of Object.entries(positiveEpisodeMap(a)))merged[season]=Math.max(Number(merged[season]||0),Number(count||0));
+    for(const [season,count] of Object.entries(positiveEpisodeMap(b)))merged[season]=Math.max(Number(merged[season]||0),Number(count||0));
+    return merged;
+  }
+
+  function mergeEpisodeHistories(a,b){
+    const events=[...(Array.isArray(a)?a:[]),...(Array.isArray(b)?b:[])],byKey=new Map();
+    for(const event of events){
+      if(!event)continue;
+      const key=String(event.id||`${event.kind||"mark"}:${event.season||0}:${event.episode||0}:${event.watchedAt||""}`);
+      const previous=byKey.get(key);
+      if(!previous||toMillis(event.watchedAt)>=toMillis(previous.watchedAt))byKey.set(key,event);
+    }
+    return [...byKey.values()].sort((x,y)=>toMillis(x.watchedAt)-toMillis(y.watchedAt)).slice(-500);
+  }
+
+  function duplicateRecordQuality(item){
+    let score=0;
+    if(item?.imdbId)score+=20;if(item?.tvmazeShowId)score+=20;if(item?.releaseYear)score+=3;
+    if(item?.filmReleaseDate)score+=8;if(item?.nextEpisodeNum||item?.nextSeasonNum)score+=8;
+    score+=Object.keys(positiveEpisodeMap(item?.airedEpisodeCounts)).length*2;
+    score+=Math.min(8,(Array.isArray(item?.episodeHistory)?item.episodeHistory.length:0));
+    return score;
+  }
+
+  function mergeDuplicateItems(a,b){
+    const aTime=toMillis(a.updatedAt||a.date),bTime=toMillis(b.updatedAt||b.date),recent=aTime>=bTime?a:b;
+    const primary=duplicateRecordQuality(a)>duplicateRecordQuality(b)?a:duplicateRecordQuality(b)>duplicateRecordQuality(a)?b:recent;
+    const secondary=primary===a?b:a,filled=(...values)=>values.find(value=>value!==null&&value!==undefined&&String(value).trim()!=="")??"";
+    const episodeCounts=mergeEpisodeCountMaps(a.episodeCounts,b.episodeCounts),airedEpisodeCounts=mergeEpisodeCountMaps(a.airedEpisodeCounts,b.airedEpisodeCounts);
+    const history=mergeEpisodeHistories(a.episodeHistory,b.episodeHistory);
+    const statusRank={Saved:1,Planned:1,Watching:2,Watched:3};
+    const status=(statusRank[a.status]||0)>(statusRank[b.status]||0)?a.status:(statusRank[b.status]||0)>(statusRank[a.status]||0)?b.status:(recent.status||"Planned");
+    const aProgress=Number(a.curSeason||0)*10000+Number(a.curEp||0),bProgress=Number(b.curSeason||0)*10000+Number(b.curEp||0),progress=aProgress>=bProgress?a:b;
+    const aUpcoming=upcomingSortInfo(a),bUpcoming=upcomingSortInfo(b);
+    const upcoming=aUpcoming.rank>bUpcoming.rank?a:bUpcoming.rank>aUpcoming.rank?b:(aUpcoming.time<=bUpcoming.time?a:b);
+    let merged={
+      ...secondary,...primary,
+      id:String(primary.id||secondary.id||uuid()),title:filled(primary.title,secondary.title),type:primary.type||secondary.type||"Series",status,
+      imdbId:filled(primary.imdbId,secondary.imdbId),tvmazeShowId:filled(primary.tvmazeShowId,secondary.tvmazeShowId),releaseYear:filled(primary.releaseYear,secondary.releaseYear),
+      platform:filled(recent.platform,primary.platform,secondary.platform),
+      totalSeasons:mediaIdentityKind(primary)==="film"?null:Math.max(Number(a.totalSeasons||0),Number(b.totalSeasons||0))||null,
+      watchedSeasons:mediaIdentityKind(primary)==="film"?null:Math.max(Number(a.watchedSeasons||0),Number(b.watchedSeasons||0)),
+      curSeason:mediaIdentityKind(primary)==="film"?null:(Number(progress.curSeason||0)||null),curEp:mediaIdentityKind(primary)==="film"?null:(Number(progress.curEp||0)||null),
+      episodeCounts,airedEpisodeCounts,episodeHistory:history,
+      createdAt:[a.createdAt,b.createdAt].filter(Boolean).sort((x,y)=>toMillis(x)-toMillis(y))[0]||primary.createdAt||nowISO(),
+      updatedAt:aTime>=bTime?(a.updatedAt||a.date||nowISO()):(b.updatedAt||b.date||nowISO()),
+      date:watchedSortTime(a)>=watchedSortTime(b)?(a.date||b.date):(b.date||a.date),
+      nextEpisodeNum:upcoming.nextEpisodeNum??null,nextEpisodeTitle:upcoming.nextEpisodeTitle||"",nextEpisodeDate:upcoming.nextEpisodeDate||"",
+      nextSeasonNum:upcoming.nextSeasonNum||"",nextSeasonDate:upcoming.nextSeasonDate||"",
+      filmReleaseDate:filled(recent.filmReleaseDate,primary.filmReleaseDate,secondary.filmReleaseDate),
+      filmReleaseSource:filled(recent.filmReleaseSource,primary.filmReleaseSource,secondary.filmReleaseSource)
+    };
+    if(isEpisodeTrackable(merged)){
+      const combined={};
+      for(const map of [watchedEpisodeMap(a,airedEpisodeCounts),watchedEpisodeMap(b,airedEpisodeCounts)])for(const [season,episodes] of Object.entries(map||{}))combined[season]=[...new Set([...(combined[season]||[]),...(episodes||[])])].sort((x,y)=>x-y);
+      merged.watchedEpisodes=normalizeWatchedEpisodeMap(combined,airedEpisodeCounts);
+      const highest=highestWatchedEpisode(merged.watchedEpisodes);
+      if(highest&&highest.season*10000+highest.episode>Number(merged.curSeason||0)*10000+Number(merged.curEp||0)){merged.curSeason=highest.season;merged.curEp=highest.episode;}
+      merged.watchedSeasons=Math.max(Number(merged.watchedSeasons||0),fullyWatchedSeasonCount(merged,merged.watchedEpisodes,airedEpisodeCounts));
+      merged.lastWatchedSeason=highest?.season??merged.lastWatchedSeason??null;merged.lastWatchedEpisode=highest?.episode??merged.lastWatchedEpisode??null;
+      merged.lastEpisodeWatchedAt=[a.lastEpisodeWatchedAt,b.lastEpisodeWatchedAt].filter(Boolean).sort((x,y)=>toMillis(y)-toMillis(x))[0]||"";
+    }
+    return migratePlannedStatuses([merged]).rows[0];
+  }
+
+  function deduplicateLibrary(items){
+    const merged=[],removedTitles=[];
+    for(const raw of (Array.isArray(items)?items:[])){
+      if(!raw?.title)continue;
+      const index=merged.findIndex(item=>itemsAreDuplicate(item,raw));
+      if(index<0)merged.push(raw);
+      else{removedTitles.push(raw.title||merged[index].title);merged[index]=mergeDuplicateItems(merged[index],raw);}
+    }
+    return{items:merged,removedCount:removedTitles.length,titles:[...new Set(removedTitles.map(String))]};
+  }
+
+  function cleanLibraryRecords(items){
+    const rows=Array.isArray(items)?items:[],shadowCleaned=cleanShadowTitleEntries(rows),shadowRemoved=rows.filter(item=>!shadowCleaned.includes(item)).map(item=>item?.title).filter(Boolean);
+    const deduplicated=deduplicateLibrary(shadowCleaned);
+    return{items:deduplicated.items,removedCount:shadowRemoved.length+deduplicated.removedCount,titles:[...new Set([...shadowRemoved,...deduplicated.titles])]};
+  }
+
+  function duplicateCleanupMessage(cleanup){
+    if(!cleanup?.removedCount)return"";
+    const names=cleanup.titles.slice(0,3).map(title=>`“${title}”`).join(", "),more=cleanup.titles.length>3?` and ${cleanup.titles.length-3} more`:"";
+    return cleanup.removedCount===1?`Removed a duplicate copy of ${names}. Your tracked details were kept.`:`Removed ${cleanup.removedCount} duplicate entries${names?` for ${names}${more}`:""}. Their tracked details were merged.`;
+  }
+
   function titleTokens(value){
     return normalizeTitle(value).split(" ").filter(Boolean);
   }
@@ -2466,6 +2615,7 @@
           filmReleaseSource.value="";
           try{await fillFilmReleaseData(item.title,{imdbId:$("imdb-id").value||"",seedDate:item.releaseDate||"",seedSource:item.releaseSource||item.source||"Film catalogue"});}
           catch(e){console.warn("Film release verification failed",e);filmReleaseDate.value=isFutureDateOnly(item.releaseDate)?item.releaseDate:"";filmReleaseSource.value=filmReleaseDate.value?(item.releaseSource||item.source||"Film catalogue"):"";}
+          refreshEditorDuplicateWarning();
           return;
         }
         filmReleaseDate.value="";
@@ -2474,13 +2624,15 @@
         if(!sid)sid=await exactTVMazeId(item.title,{imdbId:selectedImdbId,year:item.year||"",platform:item.platform||""});
         $("tvmaze-id").value=sid||"";
         try{await fillSeasonData(sid||"",item.title,{imdbId:selectedImdbId,year:item.year||"",platform:item.platform||""});}catch(e){console.warn(e);}
+        refreshEditorDuplicateWarning();
       };
     });
   }
 
   titleInput.addEventListener("input",()=>{
     clearTimeout(searchTimer);
-    editorVerification=null;
+    editorVerification=null;hideDuplicateWarning();
+    $("tvmaze-id").value="";$("imdb-id").value="";$("release-year").value="";
     const requestId=++searchRequestId;
     const q=titleInput.value.trim();
     if(q.length<2){suggestList.classList.add("hidden");return;}
@@ -2501,7 +2653,7 @@
   });
   document.addEventListener("click",e=>{if(!titleInput.contains(e.target)&&!suggestList.contains(e.target))suggestList.classList.add("hidden");});
   typeSelect.onchange=()=>{
-    editorVerification=null;
+    editorVerification=null;hideDuplicateWarning();
     const film=typeSelect.value==="Film";
     seriesSection.style.display=film?"none":"flex";
     upcomingSection.style.display=film?"none":"flex";
@@ -2527,7 +2679,7 @@
   }
 
   function openAdd(){
-    editorVerification=null;
+    editorVerification=null;hideDuplicateWarning();
     mediaForm.reset();
     $("item-id").value="";$("tvmaze-id").value="";$("imdb-id").value="";$("release-year").value="";filmReleaseSource.value="";
     clearAiringFields();configureProgressOptions({highest:null,episodeCounts:{},latestAired:null});
@@ -2538,7 +2690,7 @@
   }
 
   async function openEdit(id){
-    editorVerification=null;
+    editorVerification=null;hideDuplicateWarning();
     const item=mediaItems.find(x=>String(x.id)===String(id));if(!item)return;
     $("item-id").value=item.id;$("tvmaze-id").value=item.tvmazeShowId||"";$("imdb-id").value=item.imdbId||"";$("release-year").value=item.releaseYear||"";
     $("title").value=item.title||"";$("type").value=item.type||"Series";$("status").value=item.status==="Saved"?"Planned":(item.status||"Planned");
@@ -2560,7 +2712,7 @@
       try{await fillSeasonData(sid||"",item.title,{preserveProgress:true,...options});}catch(e){console.warn(e);}
     }
   }
-  function closeEditor(){modal.classList.add("hidden");}
+  function closeEditor(){hideDuplicateWarning();modal.classList.add("hidden");}
   addBtn.onclick=openAdd;closeModal.onclick=closeEditor;modal.addEventListener("click",e=>{if(e.target===modal)closeEditor();});
 
   mediaForm.onsubmit=async e=>{
@@ -2599,6 +2751,11 @@
       }
       if(upcomingSortInfo(item).rank>0&&item.status!=="Planned")item.upcomingStatusOverride=true;
       item=migratePlannedStatuses([item]).rows[0];
+      const duplicate=findTrackedDuplicate(item,mediaItems,id);
+      if(duplicate){
+        showDuplicateWarning(duplicate);showAppToast(`“${duplicate.title}” is already tracked.`,"warn");
+        const duplicateError=new Error(`“${duplicate.title}” is already tracked.`);duplicateError.code="duplicate";throw duplicateError;
+      }
       const sameTitleSeries=mediaItems.find(x=>String(x.id)!==String(id)&&x.type!=="Film"&&normalizeTitle(x.title)===normalizeTitle(title));
       if(isWeakFilmRecord(item)&&sameTitleSeries)throw new Error(`“${title}” is already saved as a verified series. Choose a verified film result with a year or release date if you mean a separate film.`);
       const idx=mediaItems.findIndex(x=>String(x.id)===String(id));if(idx>=0)mediaItems[idx]=item;else mediaItems.unshift(item);
@@ -2608,7 +2765,7 @@
       render();closeEditor();
       void persistLibrary(mediaItems,{background:true});
       if(!recentVerification)void scheduleMetadataRefresh(item);
-    }catch(err){console.error(err);alert(err.message||"Save failed.");}
+    }catch(err){if(err?.code!=="duplicate"){console.error(err);alert(err.message||"Save failed.");}}
     finally{saveBtn.disabled=false;saveBtn.textContent="Save";}
   };
   deleteBtn.onclick=()=>{const id=$("item-id").value;if(!id)return;mediaItems=mediaItems.filter(x=>String(x.id)!==String(id));render();modal.classList.add("hidden");void persistLibrary(mediaItems,{background:true});};
