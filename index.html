@@ -134,7 +134,9 @@
      ========================================================= */
 
   const IMDB_VERIFY_ENDPOINT = "";
-  const PIN_API = "https://okkwteywtgfsnlrjdyhv.supabase.co/functions/v1/watchlog-pin";
+  /* Run account/library requests beside the Ireland-hosted database. This
+     avoids an extra cross-region hop for every cloud save. */
+  const PIN_API = "https://okkwteywtgfsnlrjdyhv.supabase.co/functions/v1/watchlog-pin?forceFunctionRegion=eu-west-1";
   const REMINDER_API = "https://okkwteywtgfsnlrjdyhv.supabase.co/functions/v1/watchlog-reminders";
   const PIN_SESSION_KEY = "watchlog_pin_session_v1";
   const LEGACY_LOCAL_ACCOUNTS_KEY = "watchlog_local_accounts_v1";
@@ -154,8 +156,11 @@
   let searchTimer = null;
   let searchRequestId = 0;
   let editorVerification = null;
+  let localSaveInFlight = null;
+  let queuedLocalSnapshot = null;
   let cloudSaveInFlight = null;
   let queuedCloudSnapshot = null;
+  const metadataRefreshInFlight = new Map();
   let episodeLogFeedback = null;
   let activeEpisodeTrackerId = "";
   let activeEpisodeTrackerSeason = 0;
@@ -550,13 +555,38 @@
     if(Array.isArray(snap.items)&&snap.items.length)showMessage(`Found ${snap.items.length} title(s) from the previous on-device Watched Logger account. Creating a PIN account with this email will carry them into cloud sync.`,"info");
   }
 
+  function cloneLibrarySnapshot(items){
+    try{if(typeof structuredClone==="function")return structuredClone(Array.isArray(items)?items:[]);}catch(_){}
+    return JSON.parse(JSON.stringify(Array.isArray(items)?items:[]));
+  }
+
+  function queueLocalLibrarySave(items){
+    if(!currentUser)return Promise.resolve(true);
+    /* IndexedDB writes are serialized and coalesced. If five episode ticks or
+       edits happen quickly, only the newest waiting snapshot is written. */
+    queuedLocalSnapshot=cloneLibrarySnapshot(items);
+    if(localSaveInFlight)return localSaveInFlight;
+    localSaveInFlight=(async()=>{
+      while(queuedLocalSnapshot){
+        const snapshot=queuedLocalSnapshot;
+        queuedLocalSnapshot=null;
+        await saveCache(snapshot);
+      }
+      return true;
+    })().finally(()=>{
+      localSaveInFlight=null;
+      if(queuedLocalSnapshot)queueLocalLibrarySave(queuedLocalSnapshot).catch(error=>console.error("Queued local save failed",error));
+    });
+    return localSaveInFlight;
+  }
+
   function queueCloudLibrarySave(items){
     if(!cloudSessionToken)return Promise.resolve(true);
 
     /* Keep only the newest snapshot when several edits are saved quickly. This
        prevents an older, slower request from overwriting a newer library. */
-    queuedCloudSnapshot=items.map(item=>({...item}));
-    markPending(true);setSync("Saved on this device. Syncing in the background…","warn");
+    queuedCloudSnapshot=cloneLibrarySnapshot(items);
+    markPending(true);setSync("Saving securely in the background…","warn");
     if(cloudSaveInFlight)return cloudSaveInFlight;
 
     cloudSaveInFlight=(async()=>{
@@ -573,18 +603,111 @@
       }
       markPending(false);setSync("Synced. This library is available on your other devices.","ok");
       return true;
-    })().finally(()=>{cloudSaveInFlight=null;});
+    })().finally(()=>{
+      cloudSaveInFlight=null;
+      if(queuedCloudSnapshot)void queueCloudLibrarySave(queuedCloudSnapshot);
+    });
     return cloudSaveInFlight;
   }
 
-  async function persistLibrary(items,{background=false}={}){
+  function persistLibrary(items,{background=false}={}){
     const migration=migratePlannedStatuses(items);
     if(items===mediaItems)mediaItems=migration.rows;
     items=migration.rows;
-    await saveCache(items);
-    if(!cloudSessionToken)return;
+    /* Start the on-device and cloud writes together. The UI can close
+       immediately, while both queues retain only the newest safe snapshot. */
+    const localSave=queueLocalLibrarySave(items);
     const cloudSave=queueCloudLibrarySave(items);
-    if(!background)await cloudSave;
+    const completion=Promise.all([localSave,cloudSave]);
+    if(background){
+      completion.catch(error=>{
+        console.error("Background library save failed",error);
+        markPending(true);
+        setSync("Your change is still open, but saving needs attention. Tap Sync Now.","warn");
+      });
+      return Promise.resolve(true);
+    }
+    return completion.then(()=>true);
+  }
+
+  async function retryPendingCloudSave(){
+    if(!currentUser||!cloudSessionToken||!hasPending()||cloudSaveInFlight)return;
+    try{
+      if(localSaveInFlight)await localSaveInFlight;
+      const cached=await loadCache();
+      await queueCloudLibrarySave(cached);
+    }catch(error){console.warn("Automatic cloud retry postponed",error);}
+  }
+  window.addEventListener("online",()=>{void retryPendingCloudSave();});
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")void retryPendingCloudSave();});
+
+  function scheduleMetadataRefresh(savedItem){
+    const id=String(savedItem?.id||"");
+    if(!id||metadataRefreshInFlight.has(id))return metadataRefreshInFlight.get(id)||Promise.resolve(false);
+    const seed=cloneLibrarySnapshot([savedItem])[0];
+    const task=(async()=>{
+      let result=null;
+      if(seed.type==="Film"){
+        if(seed.filmReleaseSource==="Manual")return false;
+        result=await verifiedFilmReleaseData(seed.title,{imdbId:seed.imdbId||"",seedDate:seed.filmReleaseDate||"",seedSource:seed.filmReleaseSource||""});
+      }else{
+        result=await verifiedSeasonData(seed.tvmazeShowId||"",seed.title,{imdbId:seed.imdbId||"",year:seed.releaseYear||"",platform:seed.platform||""});
+      }
+
+      const index=mediaItems.findIndex(item=>String(item.id)===id),current=mediaItems[index];
+      if(index<0||!current||current.title!==seed.title||current.type!==seed.type)return false;
+      let refreshed;
+      if(seed.type==="Film"){
+        refreshed={
+          ...current,
+          imdbId:result?.imdbId||current.imdbId||"",
+          releaseYear:result?.year||current.releaseYear||"",
+          filmReleaseDate:result?.date||current.filmReleaseDate||"",
+          filmReleaseSource:result?.date?(result.source||"Verified sources"):(current.filmReleaseSource||""),
+          metadataUpdatedAt:nowISO()
+        };
+      }else{
+        const episodeCounts=positiveEpisodeMap(result?.episodeCounts||current.episodeCounts||{});
+        const airedEpisodeCounts=positiveEpisodeMap(result?.airedEpisodeCounts||current.airedEpisodeCounts||{});
+        let watchedSeasons=Math.max(0,Number(current.watchedSeasons||0));
+        let curSeason=Math.max(0,Number(current.curSeason||0));
+        let curEp=Math.max(0,Number(current.curEp||0));
+        if(result?.episodeScheduleAvailable){
+          const completedMax=Math.max(0,Number(result.completedSeasons||0)),latestMax=Math.max(0,Number(result.latestAired||0));
+          watchedSeasons=Math.min(watchedSeasons,completedMax);
+          if(curSeason>latestMax){curSeason=Math.min(latestMax,watchedSeasons);curEp=curSeason?Number(airedEpisodeCounts[curSeason]||0):0;}
+          else curEp=Math.min(curEp,Number(airedEpisodeCounts[curSeason]||0));
+        }
+        const airing=result?.airing||null,next=airing?.nextEpisode||null,upcoming=result?.upcoming||null;
+        refreshed={
+          ...current,
+          tvmazeShowId:result?.resolvedShowId||current.tvmazeShowId||"",
+          imdbId:result?.imdbId||current.imdbId||"",
+          totalSeasons:result?.highest!==null&&result?.highest!==undefined&&result?.highest!==""&&Number.isFinite(Number(result.highest))?Number(result.highest):current.totalSeasons,
+          watchedSeasons,curSeason:curSeason||null,curEp:curEp||null,
+          currentSeasonEpisodeCount:curSeason?Number(airedEpisodeCounts[curSeason]||0)||null:null,
+          currentSeasonTotalEpisodes:curSeason?Number(episodeCounts[curSeason]||0)||null:null,
+          episodeCounts,airedEpisodeCounts,
+          airingSeason:airing?.season??null,
+          latestEpisodeNum:airing?.latestEpisode??null,
+          latestEpisodeTitle:airing?.latestEpisodeTitle||"",
+          nextEpisodeNum:next?.number??null,
+          nextEpisodeTitle:next?.name||"",
+          nextEpisodeDate:next?episodeLocalInput(next):"",
+          nextSeasonNum:upcoming?.number??"",
+          nextSeasonDate:upcoming?(result?.nextEpisode&&Number(result.nextEpisode.season)===Number(upcoming.number)?episodeLocalInput(result.nextEpisode):(upcoming.premiereDate?dateOnlyInput(upcoming.premiereDate):"")):"",
+          verifiedCompletedSeasons:Number.isFinite(Number(result?.completedSeasons))?Number(result.completedSeasons):current.verifiedCompletedSeasons,
+          ...(Object.prototype.hasOwnProperty.call(current,"watchedEpisodes")?{watchedEpisodes:normalizeWatchedEpisodeMap(current.watchedEpisodes,airedEpisodeCounts)}:{}),
+          metadataUpdatedAt:nowISO()
+        };
+      }
+      mediaItems[index]=migratePlannedStatuses([refreshed]).rows[0];
+      render();
+      void persistLibrary(mediaItems,{background:true});
+      return true;
+    })().catch(error=>{console.warn("Background title refresh postponed",error);return false;}).finally(()=>metadataRefreshInFlight.delete(id));
+    metadataRefreshInFlight.set(id,task);
+    return task;
   }
 
   function storePinSession(account,token,expiresAt){safeWriteJSON(PIN_SESSION_KEY,{token,expiresAt,account});}
@@ -2450,19 +2573,6 @@
       const recentVerification=freshEditorVerification(type,title);
       if(type!=="Film"){
         if(recentVerification){verified=recentVerification;sid=verified.resolvedShowId||sid;}
-        else{
-          if(requestedImdbId||!sid){
-            const exact=await exactTVMazeShow(title,{imdbId:requestedImdbId,year:releaseYear,platform});
-            if(exact?.id&&(!requestedImdbId||String(exact?.externals?.imdb||"")===requestedImdbId||!sid))sid=String(exact.id);
-          }
-          try{verified=await fillSeasonData(sid||"",title,{preserveProgress:true,imdbId:requestedImdbId,year:releaseYear,platform});sid=verified.resolvedShowId||sid;}
-          catch(err){console.warn("Series verification failed while saving",err);}
-        }
-      }else if(filmReleaseSource.value!=="Manual"){
-        if(!recentVerification){
-          try{await fillFilmReleaseData(title,{imdbId:requestedImdbId,seedDate:filmReleaseDate.value||"",seedSource:filmReleaseSource.value||""});}
-          catch(err){console.warn("Film release save-time verification failed",err);}
-        }
       }
       const previous=mediaItems.find(x=>String(x.id)===String(id));
       const episodeHistory=Array.isArray(previous?.episodeHistory)?previous.episodeHistory:[];
@@ -2492,11 +2602,16 @@
       const sameTitleSeries=mediaItems.find(x=>String(x.id)!==String(id)&&x.type!=="Film"&&normalizeTitle(x.title)===normalizeTitle(title));
       if(isWeakFilmRecord(item)&&sameTitleSeries)throw new Error(`“${title}” is already saved as a verified series. Choose a verified film result with a year or release date if you mean a separate film.`);
       const idx=mediaItems.findIndex(x=>String(x.id)===String(id));if(idx>=0)mediaItems[idx]=item;else mediaItems.unshift(item);
-      await persistLibrary(mediaItems,{background:true});render();closeEditor();
+      /* The user's edit is committed to the interface immediately. IndexedDB
+         and Supabase save in parallel; any metadata re-check happens after the
+         editor closes and never blocks the Save button. */
+      render();closeEditor();
+      void persistLibrary(mediaItems,{background:true});
+      if(!recentVerification)void scheduleMetadataRefresh(item);
     }catch(err){console.error(err);alert(err.message||"Save failed.");}
     finally{saveBtn.disabled=false;saveBtn.textContent="Save";}
   };
-  deleteBtn.onclick=async()=>{const id=$("item-id").value;if(!id)return;try{mediaItems=mediaItems.filter(x=>String(x.id)!==String(id));await persistLibrary(mediaItems);render();modal.classList.add("hidden");}catch(e){console.error(e);alert("Delete failed.");}};
+  deleteBtn.onclick=()=>{const id=$("item-id").value;if(!id)return;mediaItems=mediaItems.filter(x=>String(x.id)!==String(id));render();modal.classList.add("hidden");void persistLibrary(mediaItems,{background:true});};
 
   async function start(){
     applyAppearance();
