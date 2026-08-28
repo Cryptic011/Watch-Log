@@ -75,6 +75,8 @@
       .item-sub,.platform{font-size:.78rem}
       .item-right{gap:5px}
     }
+    .show-track-status{display:flex;align-items:center;gap:6px;margin-top:4px;color:var(--blue2);font-size:.71rem;font-weight:800;line-height:1.2}.show-track-status.marked{color:var(--green)}.show-edit-button{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:50%;background:var(--inner);color:var(--muted);font-size:.82rem;font-weight:800;cursor:pointer}.show-edit-button:active{transform:scale(.96);color:var(--text)}.episode-tracker-overlay{position:fixed;inset:0;z-index:140;display:flex;align-items:flex-end;justify-content:center;padding:16px max(12px,env(safe-area-inset-right)) 0 max(12px,env(safe-area-inset-left));background:rgba(0,0,0,.72)}.episode-tracker-sheet{width:100%;max-width:440px;margin:0 auto;padding:18px 18px calc(env(safe-area-inset-bottom,0px) + 18px);border:1px solid var(--border);border-bottom:0;border-radius:24px 24px 0 0;background:var(--card);box-shadow:0 -16px 45px rgba(0,0,0,.4)}.episode-tracker-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}.episode-tracker-kicker{display:block;margin-bottom:3px;color:var(--blue2);font-size:.7rem;font-weight:850;letter-spacing:.55px;text-transform:uppercase}.episode-tracker-header h2{font-size:1.35rem;line-height:1.2}.episode-tracker-close{width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex:0 0 40px;border:1px solid var(--border);border-radius:50%;background:var(--inner);color:var(--muted);font-size:1.55rem;cursor:pointer}.episode-tracker-progress{display:grid;grid-template-columns:1fr auto;align-items:end;gap:3px 12px;padding:13px 14px;border:1px solid var(--border);border-radius:14px;background:#101217}.episode-tracker-progress>span{color:var(--muted);font-size:.75rem;font-weight:750}.episode-tracker-progress>strong{grid-row:1/3;grid-column:2;font-size:1.35rem;color:var(--text)}.episode-tracker-progress>small{color:var(--muted);font-size:.72rem}.episode-tracker-last{margin-top:11px;padding:10px 12px;border:1px solid rgba(52,211,153,.28);border-radius:12px;background:rgba(52,211,153,.09);color:var(--green);font-size:.79rem;font-weight:800}.episode-tracker-last.unmarked{border-color:var(--border);background:var(--inner);color:var(--muted);font-weight:650}.episode-tracker-next{min-height:34px;margin:11px 2px 8px;color:var(--muted);font-size:.78rem;line-height:1.4}.episode-tracker-next strong{color:var(--text)}.episode-tracker-log{width:100%;min-height:46px;padding:0 16px;border:0;border-radius:14px;background:var(--blue);color:#fff;font-size:.88rem;font-weight:850;cursor:pointer}.episode-tracker-log:disabled{background:var(--inner);color:var(--muted);cursor:default}.episode-tracker-log.logged{border:1px solid rgba(52,211,153,.3);background:rgba(52,211,153,.1);color:var(--green)}.episode-tracker-edit{width:100%;margin-top:8px;padding:9px;border:0;background:transparent;color:var(--blue2);font-size:.78rem;font-weight:800;cursor:pointer}
+    .show-track-status{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.episode-tracker-progress{background:var(--inner)}
   </style>
 </head>
 <body>
@@ -153,8 +155,8 @@
   let editorVerification = null;
   let cloudSaveInFlight = null;
   let queuedCloudSnapshot = null;
-  let pendingEpisodeLog = null;
   let episodeLogFeedback = null;
+  let activeEpisodeTrackerId = "";
   const episodeLogBusy = new Set();
 
   const $ = id => document.getElementById(id);
@@ -163,11 +165,11 @@
   const backgroundReminderStatus=$("background-reminder-status"),enableBackgroundReminders=$("enable-background-reminders"),disableBackgroundReminders=$("disable-background-reminders");
   const notificationTestSettings=$("notification-test-settings"),notificationTestStatus=$("notification-test-status"),sendPlannedTest=$("send-planned-test");
   const mediaList = $("media-list"), emptyState = $("empty-state"), searchInput = $("search-input"), sortMode = $("sort-mode"), modal = $("modal"), addBtn = $("add-btn"), closeModal = $("close-modal"), mediaForm = $("media-form"), deleteBtn = $("delete-btn"), saveBtn = $("save-btn"), typeSelect = $("type"), seriesSection = $("series-section"), progressVerifyNote = $("progress-verify-note"), airingSection = $("airing-section"), airingNote = $("airing-note"), upcomingSection = $("upcoming-section"), seasonVerifyNote = $("season-verify-note"), filmSection = $("film-section"), filmVerifyNote = $("film-verify-note"), filmReleaseDate = $("film-release-date"), filmReleaseSource = $("film-release-source"), titleInput = $("title"), suggestList = $("suggest-list");
-  const episodeLogActions=document.createElement("div");
-  episodeLogActions.id="episode-log-actions";episodeLogActions.className="episode-log-actions hidden";
-  episodeLogActions.innerHTML='<button id="log-episode-btn" class="episode-log-button" type="button">✓ Episode watched</button><span id="episode-log-next" class="episode-log-next"></span>';
-  progressVerifyNote.insertAdjacentElement("afterend",episodeLogActions);
-  const logEpisodeBtn=$("log-episode-btn"),episodeLogNext=$("episode-log-next");
+  const episodeTrackerModal=document.createElement("div");
+  episodeTrackerModal.id="episode-tracker-modal";episodeTrackerModal.className="episode-tracker-overlay hidden";
+  episodeTrackerModal.innerHTML='<section class="episode-tracker-sheet" role="dialog" aria-modal="true" aria-labelledby="episode-tracker-title"><header class="episode-tracker-header"><div><span class="episode-tracker-kicker">Episode Tracker</span><h2 id="episode-tracker-title"></h2></div><button id="close-episode-tracker" class="episode-tracker-close" type="button" aria-label="Close episode tracker">&times;</button></header><div class="episode-tracker-progress"><span>Watched through</span><strong id="episode-tracker-progress"></strong><small id="episode-tracker-release"></small></div><div id="episode-tracker-last" class="episode-tracker-last"></div><p id="episode-tracker-next" class="episode-tracker-next"></p><button id="episode-tracker-log" class="episode-tracker-log" type="button"></button><button id="episode-tracker-edit" class="episode-tracker-edit" type="button">✎ Edit show details</button></section>';
+  document.body.appendChild(episodeTrackerModal);
+  const episodeTrackerTitle=$("episode-tracker-title"),episodeTrackerProgress=$("episode-tracker-progress"),episodeTrackerRelease=$("episode-tracker-release"),episodeTrackerLast=$("episode-tracker-last"),episodeTrackerNext=$("episode-tracker-next"),episodeTrackerLog=$("episode-tracker-log"),episodeTrackerEdit=$("episode-tracker-edit"),closeEpisodeTracker=$("close-episode-tracker");
   const pillBtns = document.querySelectorAll(".pill-btn"), tabBtns = document.querySelectorAll(".tab-btn");
 
   function nowISO(){return new Date().toISOString();}
@@ -751,6 +753,12 @@
     return times.length?{rank:2,time:Math.min(...times)}:(announced?{rank:1,time:Number.POSITIVE_INFINITY}:{rank:0,time:Number.POSITIVE_INFINITY});
   }
   function isEpisodeTrackable(item){return item?.type==="Series"||item?.type==="Anime";}
+  function lastLoggedEpisode(item){
+    const history=Array.isArray(item?.episodeHistory)?item.episodeHistory:[],recent=history.length?history[history.length-1]:null;
+    const season=Number(item?.lastWatchedSeason??recent?.season??0),episode=Number(item?.lastWatchedEpisode??recent?.episode??0);
+    if(!Number.isInteger(season)||season<=0||!Number.isInteger(episode)||episode<=0)return null;
+    return{season,episode,watchedAt:item?.lastEpisodeWatchedAt||recent?.watchedAt||""};
+  }
   function positiveEpisodeMap(value){
     const counts={};
     for(const [season,count] of Object.entries(value||{})){
@@ -789,6 +797,16 @@
     }
     return null;
   }
+  function episodeLogAction(item){
+    const next=nextWatchableEpisode(item);if(next)return{kind:"advance",target:next};
+    const season=Math.max(0,Number(item?.curSeason||0)),episode=Math.max(0,Number(item?.curEp||0)),last=lastLoggedEpisode(item);
+    const currentOrder=season*10000+episode,lastOrder=last?last.season*10000+last.episode:0;
+    if(isEpisodeTrackable(item)&&season>0&&episode>0&&currentOrder>lastOrder){
+      const counts=releasedEpisodeCounts(item);
+      return{kind:"confirm",target:{season,episode,seasonMax:Number(counts[season]||episode)}};
+    }
+    return null;
+  }
   function applyEpisodeWatched(item,target,event){
     const counts=releasedEpisodeCounts(item),releasedSeasons=Object.keys(counts).map(Number),laterReleased=releasedSeasons.some(season=>season>target.season);
     const completedLimit=Math.max(0,Number(item.verifiedCompletedSeasons||0));
@@ -808,8 +826,8 @@
   async function quickLogEpisode(id){
     const key=String(id);if(episodeLogBusy.has(key))return;
     const index=mediaItems.findIndex(item=>String(item.id)===key),item=mediaItems[index];if(index<0||!item)return;
-    const target=nextWatchableEpisode(item);if(!target)return;
-    const original=item,event={id:uuid(),season:target.season,episode:target.episode,watchedAt:nowISO()};
+    const action=episodeLogAction(item),target=action?.target;if(!target)return;
+    const original=item,event={id:uuid(),kind:action.kind,season:target.season,episode:target.episode,watchedAt:nowISO()};
     episodeLogBusy.add(key);episodeLogFeedback={itemId:key,eventId:event.id,label:`Saving S${target.season} E${target.episode}…`,logged:false};
     mediaItems[index]=applyEpisodeWatched(item,target,event);render();
     let saved=false;
@@ -824,6 +842,38 @@
       if(saved)setTimeout(()=>{if(episodeLogFeedback?.eventId===event.id){episodeLogFeedback=null;render();}},1800);
     }
   }
+  function closeEpisodeTrackerSheet(){activeEpisodeTrackerId="";episodeTrackerModal.classList.add("hidden");}
+  function openEpisodeTracker(id){
+    const item=mediaItems.find(row=>String(row.id)===String(id));if(!isEpisodeTrackable(item))return;
+    activeEpisodeTrackerId=String(id);episodeTrackerModal.classList.remove("hidden");updateEpisodeTracker();
+    setTimeout(()=>{(episodeTrackerLog.disabled?closeEpisodeTracker:episodeTrackerLog).focus();},0);
+  }
+  function updateEpisodeTracker(){
+    if(!activeEpisodeTrackerId||episodeTrackerModal.classList.contains("hidden"))return;
+    const item=mediaItems.find(row=>String(row.id)===String(activeEpisodeTrackerId));if(!item){closeEpisodeTrackerSheet();return;}
+    const counts=releasedEpisodeCounts(item),releasedSeasons=Object.keys(counts).map(Number).sort((a,b)=>a-b),latestSeason=releasedSeasons[releasedSeasons.length-1]||0;
+    const last=lastLoggedEpisode(item),action=episodeLogAction(item),target=action?.target,feedback=episodeLogFeedback?.itemId===String(item.id)?episodeLogFeedback:null;
+    episodeTrackerTitle.textContent=item.title||"Show";
+    episodeTrackerProgress.textContent=Number(item.curSeason)>0?`S${Number(item.curSeason)} E${Math.max(0,Number(item.curEp||0))}`:"Not started";
+    episodeTrackerRelease.textContent=latestSeason?`Released through S${latestSeason} E${counts[latestSeason]}`:"No released episode schedule found";
+    episodeTrackerLast.classList.toggle("unmarked",!last);
+    episodeTrackerLast.textContent=last?`✓ S${last.season} E${last.episode} watched${last.watchedAt?` • ${formatLocalDateTime(last.watchedAt)}`:""}`:"No episode has been marked with the tracker yet.";
+    if(action?.kind==="confirm")episodeTrackerNext.textContent=`S${target.season} E${target.episode} matches your current progress. Mark it to keep a permanent watched record.`;
+    else if(target)episodeTrackerNext.textContent=`S${target.season} E${target.episode} is released and ready to mark watched.`;
+    else if(item.nextEpisodeNum){
+      const season=Number(item.airingSeason||item.curSeason||0),date=item.nextEpisodeDate?` on ${formatLocalDateTime(item.nextEpisodeDate)}`:"";
+      episodeTrackerNext.textContent=`Next episode: ${season?`S${season} `:""}E${item.nextEpisodeNum}${date}.`;
+    }else episodeTrackerNext.textContent="No later released episode is available to mark yet.";
+    episodeTrackerLog.classList.toggle("logged",Boolean(feedback?.logged)||Boolean(!action&&last));
+    if(feedback){episodeTrackerLog.textContent=feedback.label;episodeTrackerLog.disabled=true;}
+    else if(target){episodeTrackerLog.textContent=`Mark S${target.season} E${target.episode} watched`;episodeTrackerLog.disabled=episodeLogBusy.has(String(item.id));}
+    else{episodeTrackerLog.textContent=last?`✓ S${last.season} E${last.episode} is marked watched`:"No released episode to mark";episodeTrackerLog.disabled=true;}
+  }
+  closeEpisodeTracker.onclick=closeEpisodeTrackerSheet;
+  episodeTrackerModal.addEventListener("click",event=>{if(event.target===episodeTrackerModal)closeEpisodeTrackerSheet();});
+  document.addEventListener("keydown",event=>{if(event.key==="Escape"&&!episodeTrackerModal.classList.contains("hidden"))closeEpisodeTrackerSheet();});
+  episodeTrackerLog.onclick=()=>{if(activeEpisodeTrackerId)quickLogEpisode(activeEpisodeTrackerId);};
+  episodeTrackerEdit.onclick=()=>{const id=activeEpisodeTrackerId;closeEpisodeTrackerSheet();if(id)openEdit(id);};
   function sortMediaRows(rows){
     const list=[...rows];
     if(activeSort==="title")return list.sort((a,b)=>titleCollator.compare(a.title||"",b.title||""));
@@ -888,23 +938,22 @@
     });
     return sortMediaRows(rows);
   }
-  function decorateEpisodeQuickActions(){
-    if(currentTab!=="library")return;
+  function decorateShowCards(){
     const items=currentVisibleMediaRows(),rows=mediaList.querySelectorAll(".title-item");
     rows.forEach((row,index)=>{
-      const item=items[index];if(!item||item.status!=="Watching"||!isEpisodeTrackable(item))return;
-      const key=String(item.id),target=nextWatchableEpisode(item),feedback=episodeLogFeedback?.itemId===key?episodeLogFeedback:null;
-      if(!target&&!feedback)return;
-      const action=document.createElement("div");action.className=`episode-quick-row${feedback?.logged?" logged":""}`;
-      const button=document.createElement("button");button.type="button";button.className="episode-quick-button";
-      button.textContent=feedback?.label||"✓ Episode watched";button.disabled=episodeLogBusy.has(key)||Boolean(feedback);
-      button.setAttribute("aria-label",target?`Mark season ${target.season} episode ${target.episode} watched`:button.textContent);
-      button.addEventListener("click",event=>{event.stopPropagation();quickLogEpisode(item.id);});
-      const next=document.createElement("span");next.className="episode-quick-next";next.textContent=target?`Next: S${target.season} E${target.episode}`:"Caught up";
-      action.append(button,next);row.appendChild(action);
+      const item=items[index];if(!isEpisodeTrackable(item))return;
+      const last=lastLoggedEpisode(item),main=row.querySelector(".item-main"),right=row.querySelector(".item-right");
+      const status=document.createElement("div");status.className=`show-track-status${last?" marked":""}`;
+      status.textContent=last?`✓ S${last.season} E${last.episode} watched · Track episodes`:"Track episodes";
+      main?.appendChild(status);
+      const edit=document.createElement("button");edit.type="button";edit.className="show-edit-button";edit.textContent="✎";
+      edit.title=`Edit ${item.title}`;edit.setAttribute("aria-label",`Edit ${item.title}`);
+      edit.addEventListener("click",event=>{event.stopPropagation();openEdit(item.id);});right?.appendChild(edit);
+      row.onclick=()=>openEpisodeTracker(item.id);row.setAttribute("role","button");row.setAttribute("aria-label",`Track episodes for ${item.title}`);row.tabIndex=0;
+      row.onkeydown=event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();openEpisodeTracker(item.id);}};
     });
   }
-  render=function(){renderTitleRows();decorateEpisodeQuickActions();};
+  render=function(){renderTitleRows();decorateShowCards();updateEpisodeTracker();};
 
   function toLocalInput(v){if(!v)return"";const d=new Date(v);if(Number.isNaN(d.getTime()))return"";const p=n=>String(n).padStart(2,"0");return`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;}
   function dateOnlyInput(v){return v?`${v}T00:00`:"";}
@@ -1345,7 +1394,6 @@
       $("cur-season").removeAttribute("max");$("watched-seasons").removeAttribute("max");
     }
     refreshEpisodeOptions();
-    updateEditorEpisodeAction();
     if(!progressVerifyNote)return;
     if(result?.airing){
       const a=result.airing,next=a.nextEpisode;
@@ -1357,36 +1405,6 @@
       progressVerifyNote.textContent=`No episodes have been released yet. Keep Current Season and Episode at 0 until Season ${result.upcoming.number} begins.`;
     }else progressVerifyNote.textContent="No released episode schedule was found; enter your progress manually.";
   }
-
-  function editorProgressSnapshot(){
-    const id=$("item-id").value,stored=mediaItems.find(item=>String(item.id)===String(id))||{};
-    const verified=editorVerification?.result||{};
-    return{
-      ...stored,type:typeSelect.value,status:$("status").value,
-      watchedSeasons:Number($("watched-seasons").value||0),curSeason:Number($("cur-season").value||0),curEp:Number($("cur-ep").value||0),
-      airedEpisodeCounts:positiveEpisodeMap(episodeCountsForForm),episodeCounts:stored.episodeCounts||positiveEpisodeMap(episodeCountsForForm),
-      verifiedCompletedSeasons:Number.isFinite(Number(verified.completedSeasons))?Number(verified.completedSeasons):Number(stored.verifiedCompletedSeasons||0),
-      airingSeason:Number($("airing-season").value||stored.airingSeason||0),latestEpisodeNum:Number($("latest-episode-num").value||stored.latestEpisodeNum||0),
-      nextEpisodeNum:Number($("next-episode-num").value||stored.nextEpisodeNum||0),nextEpisodeDate:$("next-episode-date").value||stored.nextEpisodeDate||"",
-      nextSeasonNum:Number($("next-season-num").value||stored.nextSeasonNum||0),nextSeasonDate:$("next-season-date").value||stored.nextSeasonDate||""
-    };
-  }
-  function updateEditorEpisodeAction(){
-    if(!episodeLogActions)return;
-    const id=$("item-id").value,item=editorProgressSnapshot(),target=id?nextWatchableEpisode(item):null;
-    const visible=Boolean(id&&isEpisodeTrackable(item)&&target);
-    episodeLogActions.classList.toggle("hidden",!visible);
-    if(!visible)return;
-    logEpisodeBtn.disabled=Boolean(pendingEpisodeLog);logEpisodeBtn.textContent=pendingEpisodeLog?"Saving episode…":"✓ Episode watched";
-    episodeLogNext.textContent=`Next: S${target.season} E${target.episode}`;
-  }
-  logEpisodeBtn.onclick=()=>{
-    const id=$("item-id").value,item=editorProgressSnapshot(),target=nextWatchableEpisode(item);if(!id||!target||pendingEpisodeLog)return;
-    const event={id:uuid(),itemId:String(id),season:target.season,episode:target.episode,watchedAt:nowISO()},updated=applyEpisodeWatched(item,target,event);
-    $("cur-season").value=String(updated.curSeason);refreshEpisodeOptions();$("cur-ep").value=String(updated.curEp);
-    $("watched-seasons").value=String(updated.watchedSeasons);$("status").value=updated.status;
-    pendingEpisodeLog=event;updateEditorEpisodeAction();mediaForm.requestSubmit();
-  };
 
   function clearAiringFields(){
     airingSection.style.display="none";
@@ -1454,14 +1472,12 @@
     if(!r.upcoming){
       $("next-season-num").value="";$("next-season-date").value="";
       rememberEditorVerification("Series",r);
-      updateEditorEpisodeAction();
       return r;
     }
     $("next-season-num").value=String(r.upcoming.number);
     if(r.nextEpisode&&Number(r.nextEpisode.season)===r.upcoming.number)$("next-season-date").value=episodeLocalInput(r.nextEpisode);
     else $("next-season-date").value=r.upcoming.premiereDate?dateOnlyInput(r.upcoming.premiereDate):"";
     rememberEditorVerification("Series",r);
-    updateEditorEpisodeAction();
     return r;
   }
 
@@ -1490,10 +1506,7 @@
   }
   async function exactTVMazeId(title,options={}){const show=await exactTVMazeShow(title,options);return show?.id?String(show.id):"";}
 
-  $("cur-season").addEventListener("input",()=>{refreshEpisodeOptions();updateEditorEpisodeAction();});
-  $("cur-ep").addEventListener("input",updateEditorEpisodeAction);
-  $("watched-seasons").addEventListener("input",updateEditorEpisodeAction);
-  $("status").addEventListener("change",updateEditorEpisodeAction);
+  $("cur-season").addEventListener("input",refreshEpisodeOptions);
   function isWeakFilmRecord(item){
     if(item?.type!=="Film")return false;
     const genericPlatform=["","film","movie"].includes(normalizeTitle(item.platform||""));
@@ -2333,7 +2346,6 @@
     filmSection.style.display=film?"flex":"none";
     if(film){clearAiringFields();if(filmVerifyNote)filmVerifyNote.textContent="Films and series are checked through multiple sources.";}
     else{filmReleaseDate.value="";filmReleaseSource.value="";}
-    updateEditorEpisodeAction();
   };
   filmReleaseDate.addEventListener("input",()=>{editorVerification=null;if(typeSelect.value==="Film")filmReleaseSource.value="Manual";});
 
@@ -2353,7 +2365,7 @@
   }
 
   function openAdd(){
-    editorVerification=null;pendingEpisodeLog=null;
+    editorVerification=null;
     mediaForm.reset();
     $("item-id").value="";$("tvmaze-id").value="";$("imdb-id").value="";$("release-year").value="";filmReleaseSource.value="";
     clearAiringFields();configureProgressOptions({highest:null,episodeCounts:{},latestAired:null});
@@ -2364,7 +2376,7 @@
   }
 
   async function openEdit(id){
-    editorVerification=null;pendingEpisodeLog=null;
+    editorVerification=null;
     const item=mediaItems.find(x=>String(x.id)===String(id));if(!item)return;
     $("item-id").value=item.id;$("tvmaze-id").value=item.tvmazeShowId||"";$("imdb-id").value=item.imdbId||"";$("release-year").value=item.releaseYear||"";
     $("title").value=item.title||"";$("type").value=item.type||"Series";$("status").value=item.status==="Saved"?"Planned":(item.status||"Planned");
@@ -2386,7 +2398,7 @@
       try{await fillSeasonData(sid||"",item.title,{preserveProgress:true,...options});}catch(e){console.warn(e);}
     }
   }
-  function closeEditor(){pendingEpisodeLog=null;modal.classList.add("hidden");}
+  function closeEditor(){modal.classList.add("hidden");}
   addBtn.onclick=openAdd;closeModal.onclick=closeEditor;modal.addEventListener("click",e=>{if(e.target===modal)closeEditor();});
 
   mediaForm.onsubmit=async e=>{
@@ -2414,8 +2426,7 @@
         }
       }
       const previous=mediaItems.find(x=>String(x.id)===String(id));
-      const episodeLog=pendingEpisodeLog&&String(pendingEpisodeLog.itemId)===String(id)?pendingEpisodeLog:null;
-      const episodeHistory=episodeLog?[...(Array.isArray(previous?.episodeHistory)?previous.episodeHistory:[]),episodeLog].slice(-500):(Array.isArray(previous?.episodeHistory)?previous.episodeHistory:[]);
+      const episodeHistory=Array.isArray(previous?.episodeHistory)?previous.episodeHistory:[];
       const numOrNull=x=>$(x).value===""?null:Number.parseInt($(x).value,10);
       const total=type==="Film"?null:($("total-seasons").value?Number($("total-seasons").value):null);
       const episodeCounts=type==="Film"?{}:(verified?.episodeCounts||previous?.episodeCounts||{});
@@ -2430,8 +2441,8 @@
         nextSeasonNum:type==="Film"?"":($("next-season-num").value?Number($("next-season-num").value):""),nextSeasonDate:type==="Film"?"":($("next-season-date").value||""),
         filmReleaseDate:type==="Film"?(filmReleaseDate.value||""):"",filmReleaseSource:type==="Film"?(filmReleaseDate.value?(filmReleaseSource.value||"Manual"):""):"",
         verifiedCompletedSeasons:type==="Film"?null:(Number.isFinite(Number(verified?.completedSeasons))?Number(verified.completedSeasons):Number(previous?.verifiedCompletedSeasons||0)),
-        episodeHistory:type==="Film"?[]:episodeHistory,lastEpisodeWatchedAt:type==="Film"?"":(episodeLog?.watchedAt||previous?.lastEpisodeWatchedAt||""),
-        lastWatchedSeason:type==="Film"?null:(episodeLog?.season??previous?.lastWatchedSeason??null),lastWatchedEpisode:type==="Film"?null:(episodeLog?.episode??previous?.lastWatchedEpisode??null),
+        episodeHistory:type==="Film"?[]:episodeHistory,lastEpisodeWatchedAt:type==="Film"?"":(previous?.lastEpisodeWatchedAt||""),
+        lastWatchedSeason:type==="Film"?null:(previous?.lastWatchedSeason??null),lastWatchedEpisode:type==="Film"?null:(previous?.lastWatchedEpisode??null),
         platform,date:localISODate(),createdAt:previous?.createdAt||nowISO(),updatedAt:nowISO()
       };
       if(previous?.autoPlanned&&item.status==="Planned"){
@@ -2442,9 +2453,9 @@
       const sameTitleSeries=mediaItems.find(x=>String(x.id)!==String(id)&&x.type!=="Film"&&normalizeTitle(x.title)===normalizeTitle(title));
       if(isWeakFilmRecord(item)&&sameTitleSeries)throw new Error(`“${title}” is already saved as a verified series. Choose a verified film result with a year or release date if you mean a separate film.`);
       const idx=mediaItems.findIndex(x=>String(x.id)===String(id));if(idx>=0)mediaItems[idx]=item;else mediaItems.unshift(item);
-      await persistLibrary(mediaItems,{background:true});pendingEpisodeLog=null;render();closeEditor();
-    }catch(err){console.error(err);pendingEpisodeLog=null;updateEditorEpisodeAction();alert(err.message||"Save failed.");}
-    finally{saveBtn.disabled=false;saveBtn.textContent="Save";updateEditorEpisodeAction();}
+      await persistLibrary(mediaItems,{background:true});render();closeEditor();
+    }catch(err){console.error(err);alert(err.message||"Save failed.");}
+    finally{saveBtn.disabled=false;saveBtn.textContent="Save";}
   };
   deleteBtn.onclick=async()=>{const id=$("item-id").value;if(!id)return;try{mediaItems=mediaItems.filter(x=>String(x.id)!==String(id));await persistLibrary(mediaItems);render();modal.classList.add("hidden");}catch(e){console.error(e);alert("Delete failed.");}};
 
