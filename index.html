@@ -105,7 +105,7 @@
   </div>
 
   <main class="container">
-    <div id="library-view"><div id="list-toolbar" class="list-toolbar"><div class="list-toolbar-row"><div id="list-label" class="section-label">Titles</div><label class="sort-control" for="sort-mode"><span>Sort</span><select id="sort-mode" aria-label="Sort titles"><option value="recent">Recent</option><option value="title">Title A–Z</option><option value="platform">Platform watched on</option><option value="watched">Date watched</option><option value="shows">Show groups</option></select></label></div><div class="filter-pills" aria-label="Filter titles by status"><button class="pill-btn active" data-filter="All">All</button><button class="pill-btn" data-filter="Planned">Planned</button><button class="pill-btn" data-filter="Watching">Watching</button><button class="pill-btn" data-filter="Watched">Watched</button></div></div><div id="media-list" class="titles-group"></div><div id="empty-state" class="hidden" style="text-align:center;margin-top:40px;color:var(--muted)">No titles found. Tap <strong>+</strong> to start.</div></div>
+    <div id="library-view"><div id="list-toolbar" class="list-toolbar"><div class="list-toolbar-row"><div id="list-label" class="section-label">Titles</div><label class="sort-control" for="sort-mode"><span>Sort</span><select id="sort-mode" aria-label="Sort titles"><option value="recent">Current &amp; recent</option><option value="release">Newest release date</option><option value="title">Title A–Z</option><option value="platform">Platform watched on</option><option value="watched">Date watched</option></select></label></div><div class="filter-pills" aria-label="Filter titles by status"><button class="pill-btn active" data-filter="All">All</button><button class="pill-btn" data-filter="Planned">Planned</button><button class="pill-btn" data-filter="Watching">Watching</button><button class="pill-btn" data-filter="Watched">Watched</button></div></div><div id="media-list" class="titles-group"></div><div id="empty-state" class="hidden" style="text-align:center;margin-top:40px;color:var(--muted)">No titles found. Tap <strong>+</strong> to start.</div></div>
     <div id="settings-view" class="hidden"><div class="section-label">Appearance</div><div class="profile-card appearance-card"><div class="form-group"><label for="appearance-mode">Colour mode</label><select id="appearance-mode"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div><div class="appearance-copy">System follows your iPhone setting. Light and Dark keep your chosen appearance on this device.</div></div><div class="section-label">Background Reminders</div><div class="profile-card background-reminder-card"><div class="reminder-test-title">Planned titles when the app is closed</div><div id="background-reminder-status" class="notification-status">Checking notification support…</div><div class="notification-rule"><span class="notification-rule-dot"></span><span><strong>1 day before</strong> the Planned date and time</span></div><div class="notification-rule"><span class="notification-rule-dot"></span><span><strong>6 hours before</strong> the Planned date and time</span></div><div class="notification-actions"><button id="enable-background-reminders" class="btn btn-primary btn-full" type="button">Enable Background Reminders</button><button id="disable-background-reminders" class="btn btn-secondary btn-full hidden" type="button">Turn Off on This Device</button></div><div class="small-note" style="margin-top:11px">iPhone delivers these through Web Push, so Watched Logger does not stay running or use background battery. If a title has only a date, noon in this device’s timezone is used.</div></div><div id="notification-test-settings" class="hidden"><div class="section-label">Private Reminder Test</div><div class="profile-card reminder-test-card"><div class="reminder-test-title">Background push test</div><div id="notification-test-status" class="notification-status">Checking notification support…</div><div class="notification-actions"><button id="send-planned-test" class="btn btn-primary btn-full" type="button">Queue Private Background Test</button></div><div class="small-note" style="margin-top:11px">This control is restricted to your account. It uses a Planned title and arrives through the server within about one minute, so you can close Watched Logger immediately after tapping it.</div></div></div><div class="section-label">Account & Sync</div><div class="profile-card"><div class="profile-header"><div id="avatar" class="avatar">U</div><div class="profile-info"><h3 id="profile-name">User</h3><p id="profile-email"></p></div></div><div class="sync-box"><div class="sync-title"><div id="sync-dot" class="sync-dot ok"></div>Watched Logger Cloud Sync</div><div id="sync-status" class="sync-text">Your library is linked to this email account and can be loaded on another device with the same 4-digit PIN.</div><button id="sync-now" class="btn btn-secondary btn-full" type="button">Sync Now</button></div><div class="sync-box"><div class="sync-title">Change 4-digit PIN</div><div class="form-group"><label for="new-pin">New PIN</label><input id="new-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="••••" /></div><button id="change-pin" class="btn btn-secondary btn-full" type="button">Change PIN</button><div class="small-note">PIN changes apply to every device. Five incorrect PIN attempts temporarily lock sign-in for 15 minutes.</div></div><button id="logout-btn" class="btn btn-danger btn-full">Log Out</button></div></div>
   </main>
 
@@ -729,6 +729,8 @@
           airingSeason:scheduleVerified?(airing?.season??null):current.airingSeason,
           latestEpisodeNum:scheduleVerified?(airing?.latestEpisode??null):current.latestEpisodeNum,
           latestEpisodeTitle:scheduleVerified?(airing?.latestEpisodeTitle||""):(current.latestEpisodeTitle||""),
+          latestEpisodeDate:scheduleVerified?(result?.latestEpisodeDate||""):(current.latestEpisodeDate||""),
+          seriesReleaseDate:result?.seriesReleaseDate||current.seriesReleaseDate||"",
           nextEpisodeNum:scheduleVerified?(next?.number??null):current.nextEpisodeNum,
           nextEpisodeTitle:scheduleVerified?(next?.name||""):(current.nextEpisodeTitle||""),
           nextEpisodeDate:scheduleVerified?(next?episodeLocalInput(next):""):(current.nextEpisodeDate||""),
@@ -757,7 +759,7 @@
     const nextEpisodeTime=toMillis(item.nextEpisodeDate),nextSeasonTime=toMillis(item.nextSeasonDate);
     const dueTimes=[nextEpisodeTime,nextSeasonTime].filter(time=>time>0&&time<=now);
     const due=dueTimes.length>0;
-    const refreshedAt=toMillis(item.metadataUpdatedAt),stale=!refreshedAt||now-refreshedAt>=SERIES_METADATA_STALE_MS;
+    const refreshedAt=toMillis(item.metadataUpdatedAt),missingReleaseDate=!item.latestEpisodeDate&&!item.seriesReleaseDate,stale=missingReleaseDate||!refreshedAt||now-refreshedAt>=SERIES_METADATA_STALE_MS;
     if(!due&&!stale)return null;
     const statusScore=item.status==="Watching"?30:item.status==="Planned"?20:10;
     const dueTime=due?Math.min(...dueTimes):Number.POSITIVE_INFINITY;
@@ -897,7 +899,7 @@
 
   const SORT_KEY="watched_logger_sort_v1";
   const titleCollator=new Intl.Collator(undefined,{sensitivity:"base",numeric:true});
-  function savedSortMode(){const value=safeReadJSON(SORT_KEY,"recent");return ["recent","title","platform","watched","shows"].includes(value)?value:"recent";}
+  function savedSortMode(){const value=safeReadJSON(SORT_KEY,"recent");return ["recent","release","title","platform","watched"].includes(value)?value:"recent";}
   function originalTitlePrefix(title,wordCount){
     return String(title||"").replace(/\s*[:–—]\s.*$/,"").trim().split(/\s+/).slice(0,wordCount).join(" ");
   }
@@ -942,6 +944,38 @@
   function addedSortTime(item){
     const value=item?.createdAt?new Date(item.createdAt).getTime():0;
     return Number.isFinite(value)?value:0;
+  }
+  function releaseSortInfo(item,now=Date.now()){
+    let value="";
+    if(item?.type==="Film")value=item.filmReleaseDate||"";
+    else value=item?.latestEpisodeDate||item?.seriesReleaseDate||item?.nextEpisodeDate||"";
+    if(!value&&item?.releaseYear&&/^\d{4}$/.test(String(item.releaseYear)))value=`${item.releaseYear}-01-01`;
+    const dateOnly=/^\d{4}-\d{2}-\d{2}$/.test(String(value));
+    const time=value?new Date(dateOnly?`${value}T12:00:00`:value).getTime():0;
+    if(!Number.isFinite(time)||time<=0)return{bucket:0,time:0};
+    return{bucket:time>now?1:2,time};
+  }
+  function compareReleaseRecency(a,b,now=Date.now()){
+    const ar=releaseSortInfo(a,now),br=releaseSortInfo(b,now);
+    if(ar.bucket!==br.bucket)return br.bucket-ar.bucket;
+    if(ar.bucket===2&&ar.time!==br.time)return br.time-ar.time;
+    if(ar.bucket===1&&ar.time!==br.time)return ar.time-br.time;
+    return addedSortTime(b)-addedSortTime(a)||titleCollator.compare(a.title||"",b.title||"");
+  }
+  function currentPlaybackRank(item,now=Date.now()){
+    const watching=item?.status==="Watching";
+    if(isEpisodeTrackable(item)){
+      const nextTime=toMillis(item.nextEpisodeDate),hasCurrentSchedule=Boolean(item.airingSeason&&(item.nextEpisodeNum||nextTime>now-6*60*60*1000));
+      if(hasCurrentSchedule)return 3;
+      if(watching)return 2;
+      return 0;
+    }
+    if(item?.type==="Film"){
+      if(watching)return 3;
+      const release=releaseSortInfo(item,now),platform=normalizeTitle(item.platform||"");
+      if(release.bucket===2&&now-release.time<=120*24*60*60*1000&&(platform.includes("theatre")||platform.includes("cinema")))return 2;
+    }
+    return watching?1:0;
   }
   function knownSeasonTotal(item){
     if(item?.type==="Film")return 0;
@@ -1130,8 +1164,10 @@
   episodeTrackerGrid.addEventListener("click",event=>{const button=event.target.closest("button[data-season][data-episode]");if(!button||!activeEpisodeTrackerId)return;toggleEpisodeWatched(activeEpisodeTrackerId,Number(button.dataset.season),Number(button.dataset.episode));});
   episodeTrackerEdit.onclick=()=>{const id=activeEpisodeTrackerId;closeEpisodeTrackerSheet();if(id)openEdit(id);};
   function sortMediaRows(rows){
-    const list=[...rows],groups=new Map();
-    if(activeSort==="title")list.sort((a,b)=>titleCollator.compare(a.title||"",b.title||""));
+    const list=[...rows],groups=new Map(),now=Date.now();
+    if(activeSort==="recent")list.sort((a,b)=>currentPlaybackRank(b,now)-currentPlaybackRank(a,now)||compareReleaseRecency(a,b,now));
+    else if(activeSort==="release")list.sort((a,b)=>compareReleaseRecency(a,b,now));
+    else if(activeSort==="title")list.sort((a,b)=>titleCollator.compare(a.title||"",b.title||""));
     else if(activeSort==="platform")list.sort((a,b)=>{
       const ap=String(a.platform||"").trim(),bp=String(b.platform||"").trim();
       if(!ap&&!bp)return titleCollator.compare(a.title||"",b.title||"");
@@ -1148,15 +1184,7 @@
         const ag=groups.get(String(a.id)),bg=groups.get(String(b.id));
         return titleCollator.compare(ag?.key||"",bg?.key||"")||titleCollator.compare(a.title||"",b.title||"");
       });
-    }else if(currentTab==="library"&&(activeFilter==="All"||activeFilter==="Planned")){
-      list.sort((a,b)=>{
-        const aUpcoming=upcomingSortInfo(a),bUpcoming=upcomingSortInfo(b);
-        if(aUpcoming.rank!==bUpcoming.rank)return bUpcoming.rank-aUpcoming.rank;
-        if(aUpcoming.rank===2&&aUpcoming.time!==bUpcoming.time)return aUpcoming.time-bUpcoming.time;
-        const aPlanned=a.status==="Planned"||a.status==="Saved",bPlanned=b.status==="Planned"||b.status==="Saved";
-        return Number(bPlanned)-Number(aPlanned)||addedSortTime(b)-addedSortTime(a);
-      });
-    }else list.sort((a,b)=>addedSortTime(b)-addedSortTime(a));
+    }else list.sort((a,b)=>currentPlaybackRank(b,now)-currentPlaybackRank(a,now)||compareReleaseRecency(a,b,now));
     return{rows:list,groups};
   }
   function updateCounts(){
@@ -1651,7 +1679,7 @@
     if(wiki.available)sources.push("Wikipedia");
     const resolvedImdbId=imdb?.imdbId||expectedImdbId||"";
     return {
-      highest,latestAired,currentEpisode,completedSeasons:schedule.completedSeasons,upcoming,nextEpisode:schedule.nextEpisode,airing:schedule.airing,
+      highest,latestAired,currentEpisode,latestEpisodeDate:schedule.currentEpisodeRow?.airstamp||schedule.currentEpisodeRow?.airdate||"",seriesReleaseDate:show?.premiered||"",completedSeasons:schedule.completedSeasons,upcoming,nextEpisode:schedule.nextEpisode,airing:schedule.airing,
       episodeCounts:schedule.episodeCounts,airedEpisodeCounts:schedule.airedEpisodeCounts,known,sources,tvAvailable,episodeScheduleAvailable,
       resolvedShowId,imdbId:resolvedImdbId,imdbConfirmed:imdb?.confirmed===true,show,ended:tvEnded
     };
@@ -1954,6 +1982,7 @@
       createdAt:[a.createdAt,b.createdAt].filter(Boolean).sort((x,y)=>toMillis(x)-toMillis(y))[0]||primary.createdAt||nowISO(),
       updatedAt:aTime>=bTime?(a.updatedAt||a.date||nowISO()):(b.updatedAt||b.date||nowISO()),
       date:watchedSortTime(a)>=watchedSortTime(b)?(a.date||b.date):(b.date||a.date),
+      latestEpisodeDate:filled(recent.latestEpisodeDate,primary.latestEpisodeDate,secondary.latestEpisodeDate),seriesReleaseDate:filled(primary.seriesReleaseDate,secondary.seriesReleaseDate),
       nextEpisodeNum:upcoming.nextEpisodeNum??null,nextEpisodeTitle:upcoming.nextEpisodeTitle||"",nextEpisodeDate:upcoming.nextEpisodeDate||"",
       nextSeasonNum:upcoming.nextSeasonNum||"",nextSeasonDate:upcoming.nextSeasonDate||"",
       filmReleaseDate:filled(recent.filmReleaseDate,primary.filmReleaseDate,secondary.filmReleaseDate),
@@ -2854,6 +2883,7 @@
         totalSeasons:total,watchedSeasons:type==="Film"?null:numOrNull("watched-seasons"),curSeason,curEp:type==="Film"?null:numOrNull("cur-ep"),
         currentSeasonEpisodeCount:type==="Film"?null:Number(airedEpisodeCounts?.[curSeason]||0)||null,currentSeasonTotalEpisodes:type==="Film"?null:Number(episodeCounts?.[curSeason]||0)||null,episodeCounts:type==="Film"?{}:episodeCounts,airedEpisodeCounts:type==="Film"?{}:airedEpisodeCounts,
         airingSeason:type==="Film"?null:numOrNull("airing-season"),latestEpisodeNum:type==="Film"?null:numOrNull("latest-episode-num"),latestEpisodeTitle:type==="Film"?"":$("latest-episode-title").value||"",
+        latestEpisodeDate:type==="Film"?"":(verified?.latestEpisodeDate||previous?.latestEpisodeDate||""),seriesReleaseDate:type==="Film"?"":(verified?.seriesReleaseDate||previous?.seriesReleaseDate||""),
         nextEpisodeNum:type==="Film"?null:numOrNull("next-episode-num"),nextEpisodeTitle:type==="Film"?"":$("next-episode-title").value||"",nextEpisodeDate:type==="Film"?"":($("next-episode-date").value||""),
         nextSeasonNum:type==="Film"?"":($("next-season-num").value?Number($("next-season-num").value):""),nextSeasonDate:type==="Film"?"":($("next-season-date").value||""),
         filmReleaseDate:type==="Film"?(filmReleaseDate.value||""):"",filmReleaseSource:type==="Film"?(filmReleaseDate.value?(filmReleaseSource.value||"Manual"):""):"",
