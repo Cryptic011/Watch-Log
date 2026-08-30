@@ -105,7 +105,7 @@
   </div>
 
   <main class="container">
-    <div id="library-view"><div id="list-toolbar" class="list-toolbar"><div class="list-toolbar-row"><div id="list-label" class="section-label">Titles</div><label class="sort-control" for="sort-mode"><span>Sort</span><select id="sort-mode" aria-label="Sort titles"><option value="recent">Current &amp; recent</option><option value="release">Newest release date</option><option value="title">Title A–Z</option><option value="platform">Platform watched on</option><option value="watched">Date watched</option></select></label></div><div class="filter-pills" aria-label="Filter titles by status"><button class="pill-btn active" data-filter="All">All</button><button class="pill-btn" data-filter="Planned">Planned</button><button class="pill-btn" data-filter="Watching">Watching</button><button class="pill-btn" data-filter="Watched">Watched</button></div></div><div id="media-list" class="titles-group"></div><div id="empty-state" class="hidden" style="text-align:center;margin-top:40px;color:var(--muted)">No titles found. Tap <strong>+</strong> to start.</div></div>
+    <div id="library-view"><div id="list-toolbar" class="list-toolbar"><div class="list-toolbar-row"><div id="list-label" class="section-label">Titles</div><label class="sort-control" for="sort-mode"><span>Sort</span><select id="sort-mode" aria-label="Sort titles"><option value="current">Current</option><option value="recent">Recent</option><option value="title">Title A–Z</option><option value="release">Newest release date</option><option value="platform">Platform watched on</option><option value="watched">Date watched</option></select></label></div><div class="filter-pills" aria-label="Filter titles by status"><button class="pill-btn active" data-filter="All">All</button><button class="pill-btn" data-filter="Planned">Planned</button><button class="pill-btn" data-filter="Watching">Watching</button><button class="pill-btn" data-filter="Watched">Watched</button></div></div><div id="media-list" class="titles-group"></div><div id="empty-state" class="hidden" style="text-align:center;margin-top:40px;color:var(--muted)">No titles found. Tap <strong>+</strong> to start.</div></div>
     <div id="settings-view" class="hidden"><div class="section-label">Appearance</div><div class="profile-card appearance-card"><div class="form-group"><label for="appearance-mode">Colour mode</label><select id="appearance-mode"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div><div class="appearance-copy">System follows your iPhone setting. Light and Dark keep your chosen appearance on this device.</div></div><div class="section-label">Background Reminders</div><div class="profile-card background-reminder-card"><div class="reminder-test-title">Planned titles when the app is closed</div><div id="background-reminder-status" class="notification-status">Checking notification support…</div><div class="notification-rule"><span class="notification-rule-dot"></span><span><strong>1 day before</strong> the Planned date and time</span></div><div class="notification-rule"><span class="notification-rule-dot"></span><span><strong>6 hours before</strong> the Planned date and time</span></div><div class="notification-actions"><button id="enable-background-reminders" class="btn btn-primary btn-full" type="button">Enable Background Reminders</button><button id="disable-background-reminders" class="btn btn-secondary btn-full hidden" type="button">Turn Off on This Device</button></div><div class="small-note" style="margin-top:11px">iPhone delivers these through Web Push, so Watched Logger does not stay running or use background battery. If a title has only a date, noon in this device’s timezone is used.</div></div><div id="notification-test-settings" class="hidden"><div class="section-label">Private Reminder Test</div><div class="profile-card reminder-test-card"><div class="reminder-test-title">Background push test</div><div id="notification-test-status" class="notification-status">Checking notification support…</div><div class="notification-actions"><button id="send-planned-test" class="btn btn-primary btn-full" type="button">Queue Private Background Test</button></div><div class="small-note" style="margin-top:11px">This control is restricted to your account. It uses a Planned title and arrives through the server within about one minute, so you can close Watched Logger immediately after tapping it.</div></div></div><div class="section-label">Account & Sync</div><div class="profile-card"><div class="profile-header"><div id="avatar" class="avatar">U</div><div class="profile-info"><h3 id="profile-name">User</h3><p id="profile-email"></p></div></div><div class="sync-box"><div class="sync-title"><div id="sync-dot" class="sync-dot ok"></div>Watched Logger Cloud Sync</div><div id="sync-status" class="sync-text">Your library is linked to this email account and can be loaded on another device with the same 4-digit PIN.</div><button id="sync-now" class="btn btn-secondary btn-full" type="button">Sync Now</button></div><div class="sync-box"><div class="sync-title">Change 4-digit PIN</div><div class="form-group"><label for="new-pin">New PIN</label><input id="new-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="••••" /></div><button id="change-pin" class="btn btn-secondary btn-full" type="button">Change PIN</button><div class="small-note">PIN changes apply to every device. Five incorrect PIN attempts temporarily lock sign-in for 15 minutes.</div></div><button id="logout-btn" class="btn btn-danger btn-full">Log Out</button></div></div>
   </main>
 
@@ -153,7 +153,7 @@
   let activeFilter = "All";
   let currentTab = "library";
   let searchQuery = "";
-  let activeSort = "recent";
+  let activeSort = "current";
   let searchTimer = null;
   let searchRequestId = 0;
   let editorVerification = null;
@@ -899,7 +899,7 @@
 
   const SORT_KEY="watched_logger_sort_v1";
   const titleCollator=new Intl.Collator(undefined,{sensitivity:"base",numeric:true});
-  function savedSortMode(){const value=safeReadJSON(SORT_KEY,"recent");return ["recent","release","title","platform","watched"].includes(value)?value:"recent";}
+  function savedSortMode(){const value=safeReadJSON(SORT_KEY,"current");return ["current","recent","title","release","platform","watched"].includes(value)?value:"current";}
   function originalTitlePrefix(title,wordCount){
     return String(title||"").replace(/\s*[:–—]\s.*$/,"").trim().split(/\s+/).slice(0,wordCount).join(" ");
   }
@@ -942,7 +942,7 @@
     return Number.isFinite(value)?value:0;
   }
   function addedSortTime(item){
-    const value=item?.createdAt?new Date(item.createdAt).getTime():0;
+    const value=new Date(item?.createdAt||item?.updatedAt||(item?.date?`${item.date}T12:00:00`:0)).getTime();
     return Number.isFinite(value)?value:0;
   }
   function releaseSortInfo(item,now=Date.now()){
@@ -1165,7 +1165,8 @@
   episodeTrackerEdit.onclick=()=>{const id=activeEpisodeTrackerId;closeEpisodeTrackerSheet();if(id)openEdit(id);};
   function sortMediaRows(rows){
     const list=[...rows],groups=new Map(),now=Date.now();
-    if(activeSort==="recent")list.sort((a,b)=>currentPlaybackRank(b,now)-currentPlaybackRank(a,now)||compareReleaseRecency(a,b,now));
+    if(activeSort==="current")list.sort((a,b)=>currentPlaybackRank(b,now)-currentPlaybackRank(a,now)||compareReleaseRecency(a,b,now));
+    else if(activeSort==="recent")list.sort((a,b)=>addedSortTime(b)-addedSortTime(a)||titleCollator.compare(a.title||"",b.title||""));
     else if(activeSort==="release")list.sort((a,b)=>compareReleaseRecency(a,b,now));
     else if(activeSort==="title")list.sort((a,b)=>titleCollator.compare(a.title||"",b.title||""));
     else if(activeSort==="platform")list.sort((a,b)=>{
