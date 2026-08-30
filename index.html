@@ -962,20 +962,46 @@
     if(ar.bucket===1&&ar.time!==br.time)return ar.time-br.time;
     return addedSortTime(b)-addedSortTime(a)||titleCollator.compare(a.title||"",b.title||"");
   }
-  function currentPlaybackRank(item,now=Date.now()){
-    const watching=item?.status==="Watching";
+  function currentSortInfo(item,now=Date.now()){
+    const sixHours=6*60*60*1000,day=24*60*60*1000;
     if(isEpisodeTrackable(item)){
-      const nextTime=toMillis(item.nextEpisodeDate),hasCurrentSchedule=Boolean(item.airingSeason&&(item.nextEpisodeNum||nextTime>now-6*60*60*1000));
-      if(hasCurrentSchedule)return 3;
-      if(watching)return 2;
-      return 0;
+      const nextEpisodeTime=toMillis(item.nextEpisodeDate),latestEpisodeTime=toMillis(item.latestEpisodeDate);
+      const scheduledEpisode=Number(item.nextEpisodeNum||0)>0&&nextEpisodeTime>=now-sixHours&&nextEpisodeTime<=now+90*day;
+      const justAired=Number(item.airingSeason||0)>0&&latestEpisodeTime>0&&latestEpisodeTime<=now&&now-latestEpisodeTime<=14*day;
+      if(scheduledEpisode||justAired)return{bucket:4,time:scheduledEpisode?nextEpisodeTime:latestEpisodeTime,kind:3};
+    }else if(item?.type==="Film"){
+      const release=releaseSortInfo(item,now),platform=normalizeTitle(item.platform||""),releasedDays=release.bucket===2?(now-release.time)/day:Number.POSITIVE_INFINITY;
+      const inCinemas=releasedDays>=0&&releasedDays<=120&&(platform.includes("theatre")||platform.includes("cinema"));
+      const newlyReleased=releasedDays>=0&&releasedDays<=30;
+      if(inCinemas||newlyReleased)return{bucket:4,time:release.time,kind:inCinemas?2:1};
     }
+
+    const futureTimes=[];
     if(item?.type==="Film"){
-      if(watching)return 3;
-      const release=releaseSortInfo(item,now),platform=normalizeTitle(item.platform||"");
-      if(release.bucket===2&&now-release.time<=120*24*60*60*1000&&(platform.includes("theatre")||platform.includes("cinema")))return 2;
+      const release=item.filmReleaseDate?new Date(`${item.filmReleaseDate}T12:00:00`).getTime():0;
+      if(Number.isFinite(release)&&release>now)futureTimes.push(release);
+    }else{
+      const episode=toMillis(item.nextEpisodeDate),season=toMillis(item.nextSeasonDate),series=toMillis(item.seriesReleaseDate);
+      if(episode>now)futureTimes.push(episode);
+      if(season>now)futureTimes.push(season);
+      if(series>now)futureTimes.push(series);
     }
-    return watching?1:0;
+    if(futureTimes.length)return{bucket:3,time:Math.min(...futureTimes),kind:0};
+
+    const dateTBA=isEpisodeTrackable(item)&&((Number(item.nextEpisodeNum||0)>0&&!toMillis(item.nextEpisodeDate))||(Number(item.nextSeasonNum||0)>0&&!toMillis(item.nextSeasonDate)));
+    return{bucket:dateTBA?2:1,time:0,kind:0};
+  }
+  function compareCurrentOrder(a,b,now=Date.now()){
+    const ai=currentSortInfo(a,now),bi=currentSortInfo(b,now);
+    if(ai.bucket!==bi.bucket)return bi.bucket-ai.bucket;
+    if(ai.bucket===4){
+      if(ai.kind!==bi.kind)return bi.kind-ai.kind;
+      if(ai.kind===3&&ai.time!==bi.time)return ai.time-bi.time;
+      if(ai.time!==bi.time)return bi.time-ai.time;
+    }
+    if(ai.bucket===3&&ai.time!==bi.time)return ai.time-bi.time;
+    if(ai.bucket===2)return titleCollator.compare(a.title||"",b.title||"");
+    return compareReleaseRecency(a,b,now);
   }
   function knownSeasonTotal(item){
     if(item?.type==="Film")return 0;
@@ -1165,7 +1191,7 @@
   episodeTrackerEdit.onclick=()=>{const id=activeEpisodeTrackerId;closeEpisodeTrackerSheet();if(id)openEdit(id);};
   function sortMediaRows(rows){
     const list=[...rows],groups=new Map(),now=Date.now();
-    if(activeSort==="current")list.sort((a,b)=>currentPlaybackRank(b,now)-currentPlaybackRank(a,now)||compareReleaseRecency(a,b,now));
+    if(activeSort==="current")list.sort((a,b)=>compareCurrentOrder(a,b,now));
     else if(activeSort==="recent")list.sort((a,b)=>addedSortTime(b)-addedSortTime(a)||titleCollator.compare(a.title||"",b.title||""));
     else if(activeSort==="release")list.sort((a,b)=>compareReleaseRecency(a,b,now));
     else if(activeSort==="title")list.sort((a,b)=>titleCollator.compare(a.title||"",b.title||""));
@@ -1185,7 +1211,7 @@
         const ag=groups.get(String(a.id)),bg=groups.get(String(b.id));
         return titleCollator.compare(ag?.key||"",bg?.key||"")||titleCollator.compare(a.title||"",b.title||"");
       });
-    }else list.sort((a,b)=>currentPlaybackRank(b,now)-currentPlaybackRank(a,now)||compareReleaseRecency(a,b,now));
+    }else list.sort((a,b)=>compareCurrentOrder(a,b,now));
     return{rows:list,groups};
   }
   function updateCounts(){
