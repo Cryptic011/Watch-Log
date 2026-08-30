@@ -162,6 +162,14 @@
   let cloudSaveInFlight = null;
   let queuedCloudSnapshot = null;
   const metadataRefreshInFlight = new Map();
+  const metadataRefreshAttemptAt = new Map();
+  let libraryMetadataSweepInFlight = null;
+  let lastLibraryMetadataSweepAt = 0;
+  const SERIES_METADATA_STALE_MS = 6 * 60 * 60 * 1000;
+  const SERIES_RELEASE_CHECK_MS = 60 * 1000;
+  const SERIES_REFRESH_RETRY_MS = 10 * 60 * 1000;
+  const MAX_STALE_SERIES_PER_SWEEP = 5;
+  const MAX_METADATA_REFRESH_WORKERS = 2;
   let episodeLogFeedback = null;
   let activeEpisodeTrackerId = "";
   let activeEpisodeTrackerSeason = 0;
@@ -666,12 +674,13 @@
       await queueCloudLibrarySave(cached);
     }catch(error){console.warn("Automatic cloud retry postponed",error);}
   }
-  window.addEventListener("online",()=>{void retryPendingCloudSave();});
-  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")void retryPendingCloudSave();});
+  window.addEventListener("online",()=>{void retryPendingCloudSave();void refreshLibraryEpisodeMetadata({force:true});});
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){void retryPendingCloudSave();void refreshLibraryEpisodeMetadata();}});
 
   function scheduleMetadataRefresh(savedItem){
     const id=String(savedItem?.id||"");
     if(!id||metadataRefreshInFlight.has(id))return metadataRefreshInFlight.get(id)||Promise.resolve(false);
+    metadataRefreshAttemptAt.set(id,Date.now());
     const seed=cloneLibrarySnapshot([savedItem])[0];
     const task=(async()=>{
       let result=null;
@@ -695,18 +704,19 @@
           metadataUpdatedAt:nowISO()
         };
       }else{
-        const episodeCounts=positiveEpisodeMap(result?.episodeCounts||current.episodeCounts||{});
-        const airedEpisodeCounts=positiveEpisodeMap(result?.airedEpisodeCounts||current.airedEpisodeCounts||{});
+        const scheduleVerified=result?.episodeScheduleAvailable===true;
+        const episodeCounts=positiveEpisodeMap(scheduleVerified?result.episodeCounts:(current.episodeCounts||{}));
+        const airedEpisodeCounts=positiveEpisodeMap(scheduleVerified?result.airedEpisodeCounts:(current.airedEpisodeCounts||{}));
         let watchedSeasons=Math.max(0,Number(current.watchedSeasons||0));
         let curSeason=Math.max(0,Number(current.curSeason||0));
         let curEp=Math.max(0,Number(current.curEp||0));
-        if(result?.episodeScheduleAvailable){
+        if(scheduleVerified){
           const completedMax=Math.max(0,Number(result.completedSeasons||0)),latestMax=Math.max(0,Number(result.latestAired||0));
           watchedSeasons=Math.min(watchedSeasons,completedMax);
           if(curSeason>latestMax){curSeason=Math.min(latestMax,watchedSeasons);curEp=curSeason?Number(airedEpisodeCounts[curSeason]||0):0;}
           else curEp=Math.min(curEp,Number(airedEpisodeCounts[curSeason]||0));
         }
-        const airing=result?.airing||null,next=airing?.nextEpisode||null,upcoming=result?.upcoming||null;
+        const airing=scheduleVerified?(result?.airing||null):null,next=airing?.nextEpisode||null,upcoming=result?.upcoming||null;
         refreshed={
           ...current,
           tvmazeShowId:result?.resolvedShowId||current.tvmazeShowId||"",
@@ -716,17 +726,17 @@
           currentSeasonEpisodeCount:curSeason?Number(airedEpisodeCounts[curSeason]||0)||null:null,
           currentSeasonTotalEpisodes:curSeason?Number(episodeCounts[curSeason]||0)||null:null,
           episodeCounts,airedEpisodeCounts,
-          airingSeason:airing?.season??null,
-          latestEpisodeNum:airing?.latestEpisode??null,
-          latestEpisodeTitle:airing?.latestEpisodeTitle||"",
-          nextEpisodeNum:next?.number??null,
-          nextEpisodeTitle:next?.name||"",
-          nextEpisodeDate:next?episodeLocalInput(next):"",
-          nextSeasonNum:upcoming?.number??"",
-          nextSeasonDate:upcoming?(result?.nextEpisode&&Number(result.nextEpisode.season)===Number(upcoming.number)?episodeLocalInput(result.nextEpisode):(upcoming.premiereDate?dateOnlyInput(upcoming.premiereDate):"")):"",
-          verifiedCompletedSeasons:Number.isFinite(Number(result?.completedSeasons))?Number(result.completedSeasons):current.verifiedCompletedSeasons,
+          airingSeason:scheduleVerified?(airing?.season??null):current.airingSeason,
+          latestEpisodeNum:scheduleVerified?(airing?.latestEpisode??null):current.latestEpisodeNum,
+          latestEpisodeTitle:scheduleVerified?(airing?.latestEpisodeTitle||""):(current.latestEpisodeTitle||""),
+          nextEpisodeNum:scheduleVerified?(next?.number??null):current.nextEpisodeNum,
+          nextEpisodeTitle:scheduleVerified?(next?.name||""):(current.nextEpisodeTitle||""),
+          nextEpisodeDate:scheduleVerified?(next?episodeLocalInput(next):""):(current.nextEpisodeDate||""),
+          nextSeasonNum:upcoming?.number??(scheduleVerified?"":current.nextSeasonNum),
+          nextSeasonDate:upcoming?(result?.nextEpisode&&Number(result.nextEpisode.season)===Number(upcoming.number)?episodeLocalInput(result.nextEpisode):(upcoming.premiereDate?dateOnlyInput(upcoming.premiereDate):"")):(scheduleVerified?"":(current.nextSeasonDate||"")),
+          verifiedCompletedSeasons:scheduleVerified&&Number.isFinite(Number(result?.completedSeasons))?Number(result.completedSeasons):current.verifiedCompletedSeasons,
           ...(Object.prototype.hasOwnProperty.call(current,"watchedEpisodes")?{watchedEpisodes:normalizeWatchedEpisodeMap(current.watchedEpisodes,airedEpisodeCounts)}:{}),
-          metadataUpdatedAt:nowISO()
+          metadataUpdatedAt:scheduleVerified?nowISO():(current.metadataUpdatedAt||"")
         };
       }
       mediaItems[index]=migratePlannedStatuses([refreshed]).rows[0];
@@ -740,6 +750,50 @@
     return task;
   }
 
+  function seriesMetadataRefreshCandidate(item,now=Date.now(),{ignoreRetry=false}={}){
+    if(!isEpisodeTrackable(item)||!item?.title||(!item.tvmazeShowId&&!item.imdbId))return null;
+    const id=String(item.id||""),lastAttempt=metadataRefreshAttemptAt.get(id)||0;
+    if(!ignoreRetry&&lastAttempt&&now-lastAttempt<SERIES_REFRESH_RETRY_MS)return null;
+    const nextEpisodeTime=toMillis(item.nextEpisodeDate),nextSeasonTime=toMillis(item.nextSeasonDate);
+    const dueTimes=[nextEpisodeTime,nextSeasonTime].filter(time=>time>0&&time<=now);
+    const due=dueTimes.length>0;
+    const refreshedAt=toMillis(item.metadataUpdatedAt),stale=!refreshedAt||now-refreshedAt>=SERIES_METADATA_STALE_MS;
+    if(!due&&!stale)return null;
+    const statusScore=item.status==="Watching"?30:item.status==="Planned"?20:10;
+    const dueTime=due?Math.min(...dueTimes):Number.POSITIVE_INFINITY;
+    return{item,due,dueTime,score:(due?1000:0)+statusScore+(refreshedAt?Math.min(20,Math.floor((now-refreshedAt)/SERIES_METADATA_STALE_MS)):25)};
+  }
+
+  function episodeMetadataNeedsRefresh(item,now=Date.now()){return Boolean(seriesMetadataRefreshCandidate(item,now));}
+
+  function refreshLibraryEpisodeMetadata({force=false}={}){
+    if(!currentUser||!navigator.onLine||document.visibilityState==="hidden")return Promise.resolve(false);
+    if(libraryMetadataSweepInFlight)return libraryMetadataSweepInFlight;
+    const now=Date.now();
+    if(!force&&now-lastLibraryMetadataSweepAt<SERIES_RELEASE_CHECK_MS)return Promise.resolve(false);
+    lastLibraryMetadataSweepAt=now;
+    const candidates=mediaItems.map(item=>seriesMetadataRefreshCandidate(item,now,{ignoreRetry:force})).filter(Boolean);
+    const due=candidates.filter(row=>row.due).sort((a,b)=>a.dueTime-b.dueTime||b.score-a.score);
+    const stale=candidates.filter(row=>!row.due).sort((a,b)=>b.score-a.score).slice(0,MAX_STALE_SERIES_PER_SWEEP);
+    const queue=[...due,...stale].map(row=>row.item);
+    if(!queue.length)return Promise.resolve(false);
+    const task=(async()=>{
+      let cursor=0,updated=0;
+      const worker=async()=>{
+        while(cursor<queue.length){
+          const item=queue[cursor++];
+          if(await scheduleMetadataRefresh(item))updated++;
+        }
+      };
+      await Promise.all(Array.from({length:Math.min(MAX_METADATA_REFRESH_WORKERS,queue.length)},worker));
+      return updated>0;
+    })().finally(()=>{libraryMetadataSweepInFlight=null;});
+    libraryMetadataSweepInFlight=task;
+    return task;
+  }
+
+  setInterval(()=>{if(document.visibilityState==="visible")void refreshLibraryEpisodeMetadata();},SERIES_RELEASE_CHECK_MS);
+
   function storePinSession(account,token,expiresAt){safeWriteJSON(PIN_SESSION_KEY,{token,expiresAt,account});}
   function applyAccount(account){
     currentUser={id:account.id,email:normalizeEmail(account.email)};
@@ -750,6 +804,7 @@
     hideMessage();authScreen.classList.add("hidden");
     const original=Array.isArray(items)?items:[],migration=migratePlannedStatuses(original),cleanup=cleanLibraryRecords(migration.rows),cleaned=cleanup.items;
     mediaItems=cleaned;render();setSync(syncText,syncState);
+    setTimeout(()=>{void refreshLibraryEpisodeMetadata({force:true});},0);
     const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);
     try{await syncExistingBackgroundPush();}catch(error){console.warn("Background reminder sync skipped",error);}
     await updateNotificationTestVisibility();
@@ -824,7 +879,7 @@
     try{
       const cached=await loadCacheRecord();
       if(hasPending()&&cached?.items){await pinApi("save",{items:cached.items});markPending(false);}
-      const result=await pinApi("load"),original=Array.isArray(result.items)?result.items:[],migration=migratePlannedStatuses(original),cleanup=cleanLibraryRecords(migration.rows);mediaItems=cleanup.items;applyAccount(result.account);await saveProfile(currentProfile);await saveCache(mediaItems);if(migration.changed||cleanup.removedCount||mediaItems.length!==original.length)await persistLibrary(mediaItems);render();setSync("Synced. This library is available on your other devices.","ok");const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);
+      const result=await pinApi("load"),original=Array.isArray(result.items)?result.items:[],migration=migratePlannedStatuses(original),cleanup=cleanLibraryRecords(migration.rows);mediaItems=cleanup.items;applyAccount(result.account);await saveProfile(currentProfile);await saveCache(mediaItems);if(migration.changed||cleanup.removedCount||mediaItems.length!==original.length)await persistLibrary(mediaItems);render();setSync("Synced. This library is available on your other devices.","ok");const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);void refreshLibraryEpisodeMetadata({force:true});
     }catch(e){console.error(e);setSync(e.message||"Sync failed.","warn");}
     finally{syncNowBtn.disabled=false;}
   };
@@ -1041,6 +1096,10 @@
     const item=mediaItems.find(row=>String(row.id)===String(id));if(!isEpisodeTrackable(item))return;
     const counts=releasedEpisodeCounts(item),seasons=Object.keys(counts).map(Number).sort((a,b)=>a-b),current=Number(item.curSeason||0);
     activeEpisodeTrackerId=String(id);activeEpisodeTrackerSeason=seasons.includes(current)?current:(seasons[seasons.length-1]||0);episodeTrackerModal.classList.remove("hidden");updateEpisodeTracker();
+    if(episodeMetadataNeedsRefresh(item)){
+      episodeTrackerRelease.textContent=`${episodeTrackerRelease.textContent} · Checking for new episodes…`;
+      void scheduleMetadataRefresh(item);
+    }
     setTimeout(()=>{(activeEpisodeTrackerSeason?episodeTrackerSeason:closeEpisodeTracker).focus();},0);
   }
   function updateEpisodeTracker(){
