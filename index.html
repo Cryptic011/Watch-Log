@@ -105,7 +105,7 @@
   </div>
 
   <main class="container">
-    <div id="library-view"><div id="list-toolbar" class="list-toolbar"><div class="list-toolbar-row"><div id="list-label" class="section-label">Titles</div><label class="sort-control" for="sort-mode"><span>Sort</span><select id="sort-mode" aria-label="Sort titles"><option value="current">Current</option><option value="recent">Recent</option><option value="title">Title A–Z</option><option value="release">Newest release date</option><option value="platform">Platform watched on</option><option value="watched">Date watched</option></select></label></div><div class="filter-pills" aria-label="Filter titles by status"><button class="pill-btn active" data-filter="All">All</button><button class="pill-btn" data-filter="Planned">Planned</button><button class="pill-btn" data-filter="Watching">Watching</button><button class="pill-btn" data-filter="Watched">Watched</button></div></div><div id="media-list" class="titles-group"></div><div id="empty-state" class="hidden" style="text-align:center;margin-top:40px;color:var(--muted)">No titles found. Tap <strong>+</strong> to start.</div></div>
+    <div id="library-view"><div id="list-toolbar" class="list-toolbar"><div class="list-toolbar-row"><div id="list-label" class="section-label">Titles</div><label class="sort-control" for="sort-mode"><span>Sort</span><select id="sort-mode" aria-label="Sort titles"><option value="current">Current</option><option value="recent">Recent</option><option value="title">Title A–Z</option><option value="platform">Platform watched on</option><option value="watched">Date watched</option></select></label></div><div class="filter-pills" aria-label="Filter titles by status"><button class="pill-btn active" data-filter="All">All</button><button class="pill-btn" data-filter="Planned">Planned</button><button class="pill-btn" data-filter="Watching">Watching</button><button class="pill-btn" data-filter="Watched">Watched</button></div></div><div id="media-list" class="titles-group"></div><div id="empty-state" class="hidden" style="text-align:center;margin-top:40px;color:var(--muted)">No titles found. Tap <strong>+</strong> to start.</div></div>
     <div id="settings-view" class="hidden"><div class="section-label">Appearance</div><div class="profile-card appearance-card"><div class="form-group"><label for="appearance-mode">Colour mode</label><select id="appearance-mode"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div><div class="appearance-copy">System follows your iPhone setting. Light and Dark keep your chosen appearance on this device.</div></div><div class="section-label">Background Reminders</div><div class="profile-card background-reminder-card"><div class="reminder-test-title">Planned titles when the app is closed</div><div id="background-reminder-status" class="notification-status">Checking notification support…</div><div class="notification-rule"><span class="notification-rule-dot"></span><span><strong>1 day before</strong> the Planned date and time</span></div><div class="notification-rule"><span class="notification-rule-dot"></span><span><strong>6 hours before</strong> the Planned date and time</span></div><div class="notification-actions"><button id="enable-background-reminders" class="btn btn-primary btn-full" type="button">Enable Background Reminders</button><button id="disable-background-reminders" class="btn btn-secondary btn-full hidden" type="button">Turn Off on This Device</button></div><div class="small-note" style="margin-top:11px">iPhone delivers these through Web Push, so Watched Logger does not stay running or use background battery. If a title has only a date, noon in this device’s timezone is used.</div></div><div id="notification-test-settings" class="hidden"><div class="section-label">Private Reminder Test</div><div class="profile-card reminder-test-card"><div class="reminder-test-title">Background push test</div><div id="notification-test-status" class="notification-status">Checking notification support…</div><div class="notification-actions"><button id="send-planned-test" class="btn btn-primary btn-full" type="button">Queue Private Background Test</button></div><div class="small-note" style="margin-top:11px">This control is restricted to your account. It uses a Planned title and arrives through the server within about one minute, so you can close Watched Logger immediately after tapping it.</div></div></div><div class="section-label">Account & Sync</div><div class="profile-card"><div class="profile-header"><div id="avatar" class="avatar">U</div><div class="profile-info"><h3 id="profile-name">User</h3><p id="profile-email"></p></div></div><div class="sync-box"><div class="sync-title"><div id="sync-dot" class="sync-dot ok"></div>Watched Logger Cloud Sync</div><div id="sync-status" class="sync-text">Your library is linked to this email account and can be loaded on another device with the same 4-digit PIN.</div><button id="sync-now" class="btn btn-secondary btn-full" type="button">Sync Now</button></div><div class="sync-box"><div class="sync-title">Change 4-digit PIN</div><div class="form-group"><label for="new-pin">New PIN</label><input id="new-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="••••" /></div><button id="change-pin" class="btn btn-secondary btn-full" type="button">Change PIN</button><div class="small-note">PIN changes apply to every device. Five incorrect PIN attempts temporarily lock sign-in for 15 minutes.</div></div><button id="logout-btn" class="btn btn-danger btn-full">Log Out</button></div></div>
   </main>
 
@@ -725,7 +725,7 @@
           watchedSeasons,curSeason:curSeason||null,curEp:curEp||null,
           currentSeasonEpisodeCount:curSeason?Number(airedEpisodeCounts[curSeason]||0)||null:null,
           currentSeasonTotalEpisodes:curSeason?Number(episodeCounts[curSeason]||0)||null:null,
-          episodeCounts,airedEpisodeCounts,
+          episodeCounts,airedEpisodeCounts,episodeScheduleVerified:scheduleVerified,
           airingSeason:scheduleVerified?(airing?.season??null):current.airingSeason,
           latestEpisodeNum:scheduleVerified?(airing?.latestEpisode??null):current.latestEpisodeNum,
           latestEpisodeTitle:scheduleVerified?(airing?.latestEpisodeTitle||""):(current.latestEpisodeTitle||""),
@@ -810,7 +810,7 @@
     const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);
     try{await syncExistingBackgroundPush();}catch(error){console.warn("Background reminder sync skipped",error);}
     await updateNotificationTestVisibility();
-    if(migration.changed||cleanup.removedCount||cleaned.length!==original.length)await persistLibrary(cleaned);
+    if(migration.changed||cleanup.removedCount||cleanup.repairedCount||cleaned.length!==original.length)await persistLibrary(cleaned);
   }
 
   async function establishCloudSession(result,items){
@@ -881,7 +881,7 @@
     try{
       const cached=await loadCacheRecord();
       if(hasPending()&&cached?.items){await pinApi("save",{items:cached.items});markPending(false);}
-      const result=await pinApi("load"),original=Array.isArray(result.items)?result.items:[],migration=migratePlannedStatuses(original),cleanup=cleanLibraryRecords(migration.rows);mediaItems=cleanup.items;applyAccount(result.account);await saveProfile(currentProfile);await saveCache(mediaItems);if(migration.changed||cleanup.removedCount||mediaItems.length!==original.length)await persistLibrary(mediaItems);render();setSync("Synced. This library is available on your other devices.","ok");const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);void refreshLibraryEpisodeMetadata({force:true});
+      const result=await pinApi("load"),original=Array.isArray(result.items)?result.items:[],migration=migratePlannedStatuses(original),cleanup=cleanLibraryRecords(migration.rows);mediaItems=cleanup.items;applyAccount(result.account);await saveProfile(currentProfile);await saveCache(mediaItems);if(migration.changed||cleanup.removedCount||cleanup.repairedCount||mediaItems.length!==original.length)await persistLibrary(mediaItems);render();setSync("Synced. This library is available on your other devices.","ok");const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);void refreshLibraryEpisodeMetadata({force:true});
     }catch(e){console.error(e);setSync(e.message||"Sync failed.","warn");}
     finally{syncNowBtn.disabled=false;}
   };
@@ -899,7 +899,7 @@
 
   const SORT_KEY="watched_logger_sort_v1";
   const titleCollator=new Intl.Collator(undefined,{sensitivity:"base",numeric:true});
-  function savedSortMode(){const value=safeReadJSON(SORT_KEY,"current");return ["current","recent","title","release","platform","watched"].includes(value)?value:"current";}
+  function savedSortMode(){const value=safeReadJSON(SORT_KEY,"current");return value==="release"?"current":(["current","recent","title","platform","watched"].includes(value)?value:"current");}
   function originalTitlePrefix(title,wordCount){
     return String(title||"").replace(/\s*[:–—]\s.*$/,"").trim().split(/\s+/).slice(0,wordCount).join(" ");
   }
@@ -963,47 +963,27 @@
     return addedSortTime(b)-addedSortTime(a)||titleCollator.compare(a.title||"",b.title||"");
   }
   function currentSortInfo(item,now=Date.now()){
-    const sixHours=6*60*60*1000,day=24*60*60*1000;
-    if(isEpisodeTrackable(item)){
-      const nextEpisodeTime=toMillis(item.nextEpisodeDate),latestEpisodeTime=toMillis(item.latestEpisodeDate);
-      const scheduledEpisode=Number(item.nextEpisodeNum||0)>0&&nextEpisodeTime>=now-sixHours&&nextEpisodeTime<=now+90*day;
-      const justAired=Number(item.airingSeason||0)>0&&latestEpisodeTime>0&&latestEpisodeTime<=now&&now-latestEpisodeTime<=14*day;
-      if(scheduledEpisode||justAired)return{bucket:4,time:scheduledEpisode?nextEpisodeTime:latestEpisodeTime,kind:3};
-    }else if(item?.type==="Film"){
-      const release=releaseSortInfo(item,now),platform=normalizeTitle(item.platform||""),releasedDays=release.bucket===2?(now-release.time)/day:Number.POSITIVE_INFINITY;
-      const inCinemas=releasedDays>=0&&releasedDays<=120&&(platform.includes("theatre")||platform.includes("cinema"));
-      const newlyReleased=releasedDays>=0&&releasedDays<=30;
-      if(inCinemas||newlyReleased)return{bucket:4,time:release.time,kind:inCinemas?2:1};
-    }
-
-    const futureTimes=[];
-    if(item?.type==="Film"){
-      const release=item.filmReleaseDate?new Date(`${item.filmReleaseDate}T12:00:00`).getTime():0;
-      if(Number.isFinite(release)&&release>now)futureTimes.push(release);
-    }else{
-      const episode=toMillis(item.nextEpisodeDate),season=toMillis(item.nextSeasonDate),series=toMillis(item.seriesReleaseDate);
-      if(episode>now)futureTimes.push(episode);
-      if(season>now)futureTimes.push(season);
-      if(series>now)futureTimes.push(series);
-    }
-    if(futureTimes.length)return{bucket:3,time:Math.min(...futureTimes),kind:0};
-
-    const dateTBA=isEpisodeTrackable(item)&&((Number(item.nextEpisodeNum||0)>0&&!toMillis(item.nextEpisodeDate))||(Number(item.nextSeasonNum||0)>0&&!toMillis(item.nextSeasonDate)));
-    return{bucket:dateTBA?2:1,time:0,kind:0};
+  const day=24*60*60*1000;
+  if(isEpisodeTrackable(item)){
+    const released=releasedEpisodeCounts(item),hasReleasedEpisodes=Object.keys(released).length>0;
+    const nextEpisodeTime=toMillis(item.nextEpisodeDate),latestEpisodeTime=toMillis(item.latestEpisodeDate);
+    const scheduledEpisode=hasReleasedEpisodes&&Number(item.nextEpisodeNum||0)>0&&nextEpisodeTime>now&&nextEpisodeTime<=now+90*day;
+    const justAired=hasReleasedEpisodes&&latestEpisodeTime>0&&latestEpisodeTime<=now&&now-latestEpisodeTime<=14*day;
+    if(scheduledEpisode||justAired)return{current:true,time:justAired?latestEpisodeTime:nextEpisodeTime,kind:2};
+  }else if(item?.type==="Film"){
+    const release=releaseSortInfo(item,now),releasedDays=release.bucket===2?(now-release.time)/day:Number.POSITIVE_INFINITY;
+    if(releasedDays>=0&&releasedDays<=120)return{current:true,time:release.time,kind:1};
   }
-  function compareCurrentOrder(a,b,now=Date.now()){
-    const ai=currentSortInfo(a,now),bi=currentSortInfo(b,now);
-    if(ai.bucket!==bi.bucket)return bi.bucket-ai.bucket;
-    if(ai.bucket===4){
-      if(ai.kind!==bi.kind)return bi.kind-ai.kind;
-      if(ai.kind===3&&ai.time!==bi.time)return ai.time-bi.time;
-      if(ai.time!==bi.time)return bi.time-ai.time;
-    }
-    if(ai.bucket===3&&ai.time!==bi.time)return ai.time-bi.time;
-    if(ai.bucket===2)return titleCollator.compare(a.title||"",b.title||"");
-    return compareReleaseRecency(a,b,now);
-  }
-  function knownSeasonTotal(item){
+  const release=releaseSortInfo(item,now);
+  return{current:false,time:release.time,kind:0};
+}
+function compareCurrentOrder(a,b,now=Date.now()){
+  const ai=currentSortInfo(a,now),bi=currentSortInfo(b,now);
+  if(ai.current!==bi.current)return ai.current?-1:1;
+  if(ai.current&&bi.current&&ai.kind!==bi.kind)return bi.kind-ai.kind;
+  return compareReleaseRecency(a,b,now);
+}
+function knownSeasonTotal(item){
     if(item?.type==="Film")return 0;
     return Math.max(1,...[item?.totalSeasons,item?.watchedSeasons,item?.curSeason,item?.airingSeason,item?.nextSeasonNum].map(value=>Number(value)||0));
   }
@@ -1038,6 +1018,7 @@
   function releasedEpisodeCounts(item){
     if(!isEpisodeTrackable(item))return{};
     const verified=positiveEpisodeMap(item.airedEpisodeCounts);
+    if(item?.episodeScheduleVerified===true)return verified;
     if(Object.keys(verified).length)return verified;
     const counts=positiveEpisodeMap(item.episodeCounts);
     const nextSeason=Number(item.nextSeasonNum||0),current=Math.max(Number(item.curSeason||0),Number(item.airingSeason||0),Number(item.watchedSeasons||0));
@@ -1727,8 +1708,9 @@
   }
 
   function configureProgressOptions(result){
-    episodeCountsForForm=Object.keys(result?.airedEpisodeCounts||{}).length?result.airedEpisodeCounts:(result?.episodeCounts||{});
-    const highest=Number(result?.highest||0),verifiedEpisodes=result?.episodeScheduleAvailable===true;
+    const verifiedEpisodes=result?.episodeScheduleAvailable===true;
+    episodeCountsForForm=verifiedEpisodes?(result?.airedEpisodeCounts||{}):(Object.keys(result?.airedEpisodeCounts||{}).length?result.airedEpisodeCounts:(result?.episodeCounts||{}));
+    const highest=Number(result?.highest||0);
     const latestReleased=verifiedEpisodes?Math.max(0,Number(result?.latestAired||0)):highest;
     const fullyReleased=verifiedEpisodes?Math.min(latestReleased,Math.max(0,Number(result?.completedSeasons||0))):highest;
     const seasonOptions=$("season-options");
@@ -2039,13 +2021,47 @@
     return{items:merged,removedCount:removedTitles.length,titles:[...new Set(removedTitles.map(String))]};
   }
 
-  function cleanLibraryRecords(items){
-    const rows=Array.isArray(items)?items:[],shadowCleaned=cleanShadowTitleEntries(rows),shadowRemoved=rows.filter(item=>!shadowCleaned.includes(item)).map(item=>item?.title).filter(Boolean);
-    const deduplicated=deduplicateLibrary(shadowCleaned);
-    return{items:deduplicated.items,removedCount:shadowRemoved.length+deduplicated.removedCount,titles:[...new Set([...shadowRemoved,...deduplicated.titles])]};
+  function strictWatchedEpisodeMap(value,counts){
+  const result={};
+  for(const [seasonValue,episodeValue] of Object.entries(value||{})){
+    const season=Number(seasonValue),maximum=Math.max(0,Number(counts?.[season]||0));
+    if(!Number.isInteger(season)||season<=0||maximum<=0)continue;
+    const source=Array.isArray(episodeValue)?episodeValue:Object.entries(episodeValue||{}).filter(([,watched])=>Boolean(watched)).map(([episode])=>episode);
+    const episodes=[...new Set(source.map(Number).filter(episode=>Number.isInteger(episode)&&episode>0&&episode<=maximum))].sort((a,b)=>a-b);
+    if(episodes.length)result[season]=episodes;
   }
+  return result;
+}
 
-  function duplicateCleanupMessage(cleanup){
+function sanitizeUnreleasedEpisodeProgress(item){
+  if(!isEpisodeTrackable(item)||!item)return item;
+  const aired=positiveEpisodeMap(item.airedEpisodeCounts);
+  if(item.episodeScheduleVerified!==true)return item;
+  const watchedEpisodes=strictWatchedEpisodeMap(Object.prototype.hasOwnProperty.call(item,"watchedEpisodes")?item.watchedEpisodes:legacyWatchedEpisodeMap({...item,episodeScheduleVerified:true},aired),aired);
+  const highest=highestWatchedEpisode(watchedEpisodes);
+  let curSeason=Math.max(0,Number(item.curSeason||0)),curEp=Math.max(0,Number(item.curEp||0));
+  const currentMaximum=Math.max(0,Number(aired[curSeason]||0));
+  if(curSeason>0&&currentMaximum>0)curEp=Math.min(curEp,currentMaximum);
+  else if(curSeason>0){curSeason=highest?.season||0;curEp=highest?.episode||0;}
+  if(curSeason===0)curEp=0;
+  const episodeHistory=(Array.isArray(item.episodeHistory)?item.episodeHistory:[]).filter(event=>{
+    const season=Number(event?.season),episode=Number(event?.episode),maximum=Math.max(0,Number(aired[season]||0));
+    return Number.isInteger(season)&&season>0&&Number.isInteger(episode)&&episode>0&&maximum>0&&episode<=maximum;
+  });
+  const completedCap=Number.isFinite(Number(item.verifiedCompletedSeasons))?Math.max(0,Number(item.verifiedCompletedSeasons)):Math.max(0,...Object.keys(aired).map(Number));
+  const watchedSeasons=Math.min(Math.max(0,Number(item.watchedSeasons||0)),completedCap);
+  return {...item,watchedEpisodes,episodeHistory,watchedSeasons,curSeason:curSeason||null,curEp:curEp||null,currentSeasonEpisodeCount:curSeason?(Number(aired[curSeason]||0)||null):null,lastWatchedSeason:highest?.season||null,lastWatchedEpisode:highest?.episode||null,lastEpisodeWatchedAt:highest?(item.lastEpisodeWatchedAt||""):""};
+}
+
+function cleanLibraryRecords(items){
+  const rows=Array.isArray(items)?items:[],shadowCleaned=cleanShadowTitleEntries(rows),shadowRemoved=rows.filter(item=>!shadowCleaned.includes(item)).map(item=>item?.title).filter(Boolean);
+  const deduplicated=deduplicateLibrary(shadowCleaned),sanitized=deduplicated.items.map(sanitizeUnreleasedEpisodeProgress);
+  let repairedCount=0;
+  for(let i=0;i<sanitized.length;i++)if(JSON.stringify(sanitized[i])!==JSON.stringify(deduplicated.items[i]))repairedCount++;
+  return{items:sanitized,removedCount:shadowRemoved.length+deduplicated.removedCount,repairedCount,titles:[...new Set([...shadowRemoved,...deduplicated.titles])]};
+}
+
+function duplicateCleanupMessage(cleanup){
     if(!cleanup?.removedCount)return"";
     const names=cleanup.titles.slice(0,3).map(title=>`“${title}”`).join(", "),more=cleanup.titles.length>3?` and ${cleanup.titles.length-3} more`:"";
     return cleanup.removedCount===1?`Removed a duplicate copy of ${names}. Your tracked details were kept.`:`Removed ${cleanup.removedCount} duplicate entries${names?` for ${names}${more}`:""}. Their tracked details were merged.`;
@@ -2869,7 +2885,7 @@
     $("total-seasons").value=item.totalSeasons??"";$("watched-seasons").value=item.watchedSeasons??"";$("cur-season").value=item.curSeason??"";$("cur-ep").value=item.curEp??"";
     $("next-season-num").value=item.nextSeasonNum??"";$("next-season-date").value=item.nextSeasonDate?toLocalInput(item.nextSeasonDate):"";
     filmReleaseDate.value=item.filmReleaseDate||"";filmReleaseSource.value=item.filmReleaseSource||"";$("platform").value=item.platform||"";
-    configureProgressOptions({highest:item.totalSeasons,episodeCounts:item.episodeCounts||{},airedEpisodeCounts:item.airedEpisodeCounts||{[item.curSeason]:item.currentSeasonEpisodeCount||0},latestAired:item.curSeason,currentEpisode:item.curEp,completedSeasons:item.verifiedCompletedSeasons,episodeScheduleAvailable:Boolean(Object.keys(item.airedEpisodeCounts||{}).length)});
+    configureProgressOptions({highest:item.totalSeasons,episodeCounts:item.episodeCounts||{},airedEpisodeCounts:item.airedEpisodeCounts||{[item.curSeason]:item.currentSeasonEpisodeCount||0},latestAired:item.curSeason,currentEpisode:item.curEp,completedSeasons:item.verifiedCompletedSeasons,episodeScheduleAvailable:item.episodeScheduleVerified===true||Boolean(Object.keys(item.airedEpisodeCounts||{}).length)});
     loadStoredAiringFields(item);
     const film=item.type==="Film";seriesSection.style.display=film?"none":"flex";upcomingSection.style.display=film?"none":"flex";filmSection.style.display=film?"flex":"none";if(film)clearAiringFields();
     $("modal-title").textContent="Edit Title";deleteBtn.classList.remove("hidden");modal.classList.remove("hidden");
@@ -2909,6 +2925,7 @@
         id,title,type,status:$("status").value,tvmazeShowId:type==="Film"?"":(sid||""),imdbId:$("imdb-id").value||requestedImdbId,releaseYear,
         totalSeasons:total,watchedSeasons:type==="Film"?null:numOrNull("watched-seasons"),curSeason,curEp:type==="Film"?null:numOrNull("cur-ep"),
         currentSeasonEpisodeCount:type==="Film"?null:Number(airedEpisodeCounts?.[curSeason]||0)||null,currentSeasonTotalEpisodes:type==="Film"?null:Number(episodeCounts?.[curSeason]||0)||null,episodeCounts:type==="Film"?{}:episodeCounts,airedEpisodeCounts:type==="Film"?{}:airedEpisodeCounts,
+        episodeScheduleVerified:type==="Film"?false:(verified?.episodeScheduleAvailable===true||previous?.episodeScheduleVerified===true),
         airingSeason:type==="Film"?null:numOrNull("airing-season"),latestEpisodeNum:type==="Film"?null:numOrNull("latest-episode-num"),latestEpisodeTitle:type==="Film"?"":$("latest-episode-title").value||"",
         latestEpisodeDate:type==="Film"?"":(verified?.latestEpisodeDate||previous?.latestEpisodeDate||""),seriesReleaseDate:type==="Film"?"":(verified?.seriesReleaseDate||previous?.seriesReleaseDate||""),
         nextEpisodeNum:type==="Film"?null:numOrNull("next-episode-num"),nextEpisodeTitle:type==="Film"?"":$("next-episode-title").value||"",nextEpisodeDate:type==="Film"?"":($("next-episode-date").value||""),
