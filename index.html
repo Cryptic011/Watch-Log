@@ -156,6 +156,9 @@
   let activeSort = "current";
   let searchTimer = null;
   let searchRequestId = 0;
+  let activeTitleSearchKey = "";
+  let librarySearchTimer = null;
+  let renderedLibrarySearch = "";
   let editorVerification = null;
   let localSaveInFlight = null;
   let queuedLocalSnapshot = null;
@@ -168,6 +171,7 @@
   const SERIES_METADATA_STALE_MS = 6 * 60 * 60 * 1000;
   const SERIES_RELEASE_CHECK_MS = 60 * 1000;
   const SERIES_REFRESH_RETRY_MS = 10 * 60 * 1000;
+  const CLOUD_SAVE_COALESCE_MS = 180;
   const MAX_STALE_SERIES_PER_SWEEP = 5;
   const MAX_METADATA_REFRESH_WORKERS = 2;
   let episodeLogFeedback = null;
@@ -624,6 +628,9 @@
 
     cloudSaveInFlight=(async()=>{
       while(queuedCloudSnapshot){
+        /* Briefly wait for rapid episode ticks or edits so they share one
+           full-library cloud request. IndexedDB still saves immediately. */
+        await new Promise(resolve=>setTimeout(resolve,CLOUD_SAVE_COALESCE_MS));
         const snapshot=queuedCloudSnapshot;
         queuedCloudSnapshot=null;
         try{await pinApi("save",{items:snapshot});}
@@ -643,8 +650,11 @@
     return cloudSaveInFlight;
   }
 
-  function persistLibrary(items,{background=false}={}){
-    const migration=migratePlannedStatuses(items),cleanup=cleanLibraryRecords(migration.rows);
+  function persistLibrary(items,{background=false,precleaned=false}={}){
+    const source=Array.isArray(items)?items:[];
+    const cleanup=precleaned
+      ? {items:source,removedCount:0,repairedCount:0,titles:[]}
+      : cleanLibraryRecords(migratePlannedStatuses(source).rows);
     if(items===mediaItems)mediaItems=cleanup.items;
     items=cleanup.items;
     const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);
@@ -661,7 +671,9 @@
         markPending(true);
         setSync("Your change is still open, but saving needs attention. Tap Sync Now.","warn");
       });
-      return Promise.resolve(true);
+      /* Report success once the on-device copy is durable. Cloud sync keeps
+         running independently and retains its pending retry marker. */
+      return localSave;
     }
     return completion.then(()=>true);
   }
@@ -677,7 +689,14 @@
   window.addEventListener("online",()=>{void retryPendingCloudSave();void refreshLibraryEpisodeMetadata({force:true});});
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){void retryPendingCloudSave();void refreshLibraryEpisodeMetadata();}});
 
-  function scheduleMetadataRefresh(savedItem){
+  function commitRefreshedLibrary(){
+    const cleanup=cleanLibraryRecords(mediaItems);mediaItems=cleanup.items;
+    render();
+    const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);
+    void persistLibrary(mediaItems,{background:true,precleaned:true});
+  }
+
+  function scheduleMetadataRefresh(savedItem,{deferCommit=false}={}){
     const id=String(savedItem?.id||"");
     if(!id||metadataRefreshInFlight.has(id))return metadataRefreshInFlight.get(id)||Promise.resolve(false);
     metadataRefreshAttemptAt.set(id,Date.now());
@@ -742,10 +761,7 @@
         };
       }
       mediaItems[index]=migratePlannedStatuses([refreshed]).rows[0];
-      const cleanup=cleanLibraryRecords(mediaItems);mediaItems=cleanup.items;
-      render();
-      const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);
-      void persistLibrary(mediaItems,{background:true});
+      if(!deferCommit)commitRefreshedLibrary();
       return true;
     })().catch(error=>{console.warn("Background title refresh postponed",error);return false;}).finally(()=>metadataRefreshInFlight.delete(id));
     metadataRefreshInFlight.set(id,task);
@@ -784,10 +800,11 @@
       const worker=async()=>{
         while(cursor<queue.length){
           const item=queue[cursor++];
-          if(await scheduleMetadataRefresh(item))updated++;
+          if(await scheduleMetadataRefresh(item,{deferCommit:true}))updated++;
         }
       };
       await Promise.all(Array.from({length:Math.min(MAX_METADATA_REFRESH_WORKERS,queue.length)},worker));
+      if(updated>0)commitRefreshedLibrary();
       return updated>0;
     })().finally(()=>{libraryMetadataSweepInFlight=null;});
     libraryMetadataSweepInFlight=task;
@@ -810,7 +827,7 @@
     const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);
     try{await syncExistingBackgroundPush();}catch(error){console.warn("Background reminder sync skipped",error);}
     await updateNotificationTestVisibility();
-    if(migration.changed||cleanup.removedCount||cleanup.repairedCount||cleaned.length!==original.length)await persistLibrary(cleaned);
+    if(migration.changed||cleanup.removedCount||cleanup.repairedCount||cleaned.length!==original.length)await persistLibrary(cleaned,{precleaned:true});
   }
 
   async function establishCloudSession(result,items){
@@ -879,9 +896,20 @@
   syncNowBtn.onclick=async()=>{
     if(!currentUser||!cloudSessionToken)return;syncNowBtn.disabled=true;setSync("Syncing…","warn");
     try{
+      /* Finish any edit already being saved before choosing the snapshot to
+         upload or loading cloud state over it. */
+      if(localSaveInFlight)await localSaveInFlight;
+      if(cloudSaveInFlight)await cloudSaveInFlight;
       const cached=await loadCacheRecord();
       if(hasPending()&&cached?.items){await pinApi("save",{items:cached.items});markPending(false);}
-      const result=await pinApi("load"),original=Array.isArray(result.items)?result.items:[],migration=migratePlannedStatuses(original),cleanup=cleanLibraryRecords(migration.rows);mediaItems=cleanup.items;applyAccount(result.account);await saveProfile(currentProfile);await saveCache(mediaItems);if(migration.changed||cleanup.removedCount||cleanup.repairedCount||mediaItems.length!==original.length)await persistLibrary(mediaItems);render();setSync("Synced. This library is available on your other devices.","ok");const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);void refreshLibraryEpisodeMetadata({force:true});
+      const result=await pinApi("load"),original=Array.isArray(result.items)?result.items:[];
+      const migration=migratePlannedStatuses(original),cleanup=cleanLibraryRecords(migration.rows);
+      mediaItems=cleanup.items;applyAccount(result.account);
+      await saveProfile(currentProfile);await saveCache(mediaItems);
+      if(migration.changed||cleanup.removedCount||cleanup.repairedCount||mediaItems.length!==original.length)await persistLibrary(mediaItems,{precleaned:true});
+      render();setSync("Synced. This library is available on your other devices.","ok");
+      const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);
+      void refreshLibraryEpisodeMetadata({force:true});
     }catch(e){console.error(e);setSync(e.message||"Sync failed.","warn");}
     finally{syncNowBtn.disabled=false;}
   };
@@ -1122,7 +1150,7 @@ function knownSeasonTotal(item){
     mediaItems[index]=applyEpisodeToggle(item,season,episode,markWatched,event);render();
     let saved=false;
     try{
-      await persistLibrary(mediaItems,{background:true});
+      await persistLibrary(mediaItems,{background:true,precleaned:true});
       episodeLogFeedback={itemId:key,eventId:event.id,season,episode,label:markWatched?`✓ S${season} E${episode} marked watched`:`S${season} E${episode} unmarked`,saving:false};saved=true;
     }catch(error){
       console.error(error);const currentIndex=mediaItems.findIndex(row=>String(row.id)===key);if(currentIndex>=0)mediaItems[currentIndex]=original;
@@ -1213,7 +1241,7 @@ function knownSeasonTotal(item){
     if(value===undefined){value=`${normalizeTitle(item?.title)} ${normalizeTitle(item?.platform)}`;mediaSearchTextCache.set(item,value);}
     return value;
   }
-  function itemMatchesCurrentView(item,query,now){
+  function itemMatchesCurrentView(item,query,queryTokens,now){
     if(!item?.title)return false;
     if(currentTab==="watchlist"){
       const filmTime=item.type==="Film"&&item.filmReleaseDate?new Date(`${item.filmReleaseDate}T23:59:59`).getTime():0;
@@ -1221,11 +1249,14 @@ function knownSeasonTotal(item){
       if(!((item.nextEpisodeNum&&!item.nextEpisodeDate)||(episodeTime&&episodeTime>=now)||item.nextSeasonNum||item.nextSeasonDate||(filmTime&&filmTime>=now)))return false;
     }else if(currentTab==="history"&&item.status!=="Watched")return false;
     if(activeFilter!=="All"&&!(activeFilter==="Planned"&&(item.status==="Planned"||item.status==="Saved"))&&item.status!==activeFilter)return false;
-    return !query||mediaSearchText(item).includes(query);
+    if(!query)return true;
+    const text=mediaSearchText(item);
+    return text.includes(query)||queryTokens.every(token=>text.includes(token));
   }
   function currentVisibleMediaRows(){
-    const query=normalizeTitle(searchQuery),now=Date.now(),rows=[];
-    for(const item of mediaItems)if(itemMatchesCurrentView(item,query,now))rows.push(item);
+    const query=normalizeTitle(searchQuery),queryTokens=query.split(" ").filter(Boolean),now=Date.now(),rows=[];
+    renderedLibrarySearch=query;
+    for(const item of mediaItems)if(itemMatchesCurrentView(item,query,queryTokens,now))rows.push(item);
     return sortMediaRows(rows);
   }
   function reminderMarkup(item,isFilm){
@@ -1271,7 +1302,11 @@ function knownSeasonTotal(item){
     mediaList.innerHTML=html;updateEpisodeTracker();
   }
   function scheduleRender(){if(renderFrame)return;renderFrame=requestAnimationFrame(()=>{renderFrame=0;render();});}
-  searchInput.oninput=e=>{searchQuery=e.target.value;scheduleRender();};
+  searchInput.oninput=e=>{
+    searchQuery=e.target.value;clearTimeout(librarySearchTimer);
+    if(normalizeTitle(searchQuery)===renderedLibrarySearch)return;
+    librarySearchTimer=setTimeout(()=>{if(normalizeTitle(searchQuery)!==renderedLibrarySearch)scheduleRender();},70);
+  };
   function openMediaRow(id){const item=mediaItems.find(row=>String(row.id)===String(id));if(!item)return;if(isEpisodeTrackable(item))openEpisodeTracker(item.id);else openEdit(item.id);}
   mediaList.addEventListener("click",event=>{
     const edit=event.target.closest("[data-edit-item]");if(edit){event.stopPropagation();openEdit(edit.dataset.editItem);return;}
@@ -2067,12 +2102,14 @@ function duplicateCleanupMessage(cleanup){
     return cleanup.removedCount===1?`Removed a duplicate copy of ${names}. Your tracked details were kept.`:`Removed ${cleanup.removedCount} duplicate entries${names?` for ${names}${more}`:""}. Their tracked details were merged.`;
   }
 
+  const TITLE_SEARCH_STOP_WORDS=new Set(["the","a","an","and","of","for","to","in","on","with"]);
+  const TITLE_SEARCH_CURRENT_YEAR=new Date().getFullYear();
+
   function titleTokens(value){
     return normalizeTitle(value).split(" ").filter(Boolean);
   }
 
-  function levenshtein(a,b){
-    a=normalizeTitle(a);b=normalizeTitle(b);
+  function levenshteinNormalized(a,b){
     if(a===b)return 0;
     if(!a.length)return b.length;
     if(!b.length)return a.length;
@@ -2097,29 +2134,30 @@ function duplicateCleanupMessage(cleanup){
     else if(t.includes(q))score+=900;
     else if(q.includes(t))score+=650;
 
-    const qTokens=titleTokens(query),tTokens=titleTokens(item.title),tSet=new Set(tTokens);
+    const qTokens=q.split(" ").filter(Boolean),tTokens=t.split(" ").filter(Boolean),tSet=new Set(tTokens);
     const matched=qTokens.filter(token=>tSet.has(token)).length;
     score+=matched*120;
     if(qTokens.length&&matched===qTokens.length)score+=260;
 
-    const meaningful=qTokens.filter(x=>!new Set(["the","a","an","and","of","for","to","in","on","with"]).has(x));
+    const meaningful=qTokens.filter(x=>!TITLE_SEARCH_STOP_WORDS.has(x));
     const meaningfulMatched=meaningful.filter(token=>tSet.has(token)).length;
     score+=meaningfulMatched*85;
     if(meaningful.length&&meaningfulMatched===meaningful.length)score+=220;
 
-    const distance=levenshtein(q,t);
     const maxLen=Math.max(q.length,t.length);
-    if(maxLen){
+    /* A length gap larger than 45% cannot reach the lowest similarity bonus,
+       so avoid allocating the edit-distance matrix in that case. */
+    if(maxLen&&1-Math.abs(q.length-t.length)/maxLen>=.55){
+      const distance=levenshteinNormalized(q,t);
       const similarity=1-(distance/maxLen);
       if(similarity>=.85)score+=500;
       else if(similarity>=.7)score+=260;
       else if(similarity>=.55)score+=100;
     }
 
-    const currentYear=new Date().getFullYear();
     const year=Number(item.year||0);
-    if(year===currentYear)score+=140;
-    else if(year===currentYear-1||year===currentYear+1)score+=80;
+    if(year===TITLE_SEARCH_CURRENT_YEAR)score+=140;
+    else if(year===TITLE_SEARCH_CURRENT_YEAR-1||year===TITLE_SEARCH_CURRENT_YEAR+1)score+=80;
 
     /* Apple is the authoritative film catalogue in this build. */
     if(item.source==="apple")score+=item.format==="Film"?260:60;
@@ -2146,61 +2184,74 @@ function duplicateCleanupMessage(cleanup){
 
   const titleSearchCache=new Map();
   const titleSearchInFlight=new Map();
+  const titleSourceSearchInFlight=new Map();
+  const TITLE_SEARCH_CACHE_TTL_MS=10*60*1000;
+  const TITLE_SEARCH_EMPTY_TTL_MS=60*1000;
   function cacheGetSearch(key){
     const v=titleSearchCache.get(key);
     if(!v)return null;
-    if(Date.now()-v.time>10*60*1000){titleSearchCache.delete(key);return null;}
+    if(Date.now()-v.time>(v.ttl||TITLE_SEARCH_CACHE_TTL_MS)){titleSearchCache.delete(key);return null;}
+    titleSearchCache.delete(key);titleSearchCache.set(key,v);
     return v.value;
   }
-  function cacheSetSearch(key,value){
-    titleSearchCache.set(key,{time:Date.now(),value});
+  function cacheSetSearch(key,value,ttl=TITLE_SEARCH_CACHE_TTL_MS){
+    titleSearchCache.delete(key);titleSearchCache.set(key,{time:Date.now(),ttl,value});
     if(titleSearchCache.size>80){
       const first=titleSearchCache.keys().next().value;
       titleSearchCache.delete(first);
     }
     return value;
   }
-
-  async function searchTVMaze(query){
-    const key=`tvmaze:${normalizeTitle(query)}`;
-    const cached=cacheGetSearch(key);if(cached)return cached;
-    try{
-      const r=await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`);
-      if(!r.ok)return[];
-      const data=await r.json();
-      return cacheSetSearch(key,(Array.isArray(data)?data:[]).map(x=>{
-        const s=x.show||{};
-        const tvmazeId=String(s.id||""),imdbId=String(s?.externals?.imdb||"");
-        return {source:"tvmaze",externalId:tvmazeId,tvmazeId,imdbId,title:s.name||"",format:"Series",year:s.premiered?.slice(0,4)||"",releaseDate:"",platform:s.network?.name||s.webChannel?.name||"",detail:s.type||"Series",status:s.status||"",updated:Number(s.updated||0)};
-      }).filter(x=>x.title));
-    }catch(e){console.warn("TVMaze search failed",e);return[];}
+  function runSourceTitleSearch(key,task){
+    const running=titleSourceSearchInFlight.get(key);if(running)return running;
+    const request=Promise.resolve().then(task).finally(()=>titleSourceSearchInFlight.delete(key));
+    titleSourceSearchInFlight.set(key,request);return request;
   }
 
-  async function searchAppleMoviesOne(query,country){
+  function searchTVMaze(query){
+    const key=`tvmaze:${normalizeTitle(query)}`;
+    const cached=cacheGetSearch(key);if(cached)return cached;
+    return runSourceTitleSearch(key,async()=>{
+      try{
+        const r=await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`);
+        if(!r.ok)return[];
+        const data=await r.json();
+        return cacheSetSearch(key,(Array.isArray(data)?data:[]).map(x=>{
+          const s=x.show||{};
+          const tvmazeId=String(s.id||""),imdbId=String(s?.externals?.imdb||"");
+          return {source:"tvmaze",externalId:tvmazeId,tvmazeId,imdbId,title:s.name||"",format:"Series",year:s.premiered?.slice(0,4)||"",releaseDate:"",platform:s.network?.name||s.webChannel?.name||"",detail:s.type||"Series",status:s.status||"",updated:Number(s.updated||0)};
+        }).filter(x=>x.title));
+      }catch(e){console.warn("TVMaze search failed",e);return[];}
+    });
+  }
+
+  function searchAppleMoviesOne(query,country){
     const normalized=normalizeTitle(query);
     const key=`apple:${country}:${normalized}`;
     const cached=cacheGetSearch(key);if(cached)return cached;
     if(normalized.length<2)return[];
-    try{
-      /* Deliberately omit attribute=movieTerm. The broader movie search returns
-         title, cast and franchise matches instead of over-restricting partial
-         queries such as "the mandalorian". */
-      const url=`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&country=${encodeURIComponent(country)}&media=movie&entity=movie&limit=100&lang=en_us&explicit=Yes`;
-      const data=await jsonp(url);
-      const rows=(Array.isArray(data?.results)?data.results:[]).map(x=>({
-        source:"apple",
-        externalId:String(x.trackId||x.collectionId||""),
-        title:x.trackName||x.collectionName||"",
-        format:"Film",
-        year:x.releaseDate?String(new Date(x.releaseDate).getFullYear()):"",
-        releaseDate:x.releaseDate?String(x.releaseDate).slice(0,10):"",
-        platform:"",
-        detail:x.primaryGenreName||"Film",
-        country:country.toUpperCase(),
-        storeUrl:x.trackViewUrl||x.collectionViewUrl||""
-      })).filter(x=>x.title);
-      return cacheSetSearch(key,rows);
-    }catch(e){console.warn(`Apple movie search failed (${country})`,e);return[];}
+    return runSourceTitleSearch(key,async()=>{
+      try{
+        /* Deliberately omit attribute=movieTerm. The broader movie search returns
+           title, cast and franchise matches instead of over-restricting partial
+           queries such as "the mandalorian". */
+        const url=`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&country=${encodeURIComponent(country)}&media=movie&entity=movie&limit=100&lang=en_us&explicit=Yes`;
+        const data=await jsonp(url);
+        const rows=(Array.isArray(data?.results)?data.results:[]).map(x=>({
+          source:"apple",
+          externalId:String(x.trackId||x.collectionId||""),
+          title:x.trackName||x.collectionName||"",
+          format:"Film",
+          year:x.releaseDate?String(new Date(x.releaseDate).getFullYear()):"",
+          releaseDate:x.releaseDate?String(x.releaseDate).slice(0,10):"",
+          platform:"",
+          detail:x.primaryGenreName||"Film",
+          country:country.toUpperCase(),
+          storeUrl:x.trackViewUrl||x.collectionViewUrl||""
+        })).filter(x=>x.title);
+        return cacheSetSearch(key,rows);
+      }catch(e){console.warn(`Apple movie search failed (${country})`,e);return[];}
+    });
   }
 
   function correctedCatalogueQuery(query){
@@ -2309,30 +2360,31 @@ function duplicateCleanupMessage(cleanup){
     });
   }
 
-  async function searchIMDbOne(query){
+  function searchIMDbOne(query){
     const normalized=normalizeTitle(query);
     const key=`imdb:${normalized}`;
     const cached=cacheGetSearch(key);if(cached)return cached;
     if(normalized.length<2)return[];
+    return runSourceTitleSearch(key,async()=>{
+      /* First use IMDb's JSONP endpoint, which works from a static GitHub Pages
+         app. The newer clean JSON endpoint is not CORS-enabled in browsers. */
+      try{
+        const data=await imdbJsonp(query);
+        const rows=(Array.isArray(data?.d)?data.d:[]).map(imdbResultToSuggestion).filter(x=>x?.title);
+        if(rows.length)return cacheSetSearch(key,rows);
+      }catch(e){console.warn("IMDb JSONP search failed",e);}
 
-    /* First use IMDb's JSONP endpoint, which works from a static GitHub Pages
-       app. The newer clean JSON endpoint is not CORS-enabled in browsers. */
-    try{
-      const data=await imdbJsonp(query);
-      const rows=(Array.isArray(data?.d)?data.d:[]).map(imdbResultToSuggestion).filter(x=>x?.title);
-      if(rows.length)return cacheSetSearch(key,rows);
-    }catch(e){console.warn("IMDb JSONP search failed",e);}
-
-    /* Best-effort fallback for browsers where IMDb happens to permit CORS. */
-    try{
-      const cleaned=String(query||"").trim().toLowerCase();
-      const url=`https://v3.sg.media-imdb.com/suggestion/titles/x/${encodeURIComponent(cleaned)}.json`;
-      const r=await fetch(url,{mode:"cors",credentials:"omit",cache:"no-store"});
-      if(!r.ok)return[];
-      const data=await r.json();
-      const rows=(Array.isArray(data?.d)?data.d:[]).map(imdbResultToSuggestion).filter(x=>x?.title);
-      return cacheSetSearch(key,rows);
-    }catch(e){console.warn("IMDb JSON fallback failed",e);return[];}
+      /* Best-effort fallback for browsers where IMDb happens to permit CORS. */
+      try{
+        const cleaned=String(query||"").trim().toLowerCase();
+        const url=`https://v3.sg.media-imdb.com/suggestion/titles/x/${encodeURIComponent(cleaned)}.json`;
+        const r=await fetch(url,{mode:"cors",credentials:"omit",cache:"no-store"});
+        if(!r.ok)return[];
+        const data=await r.json();
+        const rows=(Array.isArray(data?.d)?data.d:[]).map(imdbResultToSuggestion).filter(x=>x?.title);
+        return cacheSetSearch(key,rows);
+      }catch(e){console.warn("IMDb JSON fallback failed",e);return[];}
+    });
   }
 
   async function searchIMDbTitles(query){
@@ -2715,13 +2767,16 @@ function duplicateCleanupMessage(cleanup){
     const normalized=normalizeTitle(query);if(normalized.length<2)return[];
     let best=null,bestLength=0;const now=Date.now();
     for(const [key,entry] of titleSearchCache){
-      if(!key.startsWith("all:")||now-entry.time>10*60*1000)continue;
+      if(!key.startsWith("all:")||now-entry.time>(entry.ttl||TITLE_SEARCH_CACHE_TTL_MS))continue;
       const cachedQuery=key.slice(4);
       if(normalized.startsWith(cachedQuery)&&cachedQuery.length>bestLength){best=entry.value;bestLength=cachedQuery.length;}
     }
     if(!Array.isArray(best))return[];
-    return best.filter(item=>normalizeTitle(item.title).includes(normalized)||suggestionScore(item,normalized)>=900)
-      .sort((a,b)=>suggestionScore(b,normalized)-suggestionScore(a,normalized)).slice(0,36);
+    return best.map(item=>({item,normalizedTitle:normalizeTitle(item.title),score:suggestionScore(item,normalized)}))
+      .filter(row=>row.normalizedTitle.includes(normalized)||row.score>=900)
+      .sort((a,b)=>b.score-a.score)
+      .slice(0,36)
+      .map(row=>row.item);
   }
 
   function isStrongCataloguePass(items,query){
@@ -2751,6 +2806,9 @@ function duplicateCleanupMessage(cleanup){
       ]);
       let merged=primary.flatMap(r=>r.status==="fulfilled"?r.value:[]);
       let ranked=dedupeAndRankSuggestions(merged,q);
+      /* A newer keystroke makes expensive spelling/franchise expansion stale.
+         Source results remain cached for reuse, but no more requests are sent. */
+      if(searchKey!==activeTitleSearchKey)return ranked;
       if(isStrongCataloguePass(ranked,q))return cacheSetSearch(searchKey,ranked);
 
       /* Only weak or sparse results pay for spelling/franchise expansion. */
@@ -2765,7 +2823,7 @@ function duplicateCleanupMessage(cleanup){
       merged=merged.concat(expanded.flatMap(r=>r.status==="fulfilled"?r.value:[]));
 
       ranked=dedupeAndRankSuggestions(merged,q);
-      return ranked.length?cacheSetSearch(searchKey,ranked):ranked;
+      return cacheSetSearch(searchKey,ranked,ranked.length?TITLE_SEARCH_CACHE_TTL_MS:TITLE_SEARCH_EMPTY_TTL_MS);
     })().finally(()=>titleSearchInFlight.delete(searchKey));
     titleSearchInFlight.set(searchKey,task);
     return task;
@@ -2790,7 +2848,7 @@ function duplicateCleanupMessage(cleanup){
 
   async function selectSuggestion(item){
     if(!item)return;
-    clearTimeout(searchTimer);searchRequestId++;
+    clearTimeout(searchTimer);searchRequestId++;activeTitleSearchKey="";
     titleInput.value=item.title;suggestList.classList.add("hidden");$("platform").value=item.platform||"";$("tvmaze-id").value="";
     const selectedImdbId=item.imdbId||(item.source==="imdb"?item.externalId:"");
     $("imdb-id").value=selectedImdbId||"";$("release-year").value=item.year||"";typeSelect.value=item.format;
@@ -2819,6 +2877,7 @@ function duplicateCleanupMessage(cleanup){
     $("tvmaze-id").value="";$("imdb-id").value="";$("release-year").value="";
     const requestId=++searchRequestId;
     const q=titleInput.value.trim();
+    activeTitleSearchKey=q.length>=2?`all:${normalizeTitle(q)}`:"";
     if(q.length<2){suggestList.classList.add("hidden");return;}
     const cached=cacheGetSearch(`all:${normalizeTitle(q)}`);
     if(cached){renderSuggestions(cached);return;}
@@ -2837,7 +2896,7 @@ function duplicateCleanupMessage(cleanup){
         console.warn(e);
         if(requestId===searchRequestId&&titleInput.value.trim()===q)suggestList.classList.add("hidden");
       }
-    },120);
+    },180);
   });
   document.addEventListener("click",e=>{if(!titleInput.contains(e.target)&&!suggestList.contains(e.target))suggestList.classList.add("hidden");});
   typeSelect.onchange=()=>{
@@ -2900,7 +2959,10 @@ function duplicateCleanupMessage(cleanup){
       try{await fillSeasonData(sid||"",item.title,{preserveProgress:true,...options});}catch(e){console.warn(e);}
     }
   }
-  function closeEditor(){hideDuplicateWarning();modal.classList.add("hidden");}
+  function closeEditor(){
+    hideDuplicateWarning();clearTimeout(searchTimer);searchRequestId++;
+    activeTitleSearchKey="";suggestList.classList.add("hidden");modal.classList.add("hidden");
+  }
   addBtn.onclick=openAdd;closeModal.onclick=closeEditor;modal.addEventListener("click",e=>{if(e.target===modal)closeEditor();});
 
   mediaForm.onsubmit=async e=>{
@@ -2958,7 +3020,7 @@ function duplicateCleanupMessage(cleanup){
     }catch(err){if(err?.code!=="duplicate"){console.error(err);alert(err.message||"Save failed.");}}
     finally{saveBtn.disabled=false;saveBtn.textContent="Save";}
   };
-  deleteBtn.onclick=()=>{const id=$("item-id").value;if(!id)return;mediaItems=mediaItems.filter(x=>String(x.id)!==String(id));render();modal.classList.add("hidden");void persistLibrary(mediaItems,{background:true});};
+  deleteBtn.onclick=()=>{const id=$("item-id").value;if(!id)return;mediaItems=mediaItems.filter(x=>String(x.id)!==String(id));render();modal.classList.add("hidden");void persistLibrary(mediaItems,{background:true,precleaned:true});};
 
   async function start(){
     applyAppearance();
