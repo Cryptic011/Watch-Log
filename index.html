@@ -1006,6 +1006,9 @@
   return{current:false,time:release.time,kind:0};
 }
 function compareCurrentOrder(a,b,now=Date.now()){
+  const au=upcomingSortInfo(a,now),bu=upcomingSortInfo(b,now);
+  if(au.rank!==bu.rank)return bu.rank-au.rank;
+  if(au.rank===2&&au.time!==bu.time)return au.time-bu.time;
   const ai=currentSortInfo(a,now),bi=currentSortInfo(b,now);
   if(ai.current!==bi.current)return ai.current?-1:1;
   if(ai.current&&bi.current&&ai.kind!==bi.kind)return bi.kind-ai.kind;
@@ -1015,24 +1018,29 @@ function knownSeasonTotal(item){
     if(item?.type==="Film")return 0;
     return Math.max(1,...[item?.totalSeasons,item?.watchedSeasons,item?.curSeason,item?.airingSeason,item?.nextSeasonNum].map(value=>Number(value)||0));
   }
-  function upcomingSortInfo(item){
-    const now=Date.now(),times=[];let announced=false;
+  function upcomingSortInfo(item,now=Date.now()){
+    const events=[],announcements=[],graceStart=now-6*60*60*1000;
+    const eventTime=value=>{
+      const raw=String(value||""),dateOnly=/^\d{4}-\d{2}-\d{2}$/.test(raw);
+      const time=raw?new Date(dateOnly?`${raw}T12:00:00`:raw).getTime():0;
+      return Number.isFinite(time)?time:0;
+    };
     if(item?.type==="Film"){
       if(item.filmReleaseDate){
-        const value=new Date(`${item.filmReleaseDate}T12:00:00`).getTime();
-        if(Number.isFinite(value)&&value>=new Date().setHours(0,0,0,0))times.push(value);
+        const value=eventTime(item.filmReleaseDate),today=new Date(now);today.setHours(0,0,0,0);
+        if(value>=today.getTime())events.push({kind:"film",time:value});
       }
     }else{
-      if(item?.nextEpisodeDate){
-        const value=new Date(item.nextEpisodeDate).getTime();
-        if(Number.isFinite(value)&&value>=now-6*60*60*1000)times.push(value);
-      }else if(item?.nextEpisodeNum)announced=true;
-      if(item?.nextSeasonDate){
-        const value=new Date(item.nextSeasonDate).getTime();
-        if(Number.isFinite(value)&&value>=now-6*60*60*1000)times.push(value);
-      }else if(item?.nextSeasonNum)announced=true;
+      const episodeDate=String(item?.nextEpisodeDate||"").trim(),seasonDate=String(item?.nextSeasonDate||"").trim();
+      const episodeTime=eventTime(episodeDate),seasonTime=eventTime(seasonDate);
+      if(episodeTime>=graceStart)events.push({kind:"episode",time:episodeTime,number:item.nextEpisodeNum||null});
+      else if(item?.nextEpisodeNum&&!episodeDate)announcements.push({kind:"episode",number:item.nextEpisodeNum});
+      if(seasonTime>=graceStart)events.push({kind:"season",time:seasonTime,number:item.nextSeasonNum||null});
+      else if(item?.nextSeasonNum&&!seasonDate)announcements.push({kind:"season",number:item.nextSeasonNum});
     }
-    return times.length?{rank:2,time:Math.min(...times)}:(announced?{rank:1,time:Number.POSITIVE_INFINITY}:{rank:0,time:Number.POSITIVE_INFINITY});
+    if(events.length){events.sort((a,b)=>a.time-b.time);return{rank:2,...events[0]};}
+    if(announcements.length)return{rank:1,time:Number.POSITIVE_INFINITY,...announcements[0]};
+    return{rank:0,time:Number.POSITIVE_INFINITY,kind:"",number:null};
   }
   function isEpisodeTrackable(item){return item?.type==="Series"||item?.type==="Anime";}
   function positiveEpisodeMap(value){
@@ -1244,9 +1252,7 @@ function knownSeasonTotal(item){
   function itemMatchesCurrentView(item,query,queryTokens,now){
     if(!item?.title)return false;
     if(currentTab==="watchlist"){
-      const filmTime=item.type==="Film"&&item.filmReleaseDate?new Date(`${item.filmReleaseDate}T23:59:59`).getTime():0;
-      const episodeTime=item.nextEpisodeDate?new Date(item.nextEpisodeDate).getTime():0;
-      if(!((item.nextEpisodeNum&&!item.nextEpisodeDate)||(episodeTime&&episodeTime>=now)||item.nextSeasonNum||item.nextSeasonDate||(filmTime&&filmTime>=now)))return false;
+      if(upcomingSortInfo(item,now).rank===0)return false;
     }else if(currentTab==="history"&&item.status!=="Watched")return false;
     if(activeFilter!=="All"&&!(activeFilter==="Planned"&&(item.status==="Planned"||item.status==="Saved"))&&item.status!==activeFilter)return false;
     if(!query)return true;
@@ -1260,15 +1266,15 @@ function knownSeasonTotal(item){
     return sortMediaRows(rows);
   }
   function reminderMarkup(item,isFilm){
-    if(isFilm&&item.filmReleaseDate){
-      const d=new Date(`${item.filmReleaseDate}T12:00:00`);
-      if(!Number.isNaN(d.getTime())&&d.getTime()>=new Date().setHours(0,0,0,0))return`<div class="reminder"><span>🎬 Film Release</span><small>${esc(formatLocalWeekdayDate(d))}</small></div>`;
-    }else if(item.nextEpisodeNum||item.nextEpisodeDate){
-      let text="Date TBA",future=true;
-      if(item.nextEpisodeDate){const d=new Date(item.nextEpisodeDate);if(!Number.isNaN(d.getTime())){text=formatLocalDateTime(d);future=d.getTime()>=Date.now()-6*60*60*1000;}}
-      if(future){const season=item.airingSeason||item.curSeason||"",label=`${season?`S${season} `:""}E${item.nextEpisodeNum||"Next"}`;return`<div class="reminder"><span>📺 ${esc(label)} Next Episode</span><small>${esc(text)}</small></div>`;}
+    const upcoming=upcomingSortInfo(item);
+    if(upcoming.rank===0)return"";
+    const text=upcoming.rank===2?formatLocalDateTime(new Date(upcoming.time)):"Date TBA";
+    if(isFilm&&upcoming.kind==="film")return`<div class="reminder"><span>🎬 Film Release</span><small>${esc(formatLocalWeekdayDate(new Date(upcoming.time)))}</small></div>`;
+    if(upcoming.kind==="episode"){
+      const season=item.airingSeason||item.curSeason||"",label=`${season?`S${season} `:""}E${upcoming.number||"Next"}`;
+      return`<div class="reminder"><span>📺 ${esc(label)} Next Episode</span><small>${esc(text)}</small></div>`;
     }
-    if(item.nextSeasonNum||item.nextSeasonDate){let text="Date TBA";if(item.nextSeasonDate){const d=new Date(item.nextSeasonDate);if(!Number.isNaN(d.getTime()))text=formatLocalDateTime(d);}return`<div class="reminder"><span>🔔 Season ${esc(item.nextSeasonNum||"Next")} Premiere</span><small>${esc(text)}</small></div>`;}
+    if(upcoming.kind==="season")return`<div class="reminder"><span>🔔 Season ${esc(upcoming.number||"Next")} Premiere</span><small>${esc(text)}</small></div>`;
     return"";
   }
   function titleCardMarkup(item){
