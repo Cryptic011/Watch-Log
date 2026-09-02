@@ -157,7 +157,8 @@ function zonedLocalToUtc(
   minute: number,
   timeZone: string,
 ) {
-  let guess = Date.UTC(year, month - 1, day, hour, minute, 0);
+  const requestedAsUtc = Date.UTC(year, month - 1, day, hour, minute, 0);
+  let guess = requestedAsUtc;
   const formatter = new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
@@ -184,7 +185,7 @@ function zonedLocalToUtc(
       parts.minute,
       parts.second,
     );
-    const correction = displayedAsUtc - guess;
+    const correction = displayedAsUtc - requestedAsUtc;
     if (correction === 0) break;
     guess -= correction;
   }
