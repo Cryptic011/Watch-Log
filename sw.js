@@ -14,7 +14,7 @@ self.addEventListener("activate",event=>{
 self.addEventListener("push",event=>{
   let payload={
     title:"Watched Logger",
-    body:"A Planned title reminder is ready.",
+    body:"A Watched Logger reminder is ready.",
     tag:"watchlog-reminder",
     data:{url:"./"}
   };
