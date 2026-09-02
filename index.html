@@ -159,6 +159,11 @@
   let librarySearchTimer = null;
   let renderedLibrarySearch = "";
   let editorVerification = null;
+  let editorVerificationInFlight = null;
+  let editorApplyRevision = 0;
+  let titleSuggestionsWanted = false;
+  let suggestionProgressFrame = 0;
+  let queuedSuggestionProgress = null;
   let localSaveInFlight = null;
   let queuedLocalSnapshot = null;
   let cloudSaveInFlight = null;
@@ -196,6 +201,9 @@
   document.body.appendChild(episodeTrackerModal);
   const episodeTrackerTitle=$("episode-tracker-title"),episodeTrackerProgress=$("episode-tracker-progress"),episodeTrackerRelease=$("episode-tracker-release"),episodeTrackerSeason=$("episode-tracker-season"),episodeTrackerSeasonSummary=$("episode-tracker-season-summary"),episodeTrackerGrid=$("episode-tracker-grid"),episodeTrackerLast=$("episode-tracker-last"),episodeTrackerEdit=$("episode-tracker-edit"),closeEpisodeTracker=$("close-episode-tracker");
   const pillBtns = document.querySelectorAll(".pill-btn"), tabBtns = document.querySelectorAll(".tab-btn");
+  const markEditorUserChange=event=>{if(event.isTrusted){editorApplyRevision++;editorVerification=null;}};
+  mediaForm.addEventListener("input",markEditorUserChange);
+  mediaForm.addEventListener("change",markEditorUserChange);
 
   function nowISO(){return new Date().toISOString();}
   const DEVICE_TIME_ZONE=Intl.DateTimeFormat().resolvedOptions().timeZone||"";
@@ -651,9 +659,10 @@
 
   function persistLibrary(items,{background=false,precleaned=false}={}){
     const source=Array.isArray(items)?items:[];
+    const migration=migratePlannedStatuses(source);
     const cleanup=precleaned
-      ? {items:source,removedCount:0,repairedCount:0,titles:[]}
-      : cleanLibraryRecords(migratePlannedStatuses(source).rows);
+      ? {items:migration.rows,removedCount:0,repairedCount:0,titles:[]}
+      : cleanLibraryRecords(migration.rows);
     if(items===mediaItems)mediaItems=cleanup.items;
     items=cleanup.items;
     const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);
@@ -695,22 +704,34 @@
     void persistLibrary(mediaItems,{background:true,precleaned:true});
   }
 
-  function scheduleMetadataRefresh(savedItem,{deferCommit=false}={}){
+  function mediaVerificationIdentity(item){
+    return [
+      String(item?.type||"Series"),normalizeTitle(item?.title||""),String(item?.tvmazeShowId||""),
+      String(item?.imdbId||""),String(item?.releaseYear||""),normalizeTitle(item?.platform||"")
+    ].join("|");
+  }
+
+  function scheduleMetadataRefresh(savedItem,{deferCommit=false,verificationPromise=null}={}){
     const id=String(savedItem?.id||"");
     if(!id||metadataRefreshInFlight.has(id))return metadataRefreshInFlight.get(id)||Promise.resolve(false);
     metadataRefreshAttemptAt.set(id,Date.now());
     const seed=cloneLibrarySnapshot([savedItem])[0];
+    const seedIdentity=mediaVerificationIdentity(seed);
     const task=(async()=>{
       let result=null;
       if(seed.type==="Film"){
         if(seed.filmReleaseSource==="Manual")return false;
-        result=await verifiedFilmReleaseData(seed.title,{imdbId:seed.imdbId||"",seedDate:seed.filmReleaseDate||"",seedSource:seed.filmReleaseSource||""});
+        if(verificationPromise){try{result=await verificationPromise;}catch(_){}}
+        if(!result)result=await verifiedFilmReleaseData(seed.title,{imdbId:seed.imdbId||"",seedDate:seed.filmReleaseDate||"",seedSource:seed.filmReleaseSource||""});
       }else{
-        result=await verifiedSeasonData(seed.tvmazeShowId||"",seed.title,{imdbId:seed.imdbId||"",year:seed.releaseYear||"",platform:seed.platform||""});
+        if(verificationPromise){
+          try{result=await verificationPromise;}catch(_){}
+        }
+        if(!result)result=await verifiedSeasonData(seed.tvmazeShowId||"",seed.title,{imdbId:seed.imdbId||"",year:seed.releaseYear||"",platform:seed.platform||""});
       }
 
       const index=mediaItems.findIndex(item=>String(item.id)===id),current=mediaItems[index];
-      if(index<0||!current||current.title!==seed.title||current.type!==seed.type)return false;
+      if(index<0||!current||mediaVerificationIdentity(current)!==seedIdentity)return false;
       let refreshed;
       if(seed.type==="Film"){
         refreshed={
@@ -1670,33 +1691,84 @@ function knownSeasonTotal(item){
     return {seasons,episodes,known,highest,latestAired,currentEpisode,currentEpisodeRow,nextEpisode,airing,upcomingSeason,episodeCounts,airedEpisodeCounts,completedSeasons};
   }
 
-  async function verifiedSeasonData(showId,title,{imdbId="",year="",platform=""}={}){
+  function tvMazeShowMatchesSelection(show,title,{imdbId="",year=""}={}){
+    if(!show?.name)return false;
+    const candidateImdbId=String(show?.externals?.imdb||"");
+    if(imdbId&&candidateImdbId)return candidateImdbId===String(imdbId);
+    if(normalizeTitle(show.name)!==normalizeTitle(title))return false;
+    const candidateYear=String(show?.premiered?.slice?.(0,4)||"");
+    return !year||!candidateYear||candidateYear===String(year);
+  }
+
+  async function fetchTVMazeSeasonSnapshot(showId,fallbackShow={}){
+    const [sr,shr,er]=await Promise.all([
+      fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}/seasons`),
+      fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}?embed=nextepisode`),
+      fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}/episodes`)
+    ]);
+    const seasonsRaw=sr.ok?await sr.json():[];
+    const show=shr.ok?await shr.json():fallbackShow;
+    const episodes=er.ok?await er.json():[];
+    return {
+      tvAvailable:sr.ok||shr.ok||er.ok,
+      episodeScheduleAvailable:er.ok&&Array.isArray(episodes),show,
+      schedule:analyzeTVSchedule(seasonsRaw,episodes,show,Date.now())
+    };
+  }
+
+  function tvMazeSeasonResult(resolvedShowId,show,schedule,{imdbId="",tvAvailable=false,episodeScheduleAvailable=false}={}){
+    const ended=tvAvailable&&String(show?.status||"").toLowerCase()==="ended"&&!schedule.nextEpisode;
+    const upcoming=!ended&&schedule.upcomingSeason?{
+      number:Number(schedule.upcomingSeason.number),
+      premiereDate:schedule.upcomingSeason.premiereDate||schedule.nextEpisode?.airdate||null,
+      source:"TVMaze",
+      raw:schedule.upcomingSeason
+    }:null;
+    return {
+      highest:schedule.highest,latestAired:schedule.latestAired,currentEpisode:schedule.currentEpisode,
+      latestEpisodeDate:schedule.currentEpisodeRow?.airstamp||schedule.currentEpisodeRow?.airdate||"",seriesReleaseDate:show?.premiered||"",
+      completedSeasons:schedule.completedSeasons,upcoming,nextEpisode:schedule.nextEpisode,airing:schedule.airing,
+      episodeCounts:schedule.episodeCounts,airedEpisodeCounts:schedule.airedEpisodeCounts,known:new Set(schedule.known),
+      sources:tvAvailable?["TVMaze"]:[],tvAvailable,episodeScheduleAvailable,resolvedShowId,
+      imdbId:String(imdbId||show?.externals?.imdb||""),imdbConfirmed:false,show,ended,provisional:true
+    };
+  }
+
+  async function verifiedSeasonData(showId,title,{imdbId="",year="",platform="",onProgress=null}={}){
     let resolvedShowId=String(showId||""),tvAvailable=false,episodeScheduleAvailable=false,show={},schedule=analyzeTVSchedule([],[],{},Date.now());
-    if(resolvedShowId&&imdbId){try{const matched=await exactTVMazeShow(title,{imdbId,year,platform});if(matched?.id&&String(matched?.externals?.imdb||"")===String(imdbId)){resolvedShowId=String(matched.id);show=matched;}}catch(_){}}
+    const suppliedShowId=Boolean(resolvedShowId);
     if(!resolvedShowId){
       try{const match=await exactTVMazeShow(title,{imdbId,year,platform});if(match){resolvedShowId=String(match.id||"");show=match;}}catch(_){}
     }
     if(resolvedShowId){
       try{
-        const [sr,shr,er]=await Promise.all([
-          fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(resolvedShowId)}/seasons`),
-          fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(resolvedShowId)}?embed=nextepisode`),
-          fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(resolvedShowId)}/episodes`)
-        ]);
-        const seasonsRaw=sr.ok?await sr.json():[];
-        show=shr.ok?await shr.json():show;
-        const episodes=er.ok?await er.json():[];
-        tvAvailable=sr.ok||shr.ok||er.ok;
-        episodeScheduleAvailable=er.ok&&Array.isArray(episodes);
-        schedule=analyzeTVSchedule(seasonsRaw,episodes,show,Date.now());
+        let snapshot=await fetchTVMazeSeasonSnapshot(resolvedShowId,show);
+        if(suppliedShowId&&!tvMazeShowMatchesSelection(snapshot.show,title,{imdbId,year})){
+          const match=await exactTVMazeShow(title,{imdbId,year,platform});
+          if(!match||!tvMazeShowMatchesSelection(match,title,{imdbId,year})){
+            snapshot=null;resolvedShowId="";
+          }else if(String(match.id)!==resolvedShowId){
+            resolvedShowId=String(match.id);
+            snapshot=await fetchTVMazeSeasonSnapshot(resolvedShowId,match);
+          }else snapshot={...snapshot,show:{...snapshot.show,...match,_embedded:snapshot.show?._embedded||match?._embedded}};
+        }
+        if(snapshot&&!tvMazeShowMatchesSelection(snapshot.show,title,{imdbId,year})){snapshot=null;resolvedShowId="";}
+        if(snapshot){({tvAvailable,episodeScheduleAvailable,show,schedule}=snapshot);}
       }catch(e){console.warn("TVMaze episode verification unavailable",e);}
     }
 
     const tvHighest=schedule.highest,tvLatestAired=schedule.latestAired;
-    const wikiPromise=wikipediaSeasonData(title,{tvHighest,tvLatestAired,tvStatus:show?.status||""}).catch(e=>{console.warn("Wikipedia season verification unavailable",e);return{available:false,highest:null,latestAired:null,upcoming:null,known:new Set()};});
     const tvImdbId=String(show?.externals?.imdb||"");
     const expectedImdbId=String(imdbId||tvImdbId||"");
-    const imdbPromise=imdbSeriesCrossCheck(title,{imdbId:expectedImdbId,year:year||show?.premiered?.slice?.(0,4)||""}).catch(e=>{console.warn("IMDb series cross-check unavailable",e);return{available:false,confirmed:null,imdbId:expectedImdbId,match:null};});
+    if(tvAvailable&&typeof onProgress==="function"){
+      try{onProgress(tvMazeSeasonResult(resolvedShowId,show,schedule,{imdbId:expectedImdbId,tvAvailable,episodeScheduleAvailable}));}
+      catch(e){console.warn("TVMaze preview could not be displayed",e);}
+    }
+    const wikiPromise=wikipediaSeasonData(title,{tvHighest,tvLatestAired,tvStatus:show?.status||""}).catch(e=>{console.warn("Wikipedia season verification unavailable",e);return{available:false,highest:null,latestAired:null,upcoming:null,known:new Set()};});
+    const tvImdbIdentityConfirmed=Boolean(imdbId&&tvImdbId&&String(imdbId)===tvImdbId);
+    const imdbPromise=tvImdbIdentityConfirmed
+      ? Promise.resolve({available:true,confirmed:true,imdbId:expectedImdbId,match:null})
+      : imdbSeriesCrossCheck(title,{imdbId:expectedImdbId,year:year||show?.premiered?.slice?.(0,4)||""}).catch(e=>{console.warn("IMDb series cross-check unavailable",e);return{available:false,confirmed:null,imdbId:expectedImdbId,match:null};});
     const [wiki,imdb]=await Promise.all([wikiPromise,imdbPromise]);
 
     const tvEnded=tvAvailable&&String(show?.status||"").toLowerCase()==="ended"&&!schedule.nextEpisode;
@@ -1729,7 +1801,7 @@ function knownSeasonTotal(item){
     return {
       highest,latestAired,currentEpisode,latestEpisodeDate:schedule.currentEpisodeRow?.airstamp||schedule.currentEpisodeRow?.airdate||"",seriesReleaseDate:show?.premiered||"",completedSeasons:schedule.completedSeasons,upcoming,nextEpisode:schedule.nextEpisode,airing:schedule.airing,
       episodeCounts:schedule.episodeCounts,airedEpisodeCounts:schedule.airedEpisodeCounts,known,sources,tvAvailable,episodeScheduleAvailable,
-      resolvedShowId,imdbId:resolvedImdbId,imdbConfirmed:imdb?.confirmed===true,show,ended:tvEnded
+      resolvedShowId,imdbId:resolvedImdbId,imdbConfirmed:imdb?.confirmed===true,show,ended:tvEnded,provisional:false
     };
   }
 
@@ -1795,12 +1867,20 @@ function knownSeasonTotal(item){
     $("next-episode-title").value=next?.name||"";
     $("next-episode").value=next?.number?`Episode ${next.number}${next.name?` • ${next.name}`:""}`:"Date TBA";
     $("next-episode-date").value=episodeLocalInput(next);
+    if(result?.provisional){airingNote.textContent="TVMaze episode schedule loaded. Cross-checking the remaining sources…";return;}
     const checked=result.imdbConfirmed?"Matched to IMDb; ":"";
     airingNote.textContent=`${checked}episode dates checked with TVMaze and season information cross-checked with Wikipedia.`;
   }
 
   function updateSeasonVerifyNote(result){
     if(!seasonVerifyNote)return;
+    if(result?.provisional){
+      const date=result.upcoming?.premiereDate?` Premiere: ${formatLocalDate(result.upcoming.premiereDate)}.`:"";
+      seasonVerifyNote.textContent=result.upcoming
+        ? `TVMaze confirms Season ${result.upcoming.number}.${date} Cross-checking IMDb and Wikipedia…`
+        : "TVMaze schedule loaded. Cross-checking IMDb and Wikipedia…";
+      return;
+    }
     const checked=result?.imdbConfirmed?"IMDb identity matched. ":"";
     if(result?.upcoming){
       const date=result.upcoming.premiereDate?` Premiere: ${formatLocalDate(result.upcoming.premiereDate)}.`:" Premiere date has not been announced.";
@@ -1808,8 +1888,7 @@ function knownSeasonTotal(item){
     }else seasonVerifyNote.textContent=`${checked}No later season announcement was confirmed by the available sources.`;
   }
 
-  async function fillSeasonData(showId,title,{preserveProgress=false,imdbId="",year="",platform=""}={}){
-    const r=await verifiedSeasonData(showId,title,{imdbId,year,platform});
+  function applySeasonDataResult(r,{preserveProgress=false,remember=false}={}){
     if(r.resolvedShowId)$("tvmaze-id").value=r.resolvedShowId;
     if(r.imdbId)$("imdb-id").value=r.imdbId;
     updateSeasonVerifyNote(r);
@@ -1840,14 +1919,37 @@ function knownSeasonTotal(item){
     updateAiringFields(r);
     if(!r.upcoming){
       $("next-season-num").value="";$("next-season-date").value="";
-      rememberEditorVerification("Series",r);
+      if(remember)rememberEditorVerification("Series",r);
       return r;
     }
     $("next-season-num").value=String(r.upcoming.number);
     if(r.nextEpisode&&Number(r.nextEpisode.season)===r.upcoming.number)$("next-season-date").value=episodeLocalInput(r.nextEpisode);
     else $("next-season-date").value=r.upcoming.premiereDate?dateOnlyInput(r.upcoming.premiereDate):"";
-    rememberEditorVerification("Series",r);
+    if(remember)rememberEditorVerification("Series",r);
     return r;
+  }
+
+  async function fillSeasonData(showId,title,{preserveProgress=false,imdbId="",year="",platform="",shouldApply=()=>true}={}){
+    const canApply=typeof shouldApply==="function"?shouldApply:()=>true;
+    let pending=null;
+    const promise=verifiedSeasonData(showId,title,{
+      imdbId,year,platform,
+      onProgress:preview=>{
+        if(pending){pending.resolvedShowId=String(preview.resolvedShowId||"");pending.resolvedImdbId=String(preview.imdbId||"");}
+        if(!canApply())return;
+        applySeasonDataResult(preview,{preserveProgress,remember:false});
+      }
+    });
+    pending={type:"Series",title:normalizeTitle(title),imdbId:String(imdbId||""),showId:String(showId||""),resolvedImdbId:"",resolvedShowId:"",year:String(year||""),platform:normalizeTitle(platform),promise};
+    editorVerificationInFlight=pending;
+    try{
+      const result=await promise;
+      pending.resolvedShowId=String(result.resolvedShowId||pending.resolvedShowId||"");pending.resolvedImdbId=String(result.imdbId||pending.resolvedImdbId||"");
+      if(canApply())applySeasonDataResult(result,{preserveProgress,remember:true});
+      return result;
+    }finally{
+      if(editorVerificationInFlight===pending)editorVerificationInFlight=null;
+    }
   }
 
   async function exactTVMazeShow(title,{imdbId="",year="",platform=""}={}){
@@ -1873,8 +1975,6 @@ function knownSeasonTotal(item){
       return candidates[0]?.score>=700?candidates[0].show:null;
     }catch(_){return null;}
   }
-  async function exactTVMazeId(title,options={}){const show=await exactTVMazeShow(title,options);return show?.id?String(show.id):"";}
-
   $("cur-season").addEventListener("input",refreshEpisodeOptions);
   function isWeakFilmRecord(item){
     if(item?.type!=="Film")return false;
@@ -2682,21 +2782,41 @@ function duplicateCleanupMessage(cleanup){
     return editorVerification.key===editorVerificationKey(type,title)?editorVerification.result:null;
   }
 
-  async function fillFilmReleaseData(title,{imdbId="",seedDate="",seedSource="",preserveManual=false}={}){
+  function pendingEditorVerification(type,title,{imdbId="",showId="",year="",platform=""}={}){
+    const pending=editorVerificationInFlight;
+    if(!pending||pending.type!==type||pending.title!==normalizeTitle(title))return null;
+    if(String(year||"")!==pending.year||normalizeTitle(platform)!==pending.platform)return null;
+    const idMatches=(value,...candidates)=>!value||candidates.filter(Boolean).includes(String(value));
+    if(!idMatches(imdbId,pending.imdbId,pending.resolvedImdbId))return null;
+    if(type!=="Film"&&!idMatches(showId,pending.showId,pending.resolvedShowId))return null;
+    return pending.promise;
+  }
+
+  async function fillFilmReleaseData(title,{imdbId="",seedDate="",seedSource="",preserveManual=false,year="",platform="",shouldApply=()=>true}={}){
+    const canApply=typeof shouldApply==="function"?shouldApply:()=>true;
     if(preserveManual&&filmReleaseDate.value){
       if(filmVerifyNote)filmVerifyNote.textContent="Films and series are checked through multiple sources.";
       const manual={date:filmReleaseDate.value,source:"Manual",sources:[]};
-      rememberEditorVerification("Film",manual);
+      if(canApply())rememberEditorVerification("Film",manual);
       return manual;
     }
     if(filmVerifyNote)filmVerifyNote.textContent="Films and series are checked through multiple sources.";
-    const result=await verifiedFilmReleaseData(title,{imdbId,seedDate,seedSource});
-    if(result.imdbId)$("imdb-id").value=result.imdbId;
-    filmReleaseDate.value=result.date||"";
-    filmReleaseSource.value=result.date?(result.source||"Verified sources"):"";
-    updateFilmVerifyNote(result);
-    rememberEditorVerification("Film",result);
-    return result;
+    const promise=verifiedFilmReleaseData(title,{imdbId,seedDate,seedSource});
+    const pending={type:"Film",title:normalizeTitle(title),imdbId:String(imdbId||""),showId:"",resolvedImdbId:"",resolvedShowId:"",year:String(year||""),platform:normalizeTitle(platform),promise};
+    editorVerificationInFlight=pending;
+    try{
+      const result=await promise;
+      pending.resolvedImdbId=String(result.imdbId||"");
+      if(!canApply())return result;
+      if(result.imdbId)$("imdb-id").value=result.imdbId;
+      filmReleaseDate.value=result.date||"";
+      filmReleaseSource.value=result.date?(result.source||"Verified sources"):"";
+      updateFilmVerifyNote(result);
+      rememberEditorVerification("Film",result);
+      return result;
+    }finally{
+      if(editorVerificationInFlight===pending)editorVerificationInFlight=null;
+    }
   }
 
   function balancedSuggestions(items,limit=60){
@@ -2791,10 +2911,24 @@ function duplicateCleanupMessage(cleanup){
     return (exact&&first.score>=1400)||(crossChecked&&first.score>=1250)||(items.length>=10&&first.score>=1100);
   }
 
-  async function searchAllTitles(query){
+  async function searchAllTitles(query,{onProgress=null}={}){
     const searchKey=`all:${normalizeTitle(query)}`;
     const cached=cacheGetSearch(searchKey);if(cached)return cached;
-    const running=titleSearchInFlight.get(searchKey);if(running)return running;
+    const running=titleSearchInFlight.get(searchKey);
+    if(running){
+      if(typeof onProgress==="function"){
+        running.listeners.add(onProgress);
+        if(running.latest)try{onProgress(running.latest);}catch(_){}
+      }
+      return running.promise;
+    }
+    const entry={promise:null,listeners:new Set(),latest:null};
+    if(typeof onProgress==="function")entry.listeners.add(onProgress);
+    const publishProgress=items=>{
+      if(!items.length)return;
+      entry.latest=items;
+      for(const listener of entry.listeners)try{listener(items);}catch(_){}
+    };
 
     const task=(async()=>{
       const corrected=correctedCatalogueQuery(query);
@@ -2803,12 +2937,20 @@ function duplicateCleanupMessage(cleanup){
       /* Fast pass: query the exact phrase across all catalogues in parallel.
          This cuts the common path from many expanded requests to four while
          preserving independent film and series sources. */
-      const primary=await Promise.allSettled([
+      const primaryRows=[];
+      const primaryCalls=[
         searchIMDbOne(q),
         searchAppleMoviesOne(q,"gb"),
         searchAppleMoviesOne(q,"us"),
         searchTVMaze(q)
-      ]);
+      ].map(call=>Promise.resolve(call).then(rows=>{
+        if(Array.isArray(rows)&&rows.length){
+          primaryRows.push(rows);
+          publishProgress(dedupeAndRankSuggestions(primaryRows,q));
+        }
+        return rows;
+      }));
+      const primary=await Promise.allSettled(primaryCalls);
       let merged=primary.flatMap(r=>r.status==="fulfilled"?r.value:[]);
       let ranked=dedupeAndRankSuggestions(merged,q);
       /* A newer keystroke makes expensive spelling/franchise expansion stale.
@@ -2829,8 +2971,8 @@ function duplicateCleanupMessage(cleanup){
 
       ranked=dedupeAndRankSuggestions(merged,q);
       return cacheSetSearch(searchKey,ranked,ranked.length?TITLE_SEARCH_CACHE_TTL_MS:TITLE_SEARCH_EMPTY_TTL_MS);
-    })().finally(()=>titleSearchInFlight.delete(searchKey));
-    titleSearchInFlight.set(searchKey,task);
+    })().finally(()=>{if(titleSearchInFlight.get(searchKey)===entry)titleSearchInFlight.delete(searchKey);});
+    entry.promise=task;titleSearchInFlight.set(searchKey,entry);
     return task;
   }
 
@@ -2851,25 +2993,43 @@ function duplicateCleanupMessage(cleanup){
     suggestList.classList.remove("hidden");
   }
 
+  function cancelSuggestionProgress(){
+    if(suggestionProgressFrame)cancelAnimationFrame(suggestionProgressFrame);
+    suggestionProgressFrame=0;queuedSuggestionProgress=null;
+  }
+  function suggestionRequestActive(requestId,query){
+    return titleSuggestionsWanted&&requestId===searchRequestId&&titleInput.value.trim()===query&&!modal.classList.contains("hidden");
+  }
+  function scheduleSuggestionProgress(items,requestId,query){
+    queuedSuggestionProgress={items,requestId,query};
+    if(suggestionProgressFrame)return;
+    suggestionProgressFrame=requestAnimationFrame(()=>{
+      suggestionProgressFrame=0;
+      const queued=queuedSuggestionProgress;queuedSuggestionProgress=null;
+      if(queued&&suggestionRequestActive(queued.requestId,queued.query))renderSuggestions(queued.items);
+    });
+  }
+
   async function selectSuggestion(item){
     if(!item)return;
-    clearTimeout(searchTimer);searchRequestId++;activeTitleSearchKey="";
+    clearTimeout(searchTimer);const selectionRequestId=++searchRequestId,selectionApplyRevision=++editorApplyRevision;activeTitleSearchKey="";
+    editorVerification=null;editorVerificationInFlight=null;titleSuggestionsWanted=false;cancelSuggestionProgress();
     titleInput.value=item.title;suggestList.classList.add("hidden");$("platform").value=item.platform||"";$("tvmaze-id").value="";
+    const shouldApply=()=>selectionRequestId===searchRequestId&&selectionApplyRevision===editorApplyRevision&&titleInput.value===item.title&&!modal.classList.contains("hidden");
     const selectedImdbId=item.imdbId||(item.source==="imdb"?item.externalId:"");
     $("imdb-id").value=selectedImdbId||"";$("release-year").value=item.year||"";typeSelect.value=item.format;
     const film=item.format==="Film";seriesSection.style.display=film?"none":"flex";if(film)clearAiringFields();upcomingSection.style.display=film?"none":"flex";filmSection.style.display=film?"flex":"none";
     if(film){
       $("total-seasons").value="";$("watched-seasons").value="";$("cur-season").value="";$("cur-ep").value="";$("next-season-num").value="";$("next-season-date").value="";filmReleaseDate.value="";filmReleaseSource.value="";
-      try{await fillFilmReleaseData(item.title,{imdbId:$("imdb-id").value||"",seedDate:item.releaseDate||"",seedSource:item.releaseSource||item.source||"Film catalogue"});}
-      catch(e){console.warn("Film release verification failed",e);filmReleaseDate.value=isFutureDateOnly(item.releaseDate)?item.releaseDate:"";filmReleaseSource.value=filmReleaseDate.value?(item.releaseSource||item.source||"Film catalogue"):"";}
-      refreshEditorDuplicateWarning();return;
+      try{await fillFilmReleaseData(item.title,{imdbId:$("imdb-id").value||"",seedDate:item.releaseDate||"",seedSource:item.releaseSource||item.source||"Film catalogue",year:item.year||"",platform:item.platform||"",shouldApply});}
+      catch(e){if(shouldApply()){console.warn("Film release verification failed",e);filmReleaseDate.value=isFutureDateOnly(item.releaseDate)?item.releaseDate:"";filmReleaseSource.value=filmReleaseDate.value?(item.releaseSource||item.source||"Film catalogue"):"";}}
+      if(shouldApply())refreshEditorDuplicateWarning();return;
     }
     filmReleaseDate.value="";filmReleaseSource.value="";
-    let sid=item.tvmazeId||(item.source==="tvmaze"?item.externalId:"");
-    if(!sid)sid=await exactTVMazeId(item.title,{imdbId:selectedImdbId,year:item.year||"",platform:item.platform||""});
+    const sid=item.tvmazeId||(item.source==="tvmaze"?item.externalId:"");
     $("tvmaze-id").value=sid||"";
-    try{await fillSeasonData(sid||"",item.title,{imdbId:selectedImdbId,year:item.year||"",platform:item.platform||""});}catch(e){console.warn(e);}
-    refreshEditorDuplicateWarning();
+    try{await fillSeasonData(sid||"",item.title,{imdbId:selectedImdbId,year:item.year||"",platform:item.platform||"",shouldApply});}catch(e){console.warn(e);}
+    if(shouldApply())refreshEditorDuplicateWarning();
   }
   suggestList.addEventListener("click",event=>{
     const row=event.target.closest("[data-suggestion-index]");if(!row)return;
@@ -2877,11 +3037,12 @@ function duplicateCleanupMessage(cleanup){
   });
 
   titleInput.addEventListener("input",()=>{
-    clearTimeout(searchTimer);
-    editorVerification=null;hideDuplicateWarning();
+    clearTimeout(searchTimer);cancelSuggestionProgress();
+    editorVerification=null;editorVerificationInFlight=null;hideDuplicateWarning();
     $("tvmaze-id").value="";$("imdb-id").value="";$("release-year").value="";
     const requestId=++searchRequestId;
     const q=titleInput.value.trim();
+    titleSuggestionsWanted=q.length>=2;
     activeTitleSearchKey=q.length>=2?`all:${normalizeTitle(q)}`:"";
     if(q.length<2){suggestList.classList.add("hidden");return;}
     const cached=cacheGetSearch(`all:${normalizeTitle(q)}`);
@@ -2894,18 +3055,21 @@ function duplicateCleanupMessage(cleanup){
     }
     searchTimer=setTimeout(async()=>{
       try{
-        const items=await searchAllTitles(q);
-        if(requestId!==searchRequestId||titleInput.value.trim()!==q)return;
+        const items=await searchAllTitles(q,{onProgress:partial=>{
+          if(suggestionRequestActive(requestId,q))scheduleSuggestionProgress(partial,requestId,q);
+        }});
+        cancelSuggestionProgress();
+        if(!suggestionRequestActive(requestId,q))return;
         renderSuggestions(items);
       }catch(e){
-        console.warn(e);
-        if(requestId===searchRequestId&&titleInput.value.trim()===q)suggestList.classList.add("hidden");
+        console.warn(e);cancelSuggestionProgress();
+        if(suggestionRequestActive(requestId,q))suggestList.classList.add("hidden");
       }
     },180);
   });
-  document.addEventListener("click",e=>{if(!titleInput.contains(e.target)&&!suggestList.contains(e.target))suggestList.classList.add("hidden");});
+  document.addEventListener("click",e=>{if(!titleInput.contains(e.target)&&!suggestList.contains(e.target)){titleSuggestionsWanted=false;cancelSuggestionProgress();suggestList.classList.add("hidden");}});
   typeSelect.onchange=()=>{
-    editorVerification=null;hideDuplicateWarning();
+    searchRequestId++;activeTitleSearchKey="";titleSuggestionsWanted=false;cancelSuggestionProgress();editorVerification=null;editorVerificationInFlight=null;hideDuplicateWarning();
     const film=typeSelect.value==="Film";
     seriesSection.style.display=film?"none":"flex";
     upcomingSection.style.display=film?"none":"flex";
@@ -2931,7 +3095,7 @@ function duplicateCleanupMessage(cleanup){
   }
 
   function openAdd(){
-    editorVerification=null;hideDuplicateWarning();
+    clearTimeout(searchTimer);cancelSuggestionProgress();searchRequestId++;editorApplyRevision++;activeTitleSearchKey="";titleSuggestionsWanted=false;editorVerification=null;editorVerificationInFlight=null;hideDuplicateWarning();
     mediaForm.reset();
     $("item-id").value="";$("tvmaze-id").value="";$("imdb-id").value="";$("release-year").value="";filmReleaseSource.value="";
     clearAiringFields();configureProgressOptions({highest:null,episodeCounts:{},latestAired:null});
@@ -2942,8 +3106,9 @@ function duplicateCleanupMessage(cleanup){
   }
 
   async function openEdit(id){
-    editorVerification=null;hideDuplicateWarning();
     const item=mediaItems.find(x=>String(x.id)===String(id));if(!item)return;
+    clearTimeout(searchTimer);cancelSuggestionProgress();const editRequestId=++searchRequestId,editApplyRevision=++editorApplyRevision;activeTitleSearchKey="";titleSuggestionsWanted=false;editorVerification=null;editorVerificationInFlight=null;hideDuplicateWarning();
+    const shouldApply=()=>editRequestId===searchRequestId&&editApplyRevision===editorApplyRevision&&String($("item-id").value)===String(item.id)&&!modal.classList.contains("hidden");
     $("item-id").value=item.id;$("tvmaze-id").value=item.tvmazeShowId||"";$("imdb-id").value=item.imdbId||"";$("release-year").value=item.releaseYear||"";
     $("title").value=item.title||"";$("type").value=item.type||"Series";$("status").value=item.status==="Saved"?"Planned":(item.status||"Planned");
     $("total-seasons").value=item.totalSeasons??"";$("watched-seasons").value=item.watchedSeasons??"";$("cur-season").value=item.curSeason??"";$("cur-ep").value=item.curEp??"";
@@ -2954,18 +3119,18 @@ function duplicateCleanupMessage(cleanup){
     const film=item.type==="Film";seriesSection.style.display=film?"none":"flex";upcomingSection.style.display=film?"none":"flex";filmSection.style.display=film?"flex":"none";if(film)clearAiringFields();
     $("modal-title").textContent="Edit Title";deleteBtn.classList.remove("hidden");modal.classList.remove("hidden");
     if(film){
-      try{await fillFilmReleaseData(item.title,{imdbId:item.imdbId||"",seedDate:item.filmReleaseDate||"",seedSource:item.filmReleaseSource||"",preserveManual:item.filmReleaseSource==="Manual"});}
+      try{await fillFilmReleaseData(item.title,{imdbId:item.imdbId||"",seedDate:item.filmReleaseDate||"",seedSource:item.filmReleaseSource||"",preserveManual:item.filmReleaseSource==="Manual",year:item.releaseYear||"",platform:item.platform||"",shouldApply});}
       catch(e){console.warn("Film release re-check failed",e);}
     }else{
       const options={imdbId:item.imdbId||"",year:item.releaseYear||"",platform:item.platform||""};
-      let sid=item.tvmazeShowId||"";
-      try{const exact=await exactTVMazeShow(item.title,options);if(exact?.id&&(options.imdbId?String(exact?.externals?.imdb||"")===options.imdbId:!sid))sid=String(exact.id);}catch(_){}
+      const sid=item.tvmazeShowId||"";
       $("tvmaze-id").value=sid||"";
-      try{await fillSeasonData(sid||"",item.title,{preserveProgress:true,...options});}catch(e){console.warn(e);}
+      try{await fillSeasonData(sid||"",item.title,{preserveProgress:true,...options,shouldApply});}catch(e){console.warn(e);}
     }
   }
   function closeEditor(){
-    hideDuplicateWarning();clearTimeout(searchTimer);searchRequestId++;
+    hideDuplicateWarning();clearTimeout(searchTimer);cancelSuggestionProgress();searchRequestId++;
+    editorApplyRevision++;editorVerificationInFlight=null;titleSuggestionsWanted=false;
     activeTitleSearchKey="";suggestList.classList.add("hidden");modal.classList.add("hidden");
   }
   addBtn.onclick=openAdd;closeModal.onclick=closeEditor;modal.addEventListener("click",e=>{if(e.target===modal)closeEditor();});
@@ -2978,6 +3143,7 @@ function duplicateCleanupMessage(cleanup){
       const platform=$("platform").value.trim(),releaseYear=$("release-year").value||"",requestedImdbId=$("imdb-id").value||"";
       let sid=$("tvmaze-id").value,verified=null;
       const recentVerification=freshEditorVerification(type,title);
+      const pendingVerification=recentVerification?null:pendingEditorVerification(type,title,{imdbId:requestedImdbId,showId:sid,year:releaseYear,platform});
       if(type!=="Film"){
         if(recentVerification){verified=recentVerification;sid=verified.resolvedShowId||sid;}
       }
@@ -3020,8 +3186,8 @@ function duplicateCleanupMessage(cleanup){
          and Supabase save in parallel; any metadata re-check happens after the
          editor closes and never blocks the Save button. */
       render();closeEditor();
-      void persistLibrary(mediaItems,{background:true});
-      if(!recentVerification)void scheduleMetadataRefresh(item);
+      void persistLibrary(mediaItems,{background:true,precleaned:true});
+      if(!recentVerification)void scheduleMetadataRefresh(item,{verificationPromise:pendingVerification});
     }catch(err){if(err?.code!=="duplicate"){console.error(err);alert(err.message||"Save failed.");}}
     finally{saveBtn.disabled=false;saveBtn.textContent="Save";}
   };
