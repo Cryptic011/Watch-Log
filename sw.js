@@ -23,6 +23,15 @@ self.addEventListener("push",event=>{
   }catch(_){
     if(event.data)payload.body=event.data.text()||payload.body;
   }
+
+  // Keep episode-release alerts short and consistent on the lock screen.
+  // The backend may include the show name / episode number, but the displayed
+  // release-now notification should use the exact copy below.
+  if(/episode\s+\d+\s+is\s+available\s+now\.?/i.test(String(payload.body||""))){
+    payload.title="Watched log reminder";
+    payload.body="Show episode is out now";
+  }
+
   event.waitUntil(
     self.registration.showNotification(payload.title||"Watched Logger",{
       body:payload.body||"",
