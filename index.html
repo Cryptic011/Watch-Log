@@ -15,7 +15,7 @@
     *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",sans-serif;-webkit-tap-highlight-color:transparent}
     html,body{background:var(--bg);color:var(--text);min-height:100%}body{min-height:100vh;padding-bottom:110px}button,input,select{font:inherit}.hidden{display:none!important}
     .auth-overlay{position:fixed;inset:0;background:#000;z-index:500;display:flex;align-items:center;justify-content:center;padding:max(24px,env(safe-area-inset-top)) 24px max(24px,env(safe-area-inset-bottom))}
-    .auth-card{width:100%;max-width:390px;background:var(--card);border:1px solid var(--border);border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:16px}.auth-header{text-align:center}.auth-header h2{font-size:1.8rem;font-weight:800;margin-bottom:6px}.auth-header p{color:var(--muted);font-size:.86rem;line-height:1.45}.auth-toggle{color:var(--blue2);font-size:.86rem;text-align:center;cursor:pointer;font-weight:700}.message{border-radius:11px;padding:10px 12px;font-size:.82rem;line-height:1.45}.message.error{background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}.message.success{background:rgba(52,211,153,.1);color:#6ee7b7;border:1px solid rgba(52,211,153,.25)}.message.info{background:rgba(59,130,246,.12);color:#93c5fd;border:1px solid rgba(59,130,246,.3)}.duplicate-warning{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid rgba(251,191,36,.34);border-radius:11px;background:rgba(251,191,36,.1);color:var(--amber);font-size:.78rem;font-weight:700;line-height:1.35}.duplicate-warning button{flex:0 0 auto;border:0;background:transparent;color:var(--blue2);font-size:.76rem;font-weight:850;cursor:pointer}.app-toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 86px);z-index:600;width:min(calc(100% - 32px),440px);padding:12px 15px;border:1px solid rgba(96,165,250,.35);border-radius:14px;background:#1d2531;color:#fff;box-shadow:0 12px 35px rgba(0,0,0,.45);font-size:.8rem;font-weight:750;line-height:1.4;transform:translate(-50%,18px);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}.app-toast.show{transform:translate(-50%,0);opacity:1}.app-toast.success{border-color:rgba(52,211,153,.4);background:#12271f;color:#6ee7b7}.app-toast.warn{border-color:rgba(251,191,36,.4);background:#2a2314;color:#fcd34d}
+    .auth-card{width:100%;max-width:390px;background:var(--card);border:1px solid var(--border);border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:16px}.auth-header{text-align:center}.auth-header h2{font-size:1.8rem;font-weight:800;margin-bottom:6px}.auth-header p{color:var(--muted);font-size:.86rem;line-height:1.45}.auth-toggle{color:var(--blue2);font-size:.86rem;text-align:center;cursor:pointer;font-weight:700}.message{border-radius:11px;padding:10px 12px;font-size:.82rem;line-height:1.45}.message.error{background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}.message.success{background:rgba(52,211,153,.1);color:#6ee7b7;border:1px solid rgba(52,211,153,.25)}.message.info{background:rgba(59,130,246,.12);color:#93c5fd;border:1px solid rgba(59,130,246,.3)}.maintenance-banner{display:flex;flex-direction:column;gap:6px;padding:14px;border:1px solid rgba(251,191,36,.38);border-radius:14px;background:rgba(251,191,36,.1);color:var(--amber);line-height:1.4}.maintenance-banner strong{font-size:.9rem}.maintenance-banner span{color:var(--text);font-size:.82rem}.maintenance-admin{margin-bottom:22px}.maintenance-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:16px}.maintenance-toggle-copy{display:flex;flex-direction:column;gap:3px}.maintenance-toggle-copy strong{font-size:.9rem}.maintenance-toggle-copy span{color:var(--muted);font-size:.74rem}.maintenance-switch{width:46px;height:26px;flex:0 0 46px;accent-color:var(--blue)}.maintenance-message{width:100%;min-height:82px;resize:vertical;background:var(--inner);border:1px solid var(--border);color:var(--text);padding:11px 12px;border-radius:10px;font-size:.9rem;line-height:1.4}.maintenance-admin-status{min-height:18px;color:var(--muted);font-size:.75rem;line-height:1.4}.duplicate-warning{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid rgba(251,191,36,.34);border-radius:11px;background:rgba(251,191,36,.1);color:var(--amber);font-size:.78rem;font-weight:700;line-height:1.35}.duplicate-warning button{flex:0 0 auto;border:0;background:transparent;color:var(--blue2);font-size:.76rem;font-weight:850;cursor:pointer}.app-toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 86px);z-index:600;width:min(calc(100% - 32px),440px);padding:12px 15px;border:1px solid rgba(96,165,250,.35);border-radius:14px;background:#1d2531;color:#fff;box-shadow:0 12px 35px rgba(0,0,0,.45);font-size:.8rem;font-weight:750;line-height:1.4;transform:translate(-50%,18px);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}.app-toast.show{transform:translate(-50%,0);opacity:1}.app-toast.success{border-color:rgba(52,211,153,.4);background:#12271f;color:#6ee7b7}.app-toast.warn{border-color:rgba(251,191,36,.4);background:#2a2314;color:#fcd34d}
     form{display:flex;flex-direction:column;gap:12px}label{font-size:.75rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;display:block}input,select{width:100%;min-width:0;max-width:100%;background:var(--inner);border:1px solid var(--border);color:var(--text);padding:11px 12px;border-radius:10px;font-size:.95rem}.form-row{display:flex;gap:10px}.form-group{flex:1;min-width:0}.localized-date-shell{position:relative;width:100%;min-width:0}.localized-date-shell .localized-native-date{position:relative;z-index:1;width:100%;color:transparent!important;-webkit-text-fill-color:transparent!important;caret-color:transparent}.localized-date-shell .localized-native-date::-webkit-datetime-edit,.localized-date-shell .localized-native-date::-webkit-date-and-time-value,.localized-date-shell .localized-native-date::-webkit-datetime-edit-fields-wrapper,.localized-date-shell .localized-native-date::-webkit-datetime-edit-text,.localized-date-shell .localized-native-date::-webkit-datetime-edit-month-field,.localized-date-shell .localized-native-date::-webkit-datetime-edit-day-field,.localized-date-shell .localized-native-date::-webkit-datetime-edit-year-field,.localized-date-shell .localized-native-date::-webkit-datetime-edit-hour-field,.localized-date-shell .localized-native-date::-webkit-datetime-edit-minute-field,.localized-date-shell .localized-native-date::-webkit-datetime-edit-ampm-field{color:transparent!important;-webkit-text-fill-color:transparent!important}.localized-date-shell .localized-native-date::-webkit-calendar-picker-indicator{opacity:.9;cursor:pointer;filter:invert(1);position:relative;z-index:3}.localized-date-overlay{position:absolute;z-index:2;inset:0;display:flex;align-items:center;min-width:0;padding:11px 48px 11px 12px;color:var(--text);font-size:.95rem;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}.localized-date-overlay.empty{color:var(--muted)}.btn{padding:12px 18px;border-radius:10px;border:none;font-weight:700;font-size:.95rem;cursor:pointer}.btn:disabled{opacity:.55;cursor:default}.btn-primary{background:var(--blue);color:#fff}.btn-secondary{background:#252a34;color:#fff;border:1px solid #343a46}.btn-danger{background:var(--red);color:#fff}.btn-full{width:100%}
     .top-nav{position:relative;background:var(--bg);padding:max(12px,env(safe-area-inset-top)) 16px 10px;z-index:1}.nav-header{display:flex;justify-content:flex-start;align-items:center;margin-bottom:14px}.user-pill{background:#181c24;border:1px solid var(--border);color:#fff;padding:6px 14px;border-radius:20px;display:flex;align-items:center;gap:8px;font-size:.85rem;font-weight:700;cursor:pointer}.user-dot{width:8px;height:8px;background:var(--green);border-radius:50%}h1{font-size:2.1rem;font-weight:800;letter-spacing:-.6px;margin-bottom:12px}.search-box{background:var(--card);border:1px solid var(--border);border-radius:12px;display:flex;align-items:center;padding:10px 14px;gap:10px;margin-bottom:14px}.search-box svg{width:18px;height:18px;fill:var(--muted)}.search-box input{background:transparent;border:none;padding:0;outline:none}
     .stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}.stat-card{background:var(--card);border-radius:14px;padding:12px 6px;text-align:center;display:flex;flex-direction:column;gap:2px}.stat-card .num{font-size:1.35rem;font-weight:800}.stat-card .label{font-size:.78rem;color:var(--muted);font-weight:600}.filter-pills{display:flex;gap:6px;background:var(--card);padding:4px;border-radius:14px;margin-bottom:20px}.pill-btn{flex:1;background:transparent;border:none;color:var(--muted);padding:8px 0;border-radius:10px;font-size:.88rem;font-weight:600;cursor:pointer}.pill-btn.active{background:#3e4552;color:#fff}
@@ -84,6 +84,7 @@
   <div id="auth-screen" class="auth-overlay">
     <div class="auth-card">
       <div class="auth-header"><h2 id="auth-title">Welcome Back</h2><p id="auth-sub">Use the same email and 4-digit PIN on any device.</p></div>
+      <div id="maintenance-banner" class="maintenance-banner hidden" role="status" aria-live="polite"><strong>Watched Logger is under maintenance</strong><span id="maintenance-banner-message"></span></div>
       <div id="auth-message" class="message info hidden"></div>
       <form id="auth-form">
         <div id="auth-name-group" class="form-group hidden"><label for="auth-name">Name</label><input id="auth-name" type="text" autocomplete="name" placeholder="Your name" /></div>
@@ -149,6 +150,7 @@
   let cacheDB = null;
   let cloudSessionToken = "";
   let isSignUp = false;
+  let publicMaintenance = {enabled:false,message:"Watched Logger is currently under maintenance. Please try again shortly."};
   let activeFilter = "All";
   let currentTab = "library";
   let searchQuery = "";
@@ -184,10 +186,15 @@
   const episodeLogBusy = new Set();
 
   const $ = id => document.getElementById(id);
-  const authScreen = $("auth-screen"), authForm = $("auth-form"), authTitle = $("auth-title"), authSub = $("auth-sub"), authNameGroup = $("auth-name-group"), authEmail = $("auth-email"), authPin = $("auth-pin"), authName = $("auth-name"), authSubmit = $("auth-submit"), authToggle = $("auth-toggle"), authMessage = $("auth-message");
+  const authScreen = $("auth-screen"), authForm = $("auth-form"), authTitle = $("auth-title"), authSub = $("auth-sub"), authNameGroup = $("auth-name-group"), authEmail = $("auth-email"), authPin = $("auth-pin"), authName = $("auth-name"), authSubmit = $("auth-submit"), authToggle = $("auth-toggle"), authMessage = $("auth-message"), maintenanceBanner = $("maintenance-banner"), maintenanceBannerMessage = $("maintenance-banner-message");
   const navName = $("nav-name"), userPill = $("user-pill"), libraryView = $("library-view"), settingsView = $("settings-view"), profileName = $("profile-name"), profileEmail = $("profile-email"), avatar = $("avatar"), syncDot = $("sync-dot"), syncStatus = $("sync-status"), syncNowBtn = $("sync-now"), changePinBtn = $("change-pin"), newPinInput = $("new-pin"), logoutBtn = $("logout-btn");
   const backgroundReminderStatus=$("background-reminder-status"),enableBackgroundReminders=$("enable-background-reminders"),disableBackgroundReminders=$("disable-background-reminders");
   const notificationTestSettings=$("notification-test-settings"),notificationTestStatus=$("notification-test-status"),sendPlannedTest=$("send-planned-test");
+  const maintenanceAdminSection=document.createElement("section");
+  maintenanceAdminSection.id="maintenance-admin-section";maintenanceAdminSection.className="maintenance-admin hidden";
+  maintenanceAdminSection.innerHTML='<div class="section-label">Maintenance</div><div class="profile-card"><div class="maintenance-toggle-row"><div class="maintenance-toggle-copy"><strong>Maintenance mode</strong><span>Blocks new logins and account creation</span></div><input id="maintenance-enabled" class="maintenance-switch" type="checkbox" aria-label="Enable maintenance mode" /></div><div class="form-group"><label for="maintenance-message">Login screen message</label><textarea id="maintenance-message" class="maintenance-message" maxlength="240"></textarea></div><button id="save-maintenance" class="btn btn-secondary btn-full" type="button">Save Maintenance Setting</button><div id="maintenance-admin-status" class="maintenance-admin-status" aria-live="polite"></div></div>';
+  settingsView.appendChild(maintenanceAdminSection);
+  const maintenanceEnabled=$("maintenance-enabled"),maintenanceMessage=$("maintenance-message"),saveMaintenance=$("save-maintenance"),maintenanceAdminStatus=$("maintenance-admin-status");
   const mediaList = $("media-list"), emptyState = $("empty-state"), searchInput = $("search-input"), sortMode = $("sort-mode"), modal = $("modal"), addBtn = $("add-btn"), closeModal = $("close-modal"), mediaForm = $("media-form"), deleteBtn = $("delete-btn"), saveBtn = $("save-btn"), typeSelect = $("type"), seriesSection = $("series-section"), progressVerifyNote = $("progress-verify-note"), airingSection = $("airing-section"), airingNote = $("airing-note"), upcomingSection = $("upcoming-section"), seasonVerifyNote = $("season-verify-note"), filmSection = $("film-section"), filmVerifyNote = $("film-verify-note"), filmReleaseDate = $("film-release-date"), filmReleaseSource = $("film-release-source"), titleInput = $("title"), suggestList = $("suggest-list");
   const duplicateWarning=document.createElement("div");
   duplicateWarning.id="duplicate-warning";duplicateWarning.className="duplicate-warning hidden";duplicateWarning.setAttribute("role","alert");duplicateWarning.innerHTML='<span id="duplicate-warning-text"></span><button id="open-duplicate" type="button">Open existing</button>';
@@ -505,9 +512,59 @@
     catch(e){const err=new Error("Could not reach Watched Logger cloud. Check your connection.");err.code="network";throw err;}
     let data={};
     try{data=await response.json();}catch(_){}
-    if(!response.ok){const err=new Error(data.error||`Watched Logger cloud error (${response.status})`);err.code=data.code||"api_error";err.status=response.status;err.retryAfter=data.retryAfter;throw err;}
+    if(!response.ok){const err=new Error(data.error||`Watched Logger cloud error (${response.status})`);err.code=data.code||"api_error";err.status=response.status;err.retryAfter=data.retryAfter;err.maintenance=data.maintenance===true;throw err;}
     return data;
   }
+
+  function renderAuthMaintenance(){
+    const enabled=publicMaintenance.enabled===true;
+    maintenanceBanner.classList.toggle("hidden",!enabled);
+    maintenanceBannerMessage.textContent=enabled?publicMaintenance.message:"";
+    authForm.classList.toggle("hidden",enabled);
+    authToggle.classList.toggle("hidden",enabled);
+    if(enabled){authTitle.textContent="Under Maintenance";authSub.textContent="Watched Logger will be back shortly.";}
+  }
+  async function refreshPublicMaintenance(){
+    try{
+      const result=await pinApi("app_status",{},"");
+      publicMaintenance={enabled:result.maintenance===true,message:String(result.message||publicMaintenance.message)};
+      updateAuthMode();
+      return publicMaintenance;
+    }catch(error){
+      console.warn("Maintenance status check skipped",error);
+      return publicMaintenance;
+    }
+  }
+  async function refreshMaintenanceAdmin(){
+    maintenanceAdminSection.classList.add("hidden");
+    if(!cloudSessionToken)return false;
+    try{
+      const result=await pinApi("maintenance_admin_status");
+      if(result.canManage!==true)return false;
+      maintenanceEnabled.checked=result.maintenance===true;
+      maintenanceMessage.value=String(result.message||publicMaintenance.message);
+      publicMaintenance={enabled:result.maintenance===true,message:maintenanceMessage.value};
+      maintenanceAdminStatus.textContent=result.maintenance?"Maintenance is ON. New logins are blocked.":"Maintenance is OFF. Logins are open.";
+      maintenanceAdminSection.classList.remove("hidden");
+      return true;
+    }catch(error){
+      if(error.status!==403)console.warn("Maintenance controls unavailable",error);
+      return false;
+    }
+  }
+  saveMaintenance.onclick=async()=>{
+    const message=maintenanceMessage.value.trim();
+    if(message.length<8){maintenanceAdminStatus.textContent="Enter a maintenance message of at least 8 characters.";return;}
+    saveMaintenance.disabled=true;maintenanceAdminStatus.textContent="Saving…";
+    try{
+      const result=await pinApi("set_maintenance",{enabled:maintenanceEnabled.checked,message});
+      publicMaintenance={enabled:result.maintenance===true,message:String(result.message||message)};
+      maintenanceEnabled.checked=publicMaintenance.enabled;maintenanceMessage.value=publicMaintenance.message;
+      maintenanceAdminStatus.textContent=publicMaintenance.enabled?"Maintenance is ON. New logins are blocked.":"Maintenance is OFF. Logins are open.";
+      showAppToast(publicMaintenance.enabled?"Maintenance mode enabled.":"Maintenance mode disabled.",publicMaintenance.enabled?"warn":"success");
+    }catch(error){maintenanceAdminStatus.textContent=error.message||"Could not update maintenance mode.";}
+    finally{saveMaintenance.disabled=false;}
+  };
 
   function cacheName(userIdHash){return `WatchLogLocal_${userIdHash.slice(0,48)}`;}
   async function openCache(userId){
@@ -847,6 +904,7 @@
     const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);
     try{await syncExistingBackgroundPush();}catch(error){console.warn("Background reminder sync skipped",error);}
     await updateNotificationTestVisibility();
+    await refreshMaintenanceAdmin();
     if(migration.changed||cleanup.removedCount||cleanup.repairedCount||cleaned.length!==original.length)await persistLibrary(cleaned,{precleaned:true});
   }
 
@@ -894,16 +952,19 @@
     authSub.textContent=isSignUp?"Create one email + 4-digit PIN account. Your existing on-device titles can be carried into cloud sync.":"Use the same email and 4-digit PIN to load your library on any device.";
     authSubmit.textContent=isSignUp?"Create PIN Account":"Log In";
     authToggle.textContent=isSignUp?"Already have a PIN account? Log In":"Don't have an account? Create PIN Account";
+    renderAuthMaintenance();
   }
   authToggle.onclick=()=>{isSignUp=!isSignUp;authPin.value="";updateAuthMode();if(isSignUp)prefillLegacyAccount().catch(console.warn);};
 
   authForm.onsubmit=async e=>{
-    e.preventDefault();hideMessage();const email=normalizeEmail(authEmail.value),pin=authPin.value;
+    e.preventDefault();hideMessage();
+    if(publicMaintenance.enabled){renderAuthMaintenance();return;}
+    const email=normalizeEmail(authEmail.value),pin=authPin.value;
     if(!isEmail(email)){showMessage("Enter a valid email address.");return;}
     if(!validPin(pin)){showMessage("PIN must be exactly 4 digits.");return;}
     authSubmit.disabled=true;authSubmit.textContent=isSignUp?"Creating…":"Logging In…";
     try{if(isSignUp)await registerPinAccount(authName.value.trim()||"User",email,pin);else await loginPinAccount(email,pin);}
-    catch(err){console.error(err);showMessage(err.message||"PIN account operation failed.","error");}
+    catch(err){console.error(err);if(err.code==="maintenance"||err.maintenance){publicMaintenance={enabled:true,message:err.message||publicMaintenance.message};updateAuthMode();}else showMessage(err.message||"PIN account operation failed.","error");}
     finally{authSubmit.disabled=false;authSubmit.textContent=isSignUp?"Create PIN Account":"Log In";}
   };
 
@@ -3197,9 +3258,10 @@ function duplicateCleanupMessage(cleanup){
     applyAppearance();
     activeSort=savedSortMode();sortMode.value=activeSort;
     updateAuthMode();
+    await refreshPublicMaintenance();
     if(!await restorePinSession()){
       showAuth();
-      await prefillLegacyAccount();
+      if(!publicMaintenance.enabled)await prefillLegacyAccount();
     }
   }
   start().catch(err=>{console.error(err);showAuth();showMessage(`Watched Logger could not start: ${err.message||err}`);});
