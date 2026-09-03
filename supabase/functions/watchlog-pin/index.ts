@@ -131,10 +131,12 @@ Deno.serve(async (req: Request) => {
 
     if (action === "login") {
       const maintenance = await readMaintenance();
-      if (maintenance.enabled) {
+      const email = normalizeEmail(body.email);
+      const ownerCandidate = await sha256(`watchlog-maintenance-admin:${email}`);
+      const isOwnerLogin = safeEqual(ownerCandidate, MAINTENANCE_ADMIN_HASH);
+      if (maintenance.enabled && !isOwnerLogin) {
         return json({ error: maintenance.message, code: "maintenance", maintenance: true }, 503);
       }
-      const email = normalizeEmail(body.email);
       const pin = String(body.pin ?? "");
       if (!validEmail(email) || !validPin(pin)) return json({ error: "Email or PIN is incorrect.", code: "invalid_login" }, 401);
 
