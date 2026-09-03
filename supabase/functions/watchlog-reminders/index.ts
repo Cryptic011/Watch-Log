@@ -248,7 +248,7 @@ function reminderCopy(
   event: { kind: string; number: unknown },
   leadHours: number,
 ) {
-  const name = String(item.title || "Planned title");
+  const name = String(item.title || "Tracked title");
   const timing = leadHours === 24 ? "tomorrow" : leadHours === 6 ? "in 6 hours" : "now";
   const title = `Watched Logger reminder for ${name}`;
   let body = `Your Planned show is due ${timing}.`;
@@ -455,15 +455,13 @@ async function processPlannedReminders(
       const event = plannedEvent(item);
       if (!event) continue;
       const isPlanned = status === "Planned" || status === "Saved";
-      // Every tracked series gets an alert when a verified next episode becomes
-      // available. Advance alerts remain limited to Planned titles.
+      // Every dated episode gets advance and release-time alerts regardless of
+      // whether the tracked title is Planned, Watching, or Watched.
       if (!isPlanned && event.kind !== "episode") continue;
       const eventTime = scheduledEventTime(event.raw, subscription.time_zone);
       if (!Number.isFinite(eventTime)) continue;
 
-      const leadTimes = event.kind === "episode"
-        ? (isPlanned ? [24, 6, 0] : [0])
-        : [24, 6];
+      const leadTimes = event.kind === "episode" ? [24, 6, 0] : [24, 6];
       for (const leadHours of leadTimes) {
         const reminderTime = eventTime - leadHours * 60 * 60 * 1000;
         // Deliver within 24 hours after a missed scheduled scan, but never early.
