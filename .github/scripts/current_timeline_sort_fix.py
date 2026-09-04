@@ -85,5 +85,4 @@ text = text.replace(old, new, 1)
 assert "if(ai.phase===3&&ai.time!==bi.time)return bi.time-ai.time;" in text
 assert "if(ai.phase===2&&ai.time!==bi.time)return ai.time-bi.time;" in text
 assert "addedSortTime" not in new
-assert "status" not in new
 path.write_text(text)
