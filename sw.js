@@ -25,9 +25,11 @@ self.addEventListener("push",event=>{
   }
 
   // Keep episode-release alerts short and consistent on the lock screen.
-  // The backend may include the show name / episode number, but the displayed
-  // release-now notification should use the exact copy below.
-  if(/episode\s+\d+\s+is\s+available\s+now\.?/i.test(String(payload.body||""))){
+  // Accept both the legacy backend wording and the current wording so an
+  // already queued notification still displays the requested copy.
+  const body=String(payload.body||"");
+  const episodeReleased=/episode\s+\d+\s+(?:is\s+available\s+now|is\s+out\s+now)\.?/i.test(body);
+  if(episodeReleased){
     payload.title="Watched log reminder";
     payload.body="Show episode is out now";
   }
