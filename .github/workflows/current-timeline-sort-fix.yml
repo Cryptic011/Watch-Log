@@ -1,0 +1,28 @@
+name: Fix Current timeline sort
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/current-timeline-sort-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Apply Current timeline sort fix
+        run: python3 .github/scripts/current_timeline_sort_fix.py
+      - name: Commit Current timeline sort fix
+        run: |
+          git config user.name "Watched Logger maintenance"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/current-timeline-sort-fix.yml .github/scripts/current_timeline_sort_fix.py
+          git add index.html
+          git commit -m "Sort Current by episode air timeline"
+          git push origin HEAD:main
