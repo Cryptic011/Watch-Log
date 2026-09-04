@@ -29,4 +29,4 @@ jobs:
           git commit -m "Fix current sorting, release-safe episode tracking and reminder copy"
           git push origin HEAD:main
 
-# one-shot repair workflow
+# one-shot repair workflow - verified helper present
