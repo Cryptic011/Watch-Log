@@ -250,12 +250,12 @@ function reminderCopy(
 ) {
   const name = String(item.title || "Tracked title");
   const timing = leadHours === 24 ? "tomorrow" : leadHours === 6 ? "in 6 hours" : "now";
-  const title = `Watched Logger reminder for ${name}`;
-  let body = `Your Planned show is due ${timing}.`;
+  const title = "Watched log reminder";
+  let body = `${name} is due ${timing}.`;
   if (event.kind === "episode" && event.number) {
     body = leadHours === 0
-      ? `Episode ${event.number} is available now.`
-      : `Episode ${event.number} airs ${timing}.`;
+      ? `${name} episode ${event.number} is out now.`
+      : `${name} episode ${event.number} airs ${timing}.`;
   } else if (event.kind === "season" && event.number) {
     body = `Season ${event.number} premieres ${timing}.`;
   } else if (event.kind === "film") {
@@ -760,9 +760,8 @@ Deno.serve(async (req: Request) => {
       const dueAt = new Date(Date.now() + 15000).toISOString();
       const { error } = await db.from("watchlog_push_tests").insert({
         account_id: session.accountId,
-        title: `Watched Logger reminder for ${String(planned.title || "Planned title")}`,
-        body:
-          "Test reminder — background alerts work when Watched Logger is closed.",
+        title: "Watched log reminder",
+        body: `${String(planned.title || "Planned title")} test reminder is out now.`,
         due_at: dueAt,
       });
       if (error) throw error;
