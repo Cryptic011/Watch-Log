@@ -44,17 +44,35 @@ self.addEventListener("push",event=>{
   );
 });
 
+function notificationUrlWithinScope(value){
+  const scopeUrl=new URL(self.registration.scope);
+  try{
+    const requestedUrl=new URL(value||"./",scopeUrl);
+    const scopePath=scopeUrl.pathname.endsWith("/")?scopeUrl.pathname:`${scopeUrl.pathname}/`;
+    const scopeRoot=scopePath.slice(0,-1);
+    const insideScope=requestedUrl.origin===scopeUrl.origin&&(
+      scopePath==="/"||requestedUrl.pathname===scopeRoot||requestedUrl.pathname.startsWith(scopePath)
+    );
+    return insideScope?requestedUrl.href:scopeUrl.href;
+  }catch(_){
+    return scopeUrl.href;
+  }
+}
+
 self.addEventListener("notificationclick",event=>{
   event.notification.close();
-  const appUrl=new URL(event.notification.data?.url||"./",self.registration.scope).href;
+  const appUrl=notificationUrlWithinScope(event.notification.data?.url);
   event.waitUntil(
-    self.clients.matchAll({type:"window",includeUncontrolled:true}).then(windows=>{
+    (async()=>{
+      const windows=await self.clients.matchAll({type:"window",includeUncontrolled:true});
       const existing=windows.find(client=>client.url.startsWith(self.registration.scope));
       if(existing){
-        if("navigate" in existing)existing.navigate(appUrl);
-        return existing.focus();
+        try{
+          const target="navigate" in existing?(await existing.navigate(appUrl)||existing):existing;
+          return await target.focus();
+        }catch(_){}
       }
       return self.clients.openWindow?self.clients.openWindow(appUrl):undefined;
-    })
+    })()
   );
 });

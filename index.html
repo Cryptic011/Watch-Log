@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://okkwteywtgfsnlrjdyhv.supabase.co https://api.tvmaze.com https://en.wikipedia.org https://www.wikidata.org; img-src 'self' data:; manifest-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
   <title>Watched Logger</title>
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -161,6 +162,7 @@
   let searchQuery = "";
   let activeSort = "current";
   let searchTimer = null;
+  let activeCatalogueController = null;
   let searchRequestId = 0;
   let activeTitleSearchKey = "";
   let librarySearchTimer = null;
@@ -175,6 +177,14 @@
   let queuedLocalSnapshot = null;
   let cloudSaveInFlight = null;
   let queuedCloudSnapshot = null;
+  let lastLocalLibraryJSON = "";
+  let lastCloudLibraryJSON = "";
+  let lastLocalAccountId = "";
+  let lastCloudAccountId = "";
+  let cloudRevision = 0;
+  let cloudBaseItems = [];
+  let persistenceGeneration = 0;
+  let localSaveSequence = 0;
   const metadataRefreshInFlight = new Map();
   const metadataRefreshAttemptAt = new Map();
   let libraryMetadataSweepInFlight = null;
@@ -183,6 +193,8 @@
   const SERIES_RELEASE_CHECK_MS = 60 * 1000;
   const SERIES_REFRESH_RETRY_MS = 10 * 60 * 1000;
   const CLOUD_SAVE_COALESCE_MS = 180;
+  const CLOUD_REQUEST_TIMEOUT_MS = 12 * 1000;
+  const EXTERNAL_REQUEST_TIMEOUT_MS = 8 * 1000;
   const MAX_STALE_SERIES_PER_SWEEP = 5;
   const MAX_METADATA_REFRESH_WORKERS = 2;
   let episodeLogFeedback = null;
@@ -373,12 +385,16 @@
   async function reminderApi(action,payload={},token=cloudSessionToken){
     const headers={"Content-Type":"application/json"};
     if(token)headers["X-WatchLog-Session"]=token;
-    let response;
-    try{response=await fetch(REMINDER_API,{method:"POST",headers,body:JSON.stringify({action,...payload})});}
-    catch(_){const error=new Error("Could not reach the Watched Logger reminder service.");error.code="network";throw error;}
-    let data={};try{data=await response.json();}catch(_){}
-    if(!response.ok){const error=new Error(data.error||`Reminder service error (${response.status})`);error.code=data.code||"reminder_error";error.status=response.status;throw error;}
-    return data;
+    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),CLOUD_REQUEST_TIMEOUT_MS);
+    try{
+      const response=await fetch(REMINDER_API,{method:"POST",headers,body:JSON.stringify({action,...payload}),signal:controller.signal});
+      let data={};try{data=await response.json();}catch(error){if(response.ok||controller.signal.aborted)throw error;}
+      if(!response.ok){const error=new Error(data.error||`Reminder service error (${response.status})`);error.code=data.code||"reminder_error";error.status=response.status;throw error;}
+      return data;
+    }catch(error){
+      if(error?.code)throw error;
+      const wrapped=new Error(error?.name==="AbortError"?"The reminder service took too long to respond.":"Could not reach the Watched Logger reminder service.");wrapped.code=error?.name==="AbortError"?"timeout":"network";throw wrapped;
+    }finally{clearTimeout(timeout);}
   }
   async function notificationWorker(){
     await navigator.serviceWorker.register("./sw.js",{scope:"./",updateViaCache:"none"});
@@ -509,16 +525,57 @@
     finally{sendPlannedTest.disabled=false;}
   };
 
-  async function pinApi(action,payload={},token=cloudSessionToken){
+  async function pinApi(action,payload={},token=cloudSessionToken,preparedBody="",externalSignal=null){
     const headers={"Content-Type":"application/json"};
     if(token)headers["X-WatchLog-Session"]=token;
-    let response;
-    try{response=await fetch(PIN_API,{method:"POST",headers,body:JSON.stringify({action,...payload})});}
-    catch(e){const err=new Error("Could not reach Watched Logger cloud. Check your connection.");err.code="network";throw err;}
-    let data={};
-    try{data=await response.json();}catch(_){}
-    if(!response.ok){const err=new Error(data.error||`Watched Logger cloud error (${response.status})`);err.code=data.code||"api_error";err.status=response.status;err.retryAfter=data.retryAfter;err.maintenance=data.maintenance===true;throw err;}
-    return data;
+    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),CLOUD_REQUEST_TIMEOUT_MS);
+    const abortFromExternal=()=>controller.abort();
+    if(externalSignal){if(externalSignal.aborted)controller.abort();else externalSignal.addEventListener("abort",abortFromExternal,{once:true});}
+    try{
+      const response=await fetch(PIN_API,{method:"POST",headers,body:preparedBody||JSON.stringify({action,...payload}),signal:controller.signal});
+      let data={};
+      try{data=await response.json();}
+      catch(error){
+        if(error?.name==="AbortError"||response.ok)throw error;
+      }
+      if(!data||typeof data!=="object"||Array.isArray(data))throw new Error("Invalid cloud response.");
+      if(!response.ok){
+        const err=new Error(data.error||`Watched Logger cloud error (${response.status})`);err.code=data.code||"api_error";err.status=response.status;err.retryAfter=data.retryAfter;err.maintenance=data.maintenance===true;
+        Object.assign(err,{items:data.items,revision:data.revision,updatedAt:data.updatedAt});
+        if(err.maintenance){
+          publicMaintenance={enabled:true,message:err.message||publicMaintenance.message};maintenanceOwnerAccess=false;
+          updateAuthMode();showAuth();
+        }
+        throw err;
+      }
+      if(data.ok!==true||(["load","login"].includes(action)&&(!Array.isArray(data.items)||!data.account?.id))||(["save","load","login","register"].includes(action)&&(!Number.isSafeInteger(data.revision)||data.revision<0))){
+        const error=new Error("The cloud returned an incomplete response. Your local changes are still available.");error.code="invalid_response";throw error;
+      }
+      return data;
+    }catch(e){
+      if(e?.code)throw e;
+      const externalAbort=externalSignal?.aborted===true;
+      const err=new Error(externalAbort?"Search cancelled.":e?.name==="AbortError"?"Watched Logger cloud took too long to respond. Your change remains saved on this device.":"Could not reach Watched Logger cloud. Check your connection.");err.code=externalAbort?"cancelled":e?.name==="AbortError"?"timeout":"network";throw err;
+    }finally{
+      clearTimeout(timeout);
+      externalSignal?.removeEventListener?.("abort",abortFromExternal);
+    }
+  }
+
+  async function fetchJSONWithTimeout(url,options={},timeoutMs=EXTERNAL_REQUEST_TIMEOUT_MS){
+    const controller=new AbortController(),externalSignal=options.signal||null;
+    const abortFromExternal=()=>controller.abort();
+    if(externalSignal){if(externalSignal.aborted)controller.abort();else externalSignal.addEventListener("abort",abortFromExternal,{once:true});}
+    const timeout=setTimeout(()=>controller.abort(),timeoutMs);
+    try{
+      const response=await fetch(url,{...options,signal:controller.signal});
+      const data=await response.json();
+      if(!response.ok){const error=new Error(`Request failed (${response.status})`);error.status=response.status;throw error;}
+      return data;
+    }finally{
+      clearTimeout(timeout);
+      externalSignal?.removeEventListener?.("abort",abortFromExternal);
+    }
   }
 
   function renderAuthMaintenance(){
@@ -574,6 +631,7 @@
     finally{saveMaintenance.disabled=false;}
   };
 
+  let latestLocalSnapshot=null;
   function cacheName(userIdHash){return `WatchLogLocal_${userIdHash.slice(0,48)}`;}
   async function openCache(userId){
     if(cacheDB){try{cacheDB.close();}catch(_){}}
@@ -585,16 +643,30 @@
       r.onerror=()=>reject(r.error);
     });
   }
-  function cachePut(value){return new Promise((resolve,reject)=>{if(!cacheDB)return resolve(false);const tx=cacheDB.transaction("data","readwrite");tx.objectStore("data").put(value);tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);});}
-  function cacheGet(key){return new Promise((resolve,reject)=>{if(!cacheDB)return resolve(null);const tx=cacheDB.transaction("data","readonly");const r=tx.objectStore("data").get(key);r.onsuccess=()=>resolve(r.result||null);r.onerror=()=>reject(r.error);});}
-  async function saveCache(items){if(!currentUser)return;await cachePut({key:"library",userId:currentUser.id,items,updatedAt:nowISO()});}
+  function cachePut(value,db=cacheDB){return new Promise((resolve,reject)=>{if(!db)return resolve(false);const tx=db.transaction("data","readwrite");tx.objectStore("data").put(value);tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error("On-device save was interrupted."));});}
+  function cacheGet(key,db=cacheDB){return new Promise((resolve,reject)=>{if(!db)return resolve(null);const tx=db.transaction("data","readonly");const r=tx.objectStore("data").get(key);r.onsuccess=()=>resolve(r.result||null);r.onerror=()=>reject(r.error);tx.onabort=()=>reject(tx.error||new Error("On-device read was interrupted."));});}
+  function activePersistenceContext(snapshot){return Boolean(snapshot&&String(currentUser?.id||"")===snapshot.accountId&&cloudSessionToken===snapshot.token&&persistenceGeneration===snapshot.generation);}
+  function setCloudBaseline(items,revision,accountId=String(currentUser?.id||"")){
+    if(!accountId||String(currentUser?.id||"")!==accountId)return;
+    cloudBaseItems=cloneLibrarySnapshot(items);
+    cloudRevision=Math.max(0,Number(revision)||0);
+    lastCloudLibraryJSON=JSON.stringify(cloudBaseItems);
+    lastCloudAccountId=accountId;
+  }
+  async function saveCache(items,serialized="",{dirty=false,baseItems=cloudBaseItems,baseRevision=cloudRevision,sequence=localSaveSequence,accountId=String(currentUser?.id||""),db=cacheDB}={}){
+    if(!accountId||!db)return false;
+    const json=serialized||JSON.stringify(items);
+    await cachePut({key:"library",userId:accountId,items,json,dirty,cloudItems:baseItems,cloudRevision:Math.max(0,Number(baseRevision)||0),localSequence:sequence,updatedAt:nowISO()},db);
+    if(String(currentUser?.id||"")===accountId&&cacheDB===db){lastLocalLibraryJSON=json;lastLocalAccountId=accountId;}
+    return true;
+  }
   async function loadCacheRecord(){if(!currentUser)return null;const r=await cacheGet("library");return r?.userId===currentUser.id?r:null;}
   async function loadCache(){const r=await loadCacheRecord();return Array.isArray(r?.items)?r.items:[];}
   async function saveProfile(profile){if(!currentUser)return;await cachePut({key:"profile",userId:currentUser.id,profile,updatedAt:nowISO()});}
   async function loadProfile(){if(!currentUser)return null;const r=await cacheGet("profile");return r?.userId===currentUser.id?r.profile||null:null;}
-  function pendingKey(){return currentUser?`watchlog_pin_pending_${currentUser.id}`:"";}
-  function markPending(value){const key=pendingKey();if(!key)return;if(value)localStorage.setItem(key,"1");else localStorage.removeItem(key);}
-  function hasPending(){const key=pendingKey();return !!key&&localStorage.getItem(key)==="1";}
+  function pendingKey(accountId=String(currentUser?.id||"")){return accountId?`watchlog_pin_pending_${accountId}`:"";}
+  function markPending(value,accountId=String(currentUser?.id||"")){const key=pendingKey(accountId);if(!key)return;if(value)localStorage.setItem(key,"1");else localStorage.removeItem(key);}
+  function hasPending(accountId=String(currentUser?.id||"")){const key=pendingKey(accountId);return !!key&&localStorage.getItem(key)==="1";}
   function setSync(text,state="ok"){syncStatus.textContent=text;syncDot.className=`sync-dot ${state==="ok"?"ok":state==="warn"?"warn":""}`;}
 
   async function readLegacyLocalSnapshotById(id){
@@ -669,17 +741,122 @@
     return JSON.parse(JSON.stringify(Array.isArray(items)?items:[]));
   }
 
+  function createLibrarySnapshot(items,overrides={}){
+    const cloned=cloneLibrarySnapshot(items);
+    return{
+      items:cloned,
+      json:JSON.stringify(cloned),
+      accountId:String(overrides.accountId??currentUser?.id??""),
+      token:String(overrides.token??cloudSessionToken??""),
+      generation:Number(overrides.generation??persistenceGeneration),
+      db:overrides.db??cacheDB,
+      sequence:Number(overrides.sequence??++localSaveSequence),
+      baseItems:Array.isArray(overrides.baseItems)?overrides.baseItems:cloudBaseItems,
+      expectedRevision:Math.max(0,Number(overrides.expectedRevision??cloudRevision)||0)
+    };
+  }
+
+  function replayLocalChanges(baseItems,localItems,remoteItems){
+    const base=new Map((Array.isArray(baseItems)?baseItems:[]).filter(item=>item?.id).map(item=>[String(item.id),item]));
+    const local=new Map((Array.isArray(localItems)?localItems:[]).filter(item=>item?.id).map(item=>[String(item.id),item]));
+    const remote=new Map((Array.isArray(remoteItems)?remoteItems:[]).filter(item=>item?.id).map(item=>[String(item.id),item]));
+    for(const [id,baseItem] of base){
+      if(!local.has(id)){remote.delete(id);continue;}
+      const localItem=local.get(id);
+      if(JSON.stringify(localItem)!==JSON.stringify(baseItem))remote.set(id,localItem);
+    }
+    for(const [id,localItem] of local)if(!base.has(id))remote.set(id,localItem);
+    return Array.from(remote.values());
+  }
+
+  async function acknowledgeCloudSnapshot(originalSnapshot,savedSnapshot,result){
+    let revision=Math.max(0,Number(result?.revision)||0);
+    if(activePersistenceContext(originalSnapshot)&&cloudRevision>revision){
+      revision=cloudRevision;
+      savedSnapshot=createLibrarySnapshot(cloudBaseItems,{...savedSnapshot,expectedRevision:revision});
+    }
+    if(activePersistenceContext(originalSnapshot)){
+      /* A reply may include another device's changes. Rebase only edits made
+         after this request, so the next request cannot repeat an old edit or
+         resurrect a title removed remotely. Do this before yielding to IDB. */
+      for(const pending of new Set([latestLocalSnapshot,queuedLocalSnapshot,queuedCloudSnapshot])){
+        if(!pending||!activePersistenceContext(pending)||pending.sequence<=originalSnapshot.sequence)continue;
+        pending.items=replayLocalChanges(originalSnapshot.items,pending.items,savedSnapshot.items);
+        pending.json=JSON.stringify(pending.items);
+        pending.baseItems=savedSnapshot.items;pending.expectedRevision=revision;
+      }
+      mediaItems=localSaveSequence>originalSnapshot.sequence
+        ? replayLocalChanges(originalSnapshot.items,mediaItems,savedSnapshot.items)
+        : cloneLibrarySnapshot(savedSnapshot.items);
+      setCloudBaseline(savedSnapshot.items,revision,originalSnapshot.accountId);
+      render();
+    }
+    await acknowledgeCachedSnapshot(originalSnapshot,savedSnapshot,revision);
+    /* A delayed callback can enqueue this same snapshot again. Its accepted
+       baseline must now describe the accepted revision, including remote edits. */
+    originalSnapshot.items=cloneLibrarySnapshot(savedSnapshot.items);
+    originalSnapshot.json=JSON.stringify(originalSnapshot.items);
+    originalSnapshot.baseItems=originalSnapshot.items;originalSnapshot.expectedRevision=revision;
+  }
+
+  function acknowledgeCachedSnapshot(originalSnapshot,savedSnapshot,revision){
+    const db=originalSnapshot.db;if(!db)return Promise.resolve(false);
+    return new Promise((resolve,reject)=>{
+      /* Read and update in one transaction: a newer device save cannot land
+         between the sequence check and the acknowledgement. */
+      const tx=db.transaction("data","readwrite"),store=tx.objectStore("data"),request=store.get("library");
+      let acknowledged=null;
+      request.onsuccess=()=>{
+        const record=request.result;
+        if(record?.userId!==originalSnapshot.accountId||Number(record.cloudRevision||0)>revision)return;
+        const sequence=Math.max(Number(record.localSequence)||0,originalSnapshot.sequence);
+        const items=Number(record.localSequence||0)>originalSnapshot.sequence
+          ? replayLocalChanges(originalSnapshot.items,record.items,savedSnapshot.items)
+          : savedSnapshot.items;
+        const json=JSON.stringify(items);
+        acknowledged={...record,items,json,dirty:json!==savedSnapshot.json,cloudItems:savedSnapshot.items,cloudRevision:revision,localSequence:sequence,updatedAt:nowISO()};
+        store.put(acknowledged);
+      };
+      tx.oncomplete=()=>{
+        if(acknowledged&&activePersistenceContext(originalSnapshot)){
+          lastLocalLibraryJSON=acknowledged.json;lastLocalAccountId=originalSnapshot.accountId;
+        }
+        resolve(Boolean(acknowledged));
+      };
+      tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error("On-device sync acknowledgement was interrupted."));
+    });
+  }
+
+  async function uploadCloudLibrary(snapshot){
+    let outgoing=snapshot;
+    for(let attempt=0;attempt<3;attempt++){
+      const requestBody=`{"action":"save","expectedRevision":${outgoing.expectedRevision},"items":${outgoing.json}}`;
+      try{
+        const result=await pinApi("save",{},outgoing.token,requestBody);
+        await acknowledgeCloudSnapshot(snapshot,outgoing,result);
+        return result;
+      }catch(error){
+        if(error?.code!=="revision_conflict"||!Array.isArray(error.items)||!Number.isSafeInteger(Number(error.revision))||attempt===2)throw error;
+        const merged=replayLocalChanges(outgoing.baseItems,outgoing.items,error.items);
+        outgoing=createLibrarySnapshot(merged,{...outgoing,sequence:snapshot.sequence,baseItems:error.items,expectedRevision:Number(error.revision)});
+      }
+    }
+  }
+
   function queueLocalLibrarySave(snapshot){
-    if(!currentUser)return Promise.resolve(true);
+    if(!snapshot.accountId||!snapshot.db)return Promise.resolve(true);
+    if(activePersistenceContext(snapshot)&&latestLocalSnapshot?.sequence>snapshot.sequence)snapshot=latestLocalSnapshot;
+    if(activePersistenceContext(snapshot)&&(!latestLocalSnapshot||snapshot.sequence>=latestLocalSnapshot.sequence))latestLocalSnapshot=snapshot;
     /* IndexedDB writes are serialized and coalesced. If five episode ticks or
        edits happen quickly, only the newest waiting snapshot is written. */
-    queuedLocalSnapshot=snapshot;
+    if(!queuedLocalSnapshot||queuedLocalSnapshot.accountId!==snapshot.accountId||snapshot.sequence>=queuedLocalSnapshot.sequence)queuedLocalSnapshot=snapshot;
     if(localSaveInFlight)return localSaveInFlight;
     localSaveInFlight=(async()=>{
       while(queuedLocalSnapshot){
         const snapshot=queuedLocalSnapshot;
         queuedLocalSnapshot=null;
-        await saveCache(snapshot);
+        if(snapshot.accountId===lastLocalAccountId&&snapshot.json===lastLocalLibraryJSON)continue;
+        await saveCache(snapshot.items,snapshot.json,{dirty:true,baseItems:snapshot.baseItems,baseRevision:snapshot.expectedRevision,sequence:snapshot.sequence,accountId:snapshot.accountId,db:snapshot.db});
       }
       return true;
     })().finally(()=>{
@@ -690,34 +867,43 @@
   }
 
   function queueCloudLibrarySave(snapshot){
-    if(!cloudSessionToken)return Promise.resolve(true);
+    if(!snapshot.token||!snapshot.accountId)return Promise.resolve(true);
+    if(activePersistenceContext(snapshot)&&latestLocalSnapshot?.sequence>snapshot.sequence)snapshot=latestLocalSnapshot;
 
     /* Keep only the newest snapshot when several edits are saved quickly. This
        prevents an older, slower request from overwriting a newer library. */
-    queuedCloudSnapshot=snapshot;
-    markPending(true);setSync("Saving securely in the background…","warn");
+    if(!queuedCloudSnapshot||queuedCloudSnapshot.accountId!==snapshot.accountId||snapshot.sequence>=queuedCloudSnapshot.sequence)queuedCloudSnapshot=snapshot;
+    markPending(true,snapshot.accountId);if(activePersistenceContext(snapshot))setSync("Saving securely in the background…","warn");
     if(cloudSaveInFlight)return cloudSaveInFlight;
 
+    let saveFailed=false,processedAccountId=snapshot.accountId;
     cloudSaveInFlight=(async()=>{
       while(queuedCloudSnapshot){
         /* Briefly wait for rapid episode ticks or edits so they share one
            full-library cloud request. IndexedDB still saves immediately. */
         await new Promise(resolve=>setTimeout(resolve,CLOUD_SAVE_COALESCE_MS));
+        if(localSaveInFlight)await localSaveInFlight;
         const snapshot=queuedCloudSnapshot;
         queuedCloudSnapshot=null;
-        try{await pinApi("save",{items:snapshot});}
+        if(!snapshot)continue;
+        processedAccountId=snapshot.accountId;
+        try{
+          if(snapshot.accountId===lastCloudAccountId&&snapshot.json===lastCloudLibraryJSON)await acknowledgeCloudSnapshot(snapshot,snapshot,{revision:cloudRevision});
+          else await uploadCloudLibrary(snapshot);
+        }
         catch(e){
           console.warn(e);
-          queuedCloudSnapshot=null;
-          setSync("Saved on this device, but cloud sync is pending. Tap Sync Now when online.","warn");
+          if(!queuedCloudSnapshot)queuedCloudSnapshot=snapshot;
+          saveFailed=true;
+          if(activePersistenceContext(snapshot))setSync("Saved on this device, but cloud sync is pending. Tap Sync Now when online.","warn");
           return false;
         }
       }
-      markPending(false);setSync("Synced. This library is available on your other devices.","ok");
+      markPending(false,processedAccountId);if(String(currentUser?.id||"")===processedAccountId)setSync("Synced. This library is available on your other devices.","ok");
       return true;
     })().finally(()=>{
       cloudSaveInFlight=null;
-      if(queuedCloudSnapshot)void queueCloudLibrarySave(queuedCloudSnapshot);
+      if(queuedCloudSnapshot&&!saveFailed)void queueCloudLibrarySave(queuedCloudSnapshot);
     });
     return cloudSaveInFlight;
   }
@@ -734,29 +920,29 @@
     /* Start the on-device and cloud writes together. The UI can close
        immediately, while both queues retain only the newest safe snapshot.
        Clone once: IndexedDB and fetch both treat this snapshot as read-only. */
-    const snapshot=cloneLibrarySnapshot(items);
+    const snapshot=createLibrarySnapshot(items);
     const localSave=queueLocalLibrarySave(snapshot);
-    const cloudSave=queueCloudLibrarySave(snapshot);
+    const cloudSave=localSave.then(()=>queueCloudLibrarySave(snapshot));
     const completion=Promise.all([localSave,cloudSave]);
     if(background){
       completion.catch(error=>{
         console.error("Background library save failed",error);
-        markPending(true);
+        markPending(true,snapshot.accountId);
         setSync("Your change is still open, but saving needs attention. Tap Sync Now.","warn");
       });
       /* Report success once the on-device copy is durable. Cloud sync keeps
          running independently and retains its pending retry marker. */
       return localSave;
     }
-    return completion.then(()=>true);
+    return completion.then(([local,cloud])=>local!==false&&cloud!==false);
   }
 
   async function retryPendingCloudSave(){
     if(!currentUser||!cloudSessionToken||!hasPending()||cloudSaveInFlight)return;
     try{
       if(localSaveInFlight)await localSaveInFlight;
-      const cached=await loadCache();
-      await queueCloudLibrarySave(cached);
+      const cached=await loadCacheRecord();
+      if(cached?.items)await queueCloudLibrarySave(createLibrarySnapshot(cached.items,{baseItems:Array.isArray(cached.cloudItems)?cached.cloudItems:cloudBaseItems,expectedRevision:Number(cached.cloudRevision??cloudRevision),sequence:Number(cached.localSequence||++localSaveSequence)}));
     }catch(error){console.warn("Automatic cloud retry postponed",error);}
   }
   window.addEventListener("online",()=>{void retryPendingCloudSave();void refreshLibraryEpisodeMetadata({force:true});});
@@ -898,8 +1084,12 @@
 
   setInterval(()=>{if(document.visibilityState==="visible")void refreshLibraryEpisodeMetadata();},SERIES_RELEASE_CHECK_MS);
 
-  function storePinSession(account,token,expiresAt){safeWriteJSON(PIN_SESSION_KEY,{token,expiresAt,account});}
+  function storePinSession(account,token,expiresAt,revision=cloudRevision){safeWriteJSON(PIN_SESSION_KEY,{token,expiresAt,account,revision});}
   function applyAccount(account){
+    if(String(currentUser?.id||"")!==String(account.id)){
+      persistenceGeneration++;localSaveSequence=0;
+      lastLocalLibraryJSON="";lastCloudLibraryJSON="";lastLocalAccountId="";lastCloudAccountId="";cloudBaseItems=[];cloudRevision=0;queuedLocalSnapshot=null;queuedCloudSnapshot=null;latestLocalSnapshot=null;
+    }
     currentUser={id:account.id,email:normalizeEmail(account.email)};
     currentProfile={display_name:account.displayName||account.display_name||"User",email:normalizeEmail(account.email)};
     profileName.textContent=currentProfile.display_name;profileEmail.textContent=currentProfile.email;navName.textContent=currentProfile.display_name||currentProfile.email;avatar.textContent=String(currentProfile.display_name||currentProfile.email||"U").charAt(0).toUpperCase();
@@ -908,20 +1098,42 @@
     hideMessage();authScreen.classList.add("hidden");
     const original=Array.isArray(items)?items:[],migration=migratePlannedStatuses(original),cleanup=cleanLibraryRecords(migration.rows),cleaned=cleanup.items;
     mediaItems=cleaned;render();setSync(syncText,syncState);
-    setTimeout(()=>{void refreshLibraryEpisodeMetadata({force:true});},0);
     const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);
+    if(migration.changed||cleanup.removedCount||cleanup.repairedCount||cleaned.length!==original.length)await persistLibrary(cleaned,{background:true,precleaned:true});
+    setTimeout(()=>{void refreshLibraryEpisodeMetadata({force:true});},0);
     try{await syncExistingBackgroundPush();}catch(error){console.warn("Background reminder sync skipped",error);}
     await updateNotificationTestVisibility();
     await refreshMaintenanceAdmin();
-    if(migration.changed||cleanup.removedCount||cleanup.repairedCount||cleaned.length!==original.length)await persistLibrary(cleaned,{precleaned:true});
   }
 
-  async function establishCloudSession(result,items){
+  function mergePendingCache(cached,remoteItems,accountId=String(currentUser?.id||"")){
+    if(cached?.userId!==accountId||!Array.isArray(cached.items)||!(cached.dirty===true||hasPending(accountId)))return remoteItems;
+    return Array.isArray(cached.cloudItems)
+      ? replayLocalChanges(cached.cloudItems,cached.items,remoteItems)
+      : mergeLibraries(remoteItems,cached.items);
+  }
+
+  async function establishCloudSession(result,items,cloudItems=items){
     cloudSessionToken=result.sessionToken||cloudSessionToken;
     applyAccount(result.account);
-    await openCache(currentUser.id);await saveProfile(currentProfile);mediaItems=Array.isArray(items)?items:[];await saveCache(mediaItems);
-    storePinSession({id:currentUser.id,email:currentProfile.email,displayName:currentProfile.display_name},cloudSessionToken,result.expiresAt||null);
-    markPending(false);await enterAccount(mediaItems);
+    setCloudBaseline(Array.isArray(cloudItems)?cloudItems:[],result.revision,currentUser.id);
+    await openCache(currentUser.id);
+    const cached=await loadCacheRecord();
+    localSaveSequence=Math.max(localSaveSequence,Number(cached?.localSequence)||0);
+    mediaItems=mergePendingCache(cached,Array.isArray(items)?items:[]);
+    await saveProfile(currentProfile);
+    const pending=JSON.stringify(mediaItems)!==lastCloudLibraryJSON;
+    if(pending){
+      const snapshot=createLibrarySnapshot(mediaItems);
+      markPending(true,snapshot.accountId);
+      await queueLocalLibrarySave(snapshot);
+      void queueCloudLibrarySave(snapshot).catch(error=>console.warn("Cloud sync postponed",error));
+    }else{
+      await saveCache(mediaItems,"",{dirty:false,baseItems:cloudBaseItems,baseRevision:cloudRevision});
+      markPending(false);
+    }
+    storePinSession({id:currentUser.id,email:currentProfile.email,displayName:currentProfile.display_name},cloudSessionToken,result.expiresAt||null,cloudRevision);
+    await enterAccount(mediaItems,{syncText:pending?"Saved on this device. Syncing your latest changes…":"Synced. This library is available on your other devices.",syncState:pending?"warn":"ok"});
   }
 
   async function registerPinAccount(name,email,pin){
@@ -934,25 +1146,37 @@
     const result=await pinApi("login",{email,pin},"");
     const legacy=await collectPreviousLocalItems(email);
     const merged=mergeLibraries(result.items||[],legacy);
-    await establishCloudSession(result,merged);
-    if(JSON.stringify(merged)!==JSON.stringify(result.items||[]))await persistLibrary(merged);
+    await establishCloudSession(result,merged,result.items||[]);
   }
 
   async function restorePinSession(){
     const saved=safeReadJSON(PIN_SESSION_KEY,null);if(!saved?.token||!saved?.account?.id)return false;
     cloudSessionToken=saved.token;applyAccount(saved.account);await openCache(currentUser.id);currentProfile=await loadProfile()||currentProfile;
     const cached=await loadCacheRecord();
+    localSaveSequence=Math.max(localSaveSequence,Number(cached?.localSequence)||0);
+    if(cached?.items)setCloudBaseline(Array.isArray(cached.cloudItems)?cached.cloudItems:cached.items,Number(cached.cloudRevision??saved.revision??0),currentUser.id);
     try{
-      if(hasPending()&&cached?.items){await pinApi("save",{items:cached.items});markPending(false);}
-      const result=await pinApi("load");applyAccount(result.account);await saveProfile(currentProfile);mediaItems=Array.isArray(result.items)?result.items:[];await saveCache(mediaItems);storePinSession({id:currentUser.id,email:currentProfile.email,displayName:currentProfile.display_name},cloudSessionToken,saved.expiresAt||null);await enterAccount(mediaItems);return true;
+      const result=await pinApi("load"),remoteItems=Array.isArray(result.items)?result.items:[];
+      applyAccount(result.account);await saveProfile(currentProfile);setCloudBaseline(remoteItems,result.revision,currentUser.id);
+      /* Rebase any on-device edits against the latest cloud snapshot.  This
+         keeps deletions and edits made while offline instead of letting a
+         later session silently replace them with the remote library. */
+      mediaItems=mergePendingCache(cached,remoteItems,currentUser.id);
+      const pending=JSON.stringify(mediaItems)!==JSON.stringify(remoteItems);
+      if(pending){
+        const snapshot=createLibrarySnapshot(mediaItems,{baseItems:remoteItems,expectedRevision:cloudRevision});
+        await queueLocalLibrarySave(snapshot);await queueCloudLibrarySave(snapshot);
+      }else await saveCache(mediaItems,"",{dirty:false,baseItems:remoteItems,baseRevision:cloudRevision});
+      storePinSession({id:currentUser.id,email:currentProfile.email,displayName:currentProfile.display_name},cloudSessionToken,saved.expiresAt||null,cloudRevision);await enterAccount(mediaItems);return true;
     }catch(e){
       if(e.status===401){localStorage.removeItem(PIN_SESSION_KEY);cloudSessionToken="";currentUser=null;currentProfile=null;return false;}
+      if(e.code==="maintenance"||e.maintenance){publicMaintenance={enabled:true,message:e.message||publicMaintenance.message};maintenanceOwnerAccess=false;updateAuthMode();return false;}
       if(cached?.items){mediaItems=cached.items;await enterAccount(mediaItems,{syncText:"Offline: showing the last library saved on this device. Cloud sync will resume when available.",syncState:"warn"});return true;}
       throw e;
     }
   }
 
-  async function clearUserState(){mediaItems=[];currentProfile=null;currentUser=null;cloudSessionToken="";notificationTestSettings?.classList.add("hidden");setBackgroundReminderStatus("Sign in to manage background reminders.");if(cacheDB){try{cacheDB.close();}catch(_){}}cacheDB=null;render();}
+  async function clearUserState(){persistenceGeneration++;mediaItems=[];currentProfile=null;currentUser=null;cloudSessionToken="";queuedLocalSnapshot=null;queuedCloudSnapshot=null;latestLocalSnapshot=null;lastLocalLibraryJSON="";lastCloudLibraryJSON="";lastLocalAccountId="";lastCloudAccountId="";cloudBaseItems=[];cloudRevision=0;localSaveSequence=0;notificationTestSettings?.classList.add("hidden");setBackgroundReminderStatus("Sign in to manage background reminders.");if(cacheDB){try{cacheDB.close();}catch(_){}}cacheDB=null;render();}
   function showAuth(){authScreen.classList.remove("hidden");}
   function updateAuthMode(){
     hideMessage();authNameGroup.classList.toggle("hidden",!isSignUp);
@@ -977,26 +1201,36 @@
   };
 
   logoutBtn.onclick=async()=>{
+    logoutBtn.disabled=true;
+    try{if(localSaveInFlight)await localSaveInFlight;if(cloudSaveInFlight)await cloudSaveInFlight;}catch(_){}
     try{await removeBackgroundPush();}catch(_){}
     try{if(cloudSessionToken)await pinApi("logout");}catch(_){}
     localStorage.removeItem(PIN_SESSION_KEY);await clearUserState();authPin.value="";isSignUp=false;updateAuthMode();showAuth();
+    logoutBtn.disabled=false;
   };
 
   syncNowBtn.onclick=async()=>{
     if(!currentUser||!cloudSessionToken)return;syncNowBtn.disabled=true;setSync("Syncing…","warn");
+    const context={accountId:String(currentUser.id),token:cloudSessionToken,generation:persistenceGeneration};
     try{
       /* Finish any edit already being saved before choosing the snapshot to
          upload or loading cloud state over it. */
       if(localSaveInFlight)await localSaveInFlight;
       if(cloudSaveInFlight)await cloudSaveInFlight;
-      const cached=await loadCacheRecord();
-      if(hasPending()&&cached?.items){await pinApi("save",{items:cached.items});markPending(false);}
-      const result=await pinApi("load"),original=Array.isArray(result.items)?result.items:[];
-      const migration=migratePlannedStatuses(original),cleanup=cleanLibraryRecords(migration.rows);
-      mediaItems=cleanup.items;applyAccount(result.account);
-      await saveProfile(currentProfile);await saveCache(mediaItems);
-      if(migration.changed||cleanup.removedCount||cleanup.repairedCount||mediaItems.length!==original.length)await persistLibrary(mediaItems,{precleaned:true});
-      render();setSync("Synced. This library is available on your other devices.","ok");
+      const result=await pinApi("load",{},context.token);
+      if(!activePersistenceContext(context))return;
+      /* Editing stays available during the request. Merge the current in-memory
+         edits at response time, and ignore a load older than an acknowledged save. */
+      const revision=Math.max(cloudRevision,Number(result.revision)||0);
+      const original=Number(result.revision)>=cloudRevision?result.items:cloudBaseItems;
+      const merged=replayLocalChanges(cloudBaseItems,mediaItems,original);
+      const migration=migratePlannedStatuses(merged),cleanup=cleanLibraryRecords(migration.rows);
+      applyAccount(result.account);setCloudBaseline(original,revision,currentUser.id);
+      mediaItems=cleanup.items;render();
+      const saved=await persistLibrary(mediaItems,{precleaned:true});
+      if(!activePersistenceContext(context))return;
+      await saveProfile(currentProfile);
+      setSync(saved?"Synced. This library is available on your other devices.":"Saved on this device. Cloud sync is still pending.",saved?"ok":"warn");
       const cleanupMessage=duplicateCleanupMessage(cleanup);if(cleanupMessage)showAppToast(cleanupMessage,"success",6000);
       void refreshLibraryEpisodeMetadata({force:true});
     }catch(e){console.error(e);setSync(e.message||"Sync failed.","warn");}
@@ -1081,41 +1315,55 @@
   }
   function currentSortInfo(item,now=Date.now()){
     const day=24*60*60*1000;
-    const eventTime=value=>{
+    const eventInfo=value=>{
       const raw=String(value||"").trim();
-      if(!raw)return 0;
-      const dateOnly=/^\d{4}-\d{2}-\d{2}$/.test(raw);
-      const time=new Date(dateOnly?`${raw}T12:00:00`:raw).getTime();
-      return Number.isFinite(time)?time:0;
+      if(!raw)return{time:0,dateOnly:false,dayStart:0,validThrough:0};
+      const dateOnly=/^\d{4}-\d{2}-\d{2}$/.test(raw)||/^\d{4}-\d{2}-\d{2}T12:00(?::00)?$/.test(raw);
+      const datePart=raw.slice(0,10);
+      const time=new Date(dateOnly?`${datePart}T12:00:00`:raw).getTime();
+      const dayStart=dateOnly?new Date(`${datePart}T00:00:00`).getTime():time;
+      const validThrough=dateOnly?new Date(`${datePart}T23:59:59.999`).getTime():time;
+      return{
+        time:Number.isFinite(time)?time:0,
+        dateOnly,
+        dayStart:Number.isFinite(dayStart)?dayStart:0,
+        validThrough:Number.isFinite(validThrough)?validThrough:0
+      };
     };
 
     if(isEpisodeTrackable(item)){
-      const latestEpisodeTime=eventTime(item.latestEpisodeDate);
-      const nextEpisodeTime=eventTime(item.nextEpisodeDate);
-      const nextSeasonTime=eventTime(item.nextSeasonDate);
+      const latestEpisode=eventInfo(item.latestEpisodeDate);
+      const nextEpisode=eventInfo(item.nextEpisodeDate);
+      const nextSeason=eventInfo(item.nextSeasonDate);
+      const latestEpisodeAired=latestEpisode.time>0&&(latestEpisode.dateOnly?latestEpisode.dayStart<=now:latestEpisode.time<=now);
 
       // Current is an airing timeline, never a status/added-date sort.
       // Episodes that have just aired are first, newest release first.
-      if(latestEpisodeTime>0&&latestEpisodeTime<=now&&now-latestEpisodeTime<=14*day){
-        return{current:true,phase:3,time:latestEpisodeTime,kind:"aired"};
+      if(latestEpisodeAired&&now-latestEpisode.dayStart<=14*day){
+        return{current:true,phase:3,time:latestEpisode.time,kind:"aired"};
       }
 
       // After recent releases, show the next dated episode/season in true
-      // chronological order: the soonest upcoming air time first.
-      const future=[nextEpisodeTime,nextSeasonTime].filter(time=>time>now).sort((a,b)=>a-b);
+      // chronological order. Date-only events remain current for their whole
+      // local calendar day instead of falling below TBA titles after noon.
+      const future=[nextEpisode,nextSeason]
+        .filter(event=>event.time>0&&(event.dateOnly?event.validThrough>=now:event.time>now))
+        .map(event=>event.time)
+        .sort((a,b)=>a-b);
       if(future.length)return{current:true,phase:2,time:future[0],kind:"upcoming"};
 
       // Older dated shows remain below the active airing timeline. TBA-only
       // entries have no time and therefore naturally fall to the bottom.
-      if(latestEpisodeTime>0&&latestEpisodeTime<=now)return{current:false,phase:1,time:latestEpisodeTime,kind:"older"};
+      if(latestEpisodeAired)return{current:false,phase:1,time:latestEpisode.time,kind:"older"};
       return{current:false,phase:0,time:0,kind:"tba"};
     }
 
     if(item?.type==="Film"){
-      const releaseTime=eventTime(item.filmReleaseDate);
-      if(releaseTime>0&&releaseTime<=now&&now-releaseTime<=120*day)return{current:true,phase:3,time:releaseTime,kind:"aired"};
-      if(releaseTime>now)return{current:true,phase:2,time:releaseTime,kind:"upcoming"};
-      if(releaseTime>0)return{current:false,phase:1,time:releaseTime,kind:"older"};
+      const release=eventInfo(item.filmReleaseDate);
+      const released=release.time>0&&(release.dateOnly?release.dayStart<=now:release.time<=now);
+      if(released&&now-release.dayStart<=120*day)return{current:true,phase:3,time:release.time,kind:"aired"};
+      if(release.time>now)return{current:true,phase:2,time:release.time,kind:"upcoming"};
+      if(release.time>0)return{current:false,phase:1,time:release.time,kind:"older"};
     }
 
     return{current:false,phase:0,time:0,kind:"tba"};
@@ -1128,37 +1376,38 @@
     if(ai.phase===1&&ai.time!==bi.time)return bi.time-ai.time;
     return titleCollator.compare(a.title||"",b.title||"");
   }
-function compareRecentOrder(a,b,now=Date.now()){
-  const ai=currentSortInfo(a,now),bi=currentSortInfo(b,now);
-  if(ai.current!==bi.current)return ai.current?-1:1;
-  if(ai.current&&bi.current){
-    const added=addedSortTime(b)-addedSortTime(a);
-    if(added)return added;
+  function compareRecentOrder(a,b,now=Date.now()){
+    const ai=currentSortInfo(a,now),bi=currentSortInfo(b,now);
+    if(ai.current!==bi.current)return ai.current?-1:1;
+    if(ai.current&&bi.current){
+      const added=addedSortTime(b)-addedSortTime(a);
+      if(added)return added;
+    }
+    return compareReleaseRecency(a,b,now)||addedSortTime(b)-addedSortTime(a)||titleCollator.compare(a.title||"",b.title||"");
   }
-  return compareReleaseRecency(a,b,now)||addedSortTime(b)-addedSortTime(a)||titleCollator.compare(a.title||"",b.title||"");
-}
-function knownSeasonTotal(item){
+  function knownSeasonTotal(item){
     if(item?.type==="Film")return 0;
     return Math.max(1,...[item?.totalSeasons,item?.watchedSeasons,item?.curSeason,item?.airingSeason,item?.nextSeasonNum].map(value=>Number(value)||0));
   }
   function upcomingSortInfo(item,now=Date.now()){
     const events=[],announcements=[],graceStart=now-6*60*60*1000;
     const eventTime=value=>{
-      const raw=String(value||""),dateOnly=/^\d{4}-\d{2}-\d{2}$/.test(raw);
-      const time=raw?new Date(dateOnly?`${raw}T12:00:00`:raw).getTime():0;
-      return Number.isFinite(time)?time:0;
+      const raw=String(value||""),dateOnly=/^\d{4}-\d{2}-\d{2}$/.test(raw)||/^\d{4}-\d{2}-\d{2}T12:00(?::00)?$/.test(raw);
+      const day=raw.slice(0,10),time=raw?new Date(dateOnly?`${day}T12:00:00`:raw).getTime():0;
+      const validThrough=dateOnly?new Date(`${day}T23:59:59.999`).getTime():time+6*60*60*1000;
+      return{time:Number.isFinite(time)?time:0,dateOnly,validThrough:Number.isFinite(validThrough)?validThrough:0};
     };
     if(item?.type==="Film"){
       if(item.filmReleaseDate){
         const value=eventTime(item.filmReleaseDate),today=new Date(now);today.setHours(0,0,0,0);
-        if(value>=today.getTime())events.push({kind:"film",time:value});
+        if(value.time>=today.getTime())events.push({kind:"film",...value});
       }
     }else{
       const episodeDate=String(item?.nextEpisodeDate||"").trim(),seasonDate=String(item?.nextSeasonDate||"").trim();
       const episodeTime=eventTime(episodeDate),seasonTime=eventTime(seasonDate);
-      if(episodeTime>=graceStart)events.push({kind:"episode",time:episodeTime,number:item.nextEpisodeNum||null});
+      if(episodeTime.time>0&&(episodeTime.dateOnly?episodeTime.validThrough>=now:episodeTime.time>=graceStart))events.push({kind:"episode",...episodeTime,number:item.nextEpisodeNum||null});
       else if(item?.nextEpisodeNum&&!episodeDate)announcements.push({kind:"episode",number:item.nextEpisodeNum});
-      if(seasonTime>=graceStart)events.push({kind:"season",time:seasonTime,number:item.nextSeasonNum||null});
+      if(seasonTime.time>0&&(seasonTime.dateOnly?seasonTime.validThrough>=now:seasonTime.time>=graceStart))events.push({kind:"season",...seasonTime,number:item.nextSeasonNum||null});
       else if(item?.nextSeasonNum&&!seasonDate)announcements.push({kind:"season",number:item.nextSeasonNum});
     }
     if(events.length){events.sort((a,b)=>a.time-b.time);return{rank:2,...events[0]};}
@@ -1275,9 +1524,8 @@ function knownSeasonTotal(item){
       watchedSeasons:fullyWatchedSeasonCount(item,watchedEpisodes,counts),
       currentSeasonEpisodeCount:curSeason?Number(counts[curSeason]||0)||null:null,
       episodeHistory,lastEpisodeWatchedAt:highest?event.watchedAt:"",lastWatchedSeason:highest?.season||null,lastWatchedEpisode:highest?.episode||null,
-      date:localISODate(),updatedAt:event.watchedAt
+      date:item.date||localISODate(),updatedAt:event.watchedAt
     };
-    if(upcomingSortInfo(updated).rank>0&&updated.status!=="Planned")updated.upcomingStatusOverride=true;
     return updated;
   }
   async function toggleEpisodeWatched(id,season,episode){
@@ -1375,31 +1623,50 @@ function knownSeasonTotal(item){
 
   const mediaSearchTextCache=new WeakMap();
   let renderFrame=0;
-  function mediaSearchText(item){
+  function mediaSearchInfo(item){
     let value=mediaSearchTextCache.get(item);
-    if(value===undefined){value=`${normalizeTitle(item?.title)} ${normalizeTitle(item?.platform)}`;mediaSearchTextCache.set(item,value);}
+    if(value===undefined){const title=normalizeTitle(item?.title),platform=normalizeTitle(item?.platform);value={title,platform,text:`${title} ${platform}`.trim()};mediaSearchTextCache.set(item,value);}
     return value;
   }
-  function itemMatchesCurrentView(item,query,queryTokens,now){
+  function librarySearchScore(item,query,queryTokens){
+    if(!query)return 1;
+    const {title,platform,text}=mediaSearchInfo(item);
+    if(title===query)return 1200;
+    if(title.startsWith(query))return 1000-Math.min(100,title.length-query.length);
+    if(title.includes(query))return 820;
+    if(queryTokens.length&&queryTokens.every(token=>title.includes(token)))return 700;
+    if(platform===query)return 620;
+    if(platform.includes(query))return 520;
+    if(queryTokens.length&&queryTokens.every(token=>text.includes(token)))return 440;
+    const length=Math.max(title.length,query.length);
+    if(query.length>=3&&Math.abs(title.length-query.length)<=Math.max(2,Math.floor(length*.25))){
+      const similarity=1-levenshteinNormalized(title,query)/length;
+      if(similarity>=.72)return 300+Math.round(similarity*100);
+    }
+    return 0;
+  }
+  function itemMatchesCurrentView(item,query,queryTokens,now,scoreById=null){
     if(!item?.title)return false;
     if(currentTab==="watchlist"){
       if(upcomingSortInfo(item,now).rank===0)return false;
     }else if(currentTab==="history"&&item.status!=="Watched")return false;
     if(activeFilter!=="All"&&!(activeFilter==="Planned"&&(item.status==="Planned"||item.status==="Saved"))&&item.status!==activeFilter)return false;
-    if(!query)return true;
-    const text=mediaSearchText(item);
-    return text.includes(query)||queryTokens.every(token=>text.includes(token));
+    const score=librarySearchScore(item,query,queryTokens);
+    if(scoreById)scoreById.set(String(item.id),score);
+    return score>0;
   }
   function currentVisibleMediaRows(){
-    const query=normalizeTitle(searchQuery),queryTokens=query.split(" ").filter(Boolean),now=Date.now(),rows=[];
+    const query=normalizeTitle(searchQuery),queryTokens=query.split(" ").filter(Boolean),now=Date.now(),rows=[],scoreById=new Map();
     renderedLibrarySearch=query;
-    for(const item of mediaItems)if(itemMatchesCurrentView(item,query,queryTokens,now))rows.push(item);
-    return sortMediaRows(rows);
+    for(const item of mediaItems)if(itemMatchesCurrentView(item,query,queryTokens,now,scoreById))rows.push(item);
+    const result=sortMediaRows(rows);
+    if(query)result.rows.sort((a,b)=>(scoreById.get(String(b.id))||0)-(scoreById.get(String(a.id))||0));
+    return result;
   }
   function reminderMarkup(item,isFilm){
     const upcoming=upcomingSortInfo(item);
     if(upcoming.rank===0)return"";
-    const text=upcoming.rank===2?formatLocalDateTime(new Date(upcoming.time)):"Date TBA";
+    const text=upcoming.rank===2?(upcoming.dateOnly?formatLocalWeekdayDate(new Date(upcoming.time)):formatLocalDateTime(new Date(upcoming.time))):"Date TBA";
     if(isFilm&&upcoming.kind==="film")return`<div class="reminder"><span>🎬 Film Release</span><small>${esc(formatLocalWeekdayDate(new Date(upcoming.time)))}</small></div>`;
     if(upcoming.kind==="episode"){
       const season=item.airingSeason||item.curSeason||"",label=`${season?`S${season} `:""}E${upcoming.number||"Next"}`;
@@ -1456,26 +1723,32 @@ function knownSeasonTotal(item){
   });
 
   function toLocalInput(v){if(!v)return"";const d=new Date(v);if(Number.isNaN(d.getTime()))return"";const p=n=>String(n).padStart(2,"0");return`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;}
-  function dateOnlyInput(v){return v?`${v}T00:00`:"";}
-  async function imdbVerify(title,season,premiereDate){if(!IMDB_VERIFY_ENDPOINT)return{confirmed:null};try{const u=new URL(IMDB_VERIFY_ENDPOINT,location.href);u.searchParams.set("title",title);u.searchParams.set("season",String(season));if(premiereDate)u.searchParams.set("premiereDate",premiereDate);const r=await fetch(u);if(!r.ok)return{confirmed:null};return await r.json();}catch(_){return{confirmed:null};}}
+  function dateOnlyInput(v){return v?`${v}T12:00`:"";}
+  async function imdbVerify(title,season,premiereDate){if(!IMDB_VERIFY_ENDPOINT)return{confirmed:null};try{const u=new URL(IMDB_VERIFY_ENDPOINT,location.href);u.searchParams.set("title",title);u.searchParams.set("season",String(season));if(premiereDate)u.searchParams.set("premiereDate",premiereDate);return await fetchJSONWithTimeout(u.toString());}catch(_){return{confirmed:null};}}
 
   const WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php";
   const WIKIDATA_API = "https://www.wikidata.org/w/api.php";
   const wikidataRequestCache = new Map();
+  const METADATA_CACHE_TTL_MS=6*60*60*1000;
+  function cachedMetadataRequest(cache,key,task){
+    const existing=cache.get(key);
+    if(existing&&existing.expiresAt>Date.now())return existing.promise;
+    if(existing)cache.delete(key);
+    const entry={expiresAt:Date.now()+METADATA_CACHE_TTL_MS,promise:null};
+    entry.promise=Promise.resolve().then(task).catch(error=>{if(cache.get(key)===entry)cache.delete(key);throw error;});
+    cache.set(key,entry);
+    while(cache.size>60)cache.delete(cache.keys().next().value);
+    return entry.promise;
+  }
 
   async function wikidataApi(params){
     const query={...params,format:"json",origin:"*"};
     const key=JSON.stringify(Object.keys(query).sort().reduce((o,k)=>(o[k]=query[k],o),{}));
-    if(wikidataRequestCache.has(key))return wikidataRequestCache.get(key);
-    const promise=(async()=>{
+    return cachedMetadataRequest(wikidataRequestCache,key,async()=>{
       const u=new URL(WIKIDATA_API);
       Object.entries(query).forEach(([k,v])=>u.searchParams.set(k,String(v)));
-      const r=await fetch(u.toString(),{credentials:"omit",cache:"no-store"});
-      if(!r.ok)throw new Error("Wikidata lookup failed ("+r.status+")");
-      return r.json();
-    })();
-    wikidataRequestCache.set(key,promise);
-    try{return await promise;}catch(e){wikidataRequestCache.delete(key);throw e;}
+      return fetchJSONWithTimeout(u.toString(),{credentials:"omit",cache:"no-store"});
+    });
   }
   const wikiRequestCache = new Map();
   const ORDINAL_SEASON_WORDS = {
@@ -1487,16 +1760,11 @@ function knownSeasonTotal(item){
   async function wikipediaApi(params){
     const query={...params,format:"json",origin:"*"};
     const key=JSON.stringify(Object.keys(query).sort().reduce((o,k)=>(o[k]=query[k],o),{}));
-    if(wikiRequestCache.has(key))return wikiRequestCache.get(key);
-    const promise=(async()=>{
+    return cachedMetadataRequest(wikiRequestCache,key,async()=>{
       const u=new URL(WIKIPEDIA_API);
       Object.entries(query).forEach(([k,v])=>u.searchParams.set(k,String(v)));
-      const r=await fetch(u.toString());
-      if(!r.ok)throw new Error(`Wikipedia lookup failed (${r.status})`);
-      return r.json();
-    })();
-    wikiRequestCache.set(key,promise);
-    try{return await promise;}catch(e){wikiRequestCache.delete(key);throw e;}
+      return fetchJSONWithTimeout(u.toString(),{credentials:"omit",cache:"no-store"});
+    });
   }
 
   function cleanWikiValue(value){
@@ -1812,17 +2080,18 @@ function knownSeasonTotal(item){
   }
 
   async function fetchTVMazeSeasonSnapshot(showId,fallbackShow={}){
-    const [sr,shr,er]=await Promise.all([
-      fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}/seasons`),
-      fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}?embed=nextepisode`),
-      fetch(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}/episodes`)
+    const [seasonResult,showResult,episodeResult]=await Promise.allSettled([
+      fetchJSONWithTimeout(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}/seasons`,{credentials:"omit"}),
+      fetchJSONWithTimeout(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}?embed=nextepisode`,{credentials:"omit"}),
+      fetchJSONWithTimeout(`https://api.tvmaze.com/shows/${encodeURIComponent(showId)}/episodes`,{credentials:"omit"})
     ]);
-    const seasonsRaw=sr.ok?await sr.json():[];
-    const show=shr.ok?await shr.json():fallbackShow;
-    const episodes=er.ok?await er.json():[];
+    const seasonsRaw=seasonResult.status==="fulfilled"&&Array.isArray(seasonResult.value)?seasonResult.value:[];
+    const show=showResult.status==="fulfilled"?showResult.value:fallbackShow;
+    const episodes=episodeResult.status==="fulfilled"&&Array.isArray(episodeResult.value)?episodeResult.value:[];
+    const seasonAvailable=seasonResult.status==="fulfilled",showAvailable=showResult.status==="fulfilled",episodeAvailable=episodeResult.status==="fulfilled";
     return {
-      tvAvailable:sr.ok||shr.ok||er.ok,
-      episodeScheduleAvailable:er.ok&&Array.isArray(episodes),show,
+      tvAvailable:seasonAvailable||showAvailable||episodeAvailable,
+      episodeScheduleAvailable:episodeAvailable,show,
       schedule:analyzeTVSchedule(seasonsRaw,episodes,show,Date.now())
     };
   }
@@ -2065,10 +2334,8 @@ function knownSeasonTotal(item){
 
   async function exactTVMazeShow(title,{imdbId="",year="",platform=""}={}){
     try{
-      const r=await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(title)}`);
-      if(!r.ok)return null;
-      const data=await r.json(),norm=normalizeTitle(title),wantedPlatform=normalizeTitle(platform);
-      let shows=(Array.isArray(data)?data:[]).map(row=>row?.show).filter(Boolean);
+      const rows=await searchTVMaze(title),norm=normalizeTitle(title),wantedPlatform=normalizeTitle(platform);
+      let shows=(Array.isArray(rows)?rows:[]).map(item=>({id:item.tvmazeId||item.externalId,name:item.title,premiered:item.year?`${item.year}-01-01`:"",externals:{imdb:item.imdbId||""},network:item.platform?{name:item.platform}:null,webChannel:null,status:item.status||"",updated:item.updated||0}));
       if(imdbId){const exact=shows.find(show=>String(show?.externals?.imdb||"")===String(imdbId));if(exact)return exact;shows=shows.filter(show=>!show?.externals?.imdb);if(!shows.length)return null;}
       const candidates=shows.map(show=>{
         const candidateTitle=normalizeTitle(show.name||""),candidateImdb=String(show?.externals?.imdb||""),candidateYear=show.premiered?.slice?.(0,4)||"";
@@ -2123,24 +2390,12 @@ function knownSeasonTotal(item){
       if(row.type!=="Film"&&seasonTotal>Number(row.totalSeasons||0)){
         row={...row,totalSeasons:seasonTotal};changed=true;
       }
-      if(upcomingSortInfo(row).rank>0){
-        if(row.upcomingStatusOverride&&row.status!=="Planned"){
-          if(!row.autoPlanned&&!row.statusBeforeUpcoming)return row;
-          const overridden={...row};delete overridden.autoPlanned;delete overridden.statusBeforeUpcoming;changed=true;return overridden;
-        }
-        if(row.upcomingStatusOverride){
-          row={...row};delete row.upcomingStatusOverride;changed=true;
-        }
-        if(row.status==="Planned")return row;
-        changed=true;
-        return{...row,statusBeforeUpcoming:row.status||"Planned",autoPlanned:true,status:"Planned"};
-      }
       if(row.autoPlanned){
         const restoredStatus=row.statusBeforeUpcoming==="Saved"?"Planned":(row.statusBeforeUpcoming||"Planned");
-        const restored={...row,status:restoredStatus};delete restored.autoPlanned;delete restored.statusBeforeUpcoming;changed=true;return restored;
+        row={...row,status:restoredStatus};delete row.autoPlanned;delete row.statusBeforeUpcoming;changed=true;
       }
       if(row.upcomingStatusOverride){
-        const cleaned={...row};delete cleaned.upcomingStatusOverride;changed=true;return cleaned;
+        row={...row};delete row.upcomingStatusOverride;changed=true;
       }
       return row;
     });
@@ -2156,10 +2411,25 @@ function knownSeasonTotal(item){
     return String(value||"")
       .toLowerCase()
       .normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g,"")
+      .replace(/\p{M}/gu,"")
       .replace(/&/g," and ")
-      .replace(/[^a-z0-9]+/g," ")
+      .replace(/[^\p{L}\p{N}]+/gu," ")
       .trim();
+  }
+
+  function canonicalRecordJSON(value){
+    const normalize=input=>{
+      if(Array.isArray(input))return input.map(normalize);
+      if(input&&typeof input==="object")return Object.keys(input).sort().reduce((result,key)=>{if(input[key]!==undefined)result[key]=normalize(input[key]);return result;},{});
+      return input;
+    };
+    return JSON.stringify(normalize(value));
+  }
+
+  function sameRecordWithoutUpdateTime(a,b){
+    if(!a||!b)return false;
+    const left={...a},right={...b};delete left.updatedAt;delete right.updatedAt;
+    return canonicalRecordJSON(left)===canonicalRecordJSON(right);
   }
 
   function mediaIdentityKind(item){
@@ -2262,12 +2532,19 @@ function knownSeasonTotal(item){
   }
 
   function deduplicateLibrary(items){
-    const merged=[],removedTitles=[];
+    const merged=[],removedTitles=[],byImdb=new Map(),byMaze=new Map(),byTitle=new Map();
+    const addIndex=(map,key,index)=>{if(!key)return;const values=map.get(key)||new Set();values.add(index);map.set(key,values);};
+    const indexKeys=(item,index)=>{
+      const kind=mediaIdentityKind(item),imdb=String(item?.imdbId||"").trim().toLowerCase(),maze=kind==="series"?String(item?.tvmazeShowId||"").trim():"",title=normalizeTitle(item?.title);
+      addIndex(byImdb,imdb?`${kind}:${imdb}`:"",index);addIndex(byMaze,maze?`${kind}:${maze}`:"",index);addIndex(byTitle,title?`${kind}:${title}`:"",index);
+    };
     for(const raw of (Array.isArray(items)?items:[])){
       if(!raw?.title)continue;
-      const index=merged.findIndex(item=>itemsAreDuplicate(item,raw));
-      if(index<0)merged.push(raw);
-      else{removedTitles.push(raw.title||merged[index].title);merged[index]=mergeDuplicateItems(merged[index],raw);}
+      const kind=mediaIdentityKind(raw),imdb=String(raw.imdbId||"").trim().toLowerCase(),maze=kind==="series"?String(raw.tvmazeShowId||"").trim():"",title=normalizeTitle(raw.title),candidates=new Set();
+      for(const set of [byImdb.get(imdb?`${kind}:${imdb}`:""),byMaze.get(maze?`${kind}:${maze}`:""),byTitle.get(title?`${kind}:${title}`:"")])for(const index of set||[])candidates.add(index);
+      const index=[...candidates].find(candidate=>itemsAreDuplicate(merged[candidate],raw));
+      if(index===undefined){const next=merged.length;merged.push(raw);indexKeys(raw,next);}
+      else{removedTitles.push(raw.title||merged[index].title);merged[index]=mergeDuplicateItems(merged[index],raw);indexKeys(merged[index],index);}
     }
     return{items:merged,removedCount:removedTitles.length,titles:[...new Set(removedTitles.map(String))]};
   }
@@ -2385,19 +2662,6 @@ function duplicateCleanupMessage(cleanup){
     return score;
   }
 
-  function jsonp(url,timeout=7000){
-    return new Promise((resolve,reject)=>{
-      const callback=`watchlog_jsonp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-      const script=document.createElement("script");
-      const cleanup=()=>{try{delete window[callback];}catch(_){window[callback]=undefined;}script.remove();clearTimeout(timer);};
-      const timer=setTimeout(()=>{cleanup();reject(new Error("Catalog search timed out"));},timeout);
-      window[callback]=data=>{cleanup();resolve(data);};
-      script.onerror=()=>{cleanup();reject(new Error("Catalog search failed"));};
-      script.src=`${url}${url.includes("?")?"&":"?"}callback=${encodeURIComponent(callback)}`;
-      document.head.appendChild(script);
-    });
-  }
-
   const titleSearchCache=new Map();
   const titleSearchInFlight=new Map();
   const titleSourceSearchInFlight=new Map();
@@ -2418,56 +2682,89 @@ function duplicateCleanupMessage(cleanup){
     }
     return value;
   }
-  function runSourceTitleSearch(key,task){
-    const running=titleSourceSearchInFlight.get(key);if(running)return running;
-    const request=Promise.resolve().then(task).finally(()=>titleSourceSearchInFlight.delete(key));
-    titleSourceSearchInFlight.set(key,request);return request;
+  function cancelledTitleSearch(){
+    const error=new Error("Search cancelled");error.name="AbortError";error.code="cancelled";return error;
   }
-
-  function searchTVMaze(query){
-    const key=`tvmaze:${normalizeTitle(query)}`;
-    const cached=cacheGetSearch(key);if(cached)return cached;
-    return runSourceTitleSearch(key,async()=>{
-      try{
-        const r=await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`);
-        if(!r.ok)return[];
-        const data=await r.json();
-        return cacheSetSearch(key,(Array.isArray(data)?data:[]).map(x=>{
-          const s=x.show||{};
-          const tvmazeId=String(s.id||""),imdbId=String(s?.externals?.imdb||"");
-          return {source:"tvmaze",externalId:tvmazeId,tvmazeId,imdbId,title:s.name||"",format:"Series",year:s.premiered?.slice(0,4)||"",releaseDate:"",platform:s.network?.name||s.webChannel?.name||"",detail:s.type||"Series",status:s.status||"",updated:Number(s.updated||0)};
-        }).filter(x=>x.title));
-      }catch(e){console.warn("TVMaze search failed",e);return[];}
+  function checkTitleSearchSignal(signal){
+    if(signal?.aborted)throw cancelledTitleSearch();
+  }
+  function runSharedTitleSearch(inFlight,key,task,signal=null,onProgress=null){
+    if(signal?.aborted)return Promise.reject(cancelledTitleSearch());
+    let entry=inFlight.get(key);
+    if(!entry||entry.controller.signal.aborted){
+      entry={controller:new AbortController(),consumers:new Set(),latest:null,promise:null};
+      const current=entry;
+      current.remove=()=>{if(inFlight.get(key)===current)inFlight.delete(key);};
+      const publish=items=>{
+        if(current.controller.signal.aborted||!items.length)return;
+        current.latest=items;
+        for(const consumer of current.consumers)try{consumer.onProgress?.(items);}catch(_){}
+      };
+      current.promise=Promise.resolve().then(()=>{
+        checkTitleSearchSignal(current.controller.signal);
+        return task(current.controller.signal,publish);
+      }).finally(current.remove);
+      inFlight.set(key,current);
+    }
+    const current=entry;
+    return new Promise((resolve,reject)=>{
+      const consumer={onProgress};let settled=false;
+      const finish=(complete,value)=>{
+        if(settled)return;settled=true;
+        signal?.removeEventListener("abort",cancel);current.consumers.delete(consumer);complete(value);
+      };
+      const cancel=()=>{
+        finish(reject,cancelledTitleSearch());
+        if(!current.consumers.size){current.controller.abort();current.remove();}
+      };
+      current.consumers.add(consumer);
+      signal?.addEventListener("abort",cancel,{once:true});
+      current.promise.then(value=>finish(resolve,value),error=>finish(reject,error));
+      if(current.latest)try{onProgress?.(current.latest);}catch(_){}
     });
   }
+  function runSourceTitleSearch(key,task,signal=null){
+    return runSharedTitleSearch(titleSourceSearchInFlight,key,task,signal);
+  }
 
-  function searchAppleMoviesOne(query,country){
+  function searchCatalogBatch(query,country="gb",signal=null){
+    checkTitleSearchSignal(signal);
+    const normalized=normalizeTitle(query),region=String(country||"gb").toLowerCase();
+    const key=`catalog:${region}:${normalized}`;
+    const cached=cacheGetSearch(key);if(cached)return cached;
+    if(normalized.length<2)return[];
+    return runSourceTitleSearch(key,async requestSignal=>{
+      const result=await pinApi("catalog_search",{query:String(query||"").trim(),country:region},cloudSessionToken,"",requestSignal);
+      checkTitleSearchSignal(requestSignal);
+      const rows=Array.isArray(result?.results)?result.results:[];
+      return cacheSetSearch(key,rows,rows.length?TITLE_SEARCH_CACHE_TTL_MS:TITLE_SEARCH_EMPTY_TTL_MS);
+    },signal);
+  }
+
+  function searchTVMaze(query,signal=null){
+    checkTitleSearchSignal(signal);
+    const key=`tvmaze:${normalizeTitle(query)}`;
+    const cached=cacheGetSearch(key);if(cached)return cached;
+    return runSourceTitleSearch(key,async requestSignal=>{
+      const rows=await searchCatalogBatch(query,"gb",requestSignal);
+      checkTitleSearchSignal(requestSignal);
+      const matches=(Array.isArray(rows)?rows:[]).filter(item=>item?.source==="tvmaze"&&item.title);
+      return cacheSetSearch(key,matches,matches.length?TITLE_SEARCH_CACHE_TTL_MS:TITLE_SEARCH_EMPTY_TTL_MS);
+    },signal);
+  }
+
+  function searchAppleMoviesOne(query,country,signal=null){
+    checkTitleSearchSignal(signal);
     const normalized=normalizeTitle(query);
     const key=`apple:${country}:${normalized}`;
     const cached=cacheGetSearch(key);if(cached)return cached;
     if(normalized.length<2)return[];
-    return runSourceTitleSearch(key,async()=>{
-      try{
-        /* Deliberately omit attribute=movieTerm. The broader movie search returns
-           title, cast and franchise matches instead of over-restricting partial
-           queries such as "the mandalorian". */
-        const url=`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&country=${encodeURIComponent(country)}&media=movie&entity=movie&limit=100&lang=en_us&explicit=Yes`;
-        const data=await jsonp(url);
-        const rows=(Array.isArray(data?.results)?data.results:[]).map(x=>({
-          source:"apple",
-          externalId:String(x.trackId||x.collectionId||""),
-          title:x.trackName||x.collectionName||"",
-          format:"Film",
-          year:x.releaseDate?String(new Date(x.releaseDate).getFullYear()):"",
-          releaseDate:x.releaseDate?String(x.releaseDate).slice(0,10):"",
-          platform:"",
-          detail:x.primaryGenreName||"Film",
-          country:country.toUpperCase(),
-          storeUrl:x.trackViewUrl||x.collectionViewUrl||""
-        })).filter(x=>x.title);
-        return cacheSetSearch(key,rows);
-      }catch(e){console.warn(`Apple movie search failed (${country})`,e);return[];}
-    });
+    return runSourceTitleSearch(key,async requestSignal=>{
+      const rows=await searchCatalogBatch(query,country,requestSignal);
+      checkTitleSearchSignal(requestSignal);
+      const matches=(Array.isArray(rows)?rows:[]).filter(item=>item?.source==="apple"&&item.title);
+      return cacheSetSearch(key,matches,matches.length?TITLE_SEARCH_CACHE_TTL_MS:TITLE_SEARCH_EMPTY_TTL_MS);
+    },signal);
   }
 
   function correctedCatalogueQuery(query){
@@ -2513,101 +2810,35 @@ function duplicateCleanupMessage(cleanup){
   async function searchAppleMovies(query){
     const variants=movieQueryVariants(query);
     const exact=variants[0]||query,merged=[];
-    const first=await Promise.allSettled([searchAppleMoviesOne(exact,"gb"),searchAppleMoviesOne(exact,"us")]);
-    merged.push(...first.flatMap(r=>r.status==="fulfilled"?r.value:[]));
+    merged.push(...await searchAppleMoviesOne(exact,"gb"));
     if(hasStrongMovieMatch(merged,query))return merged;
-    const expanded=await Promise.allSettled(variants.slice(1,4).flatMap(variant=>[
-      searchAppleMoviesOne(variant,"gb"),searchAppleMoviesOne(variant,"us")
-    ]));
+    const expanded=await Promise.allSettled([
+      searchAppleMoviesOne(exact,"us"),
+      ...(variants[1]?[searchAppleMoviesOne(variants[1],"gb")]:[])
+    ]);
     merged.push(...expanded.flatMap(r=>r.status==="fulfilled"?r.value:[]));
     return merged;
   }
 
-  function imdbResultToSuggestion(x){
-    const id=String(x?.id||"");
-    if(!id.startsWith("tt"))return null;
-    const kind=String(x?.qid||x?.q||"").toLowerCase();
-    let format="";
-    if(/tvseries|tvminiseries|series|mini-series|television series|tv series/.test(kind))format="Series";
-    else if(/movie|feature|film|tvmovie|tv movie/.test(kind))format="Film";
-    else if(/video game|videogame|game/.test(kind))format="Game";
-    else {
-      /* Older JSONP responses often omit q/qid. When the title suggestion has
-         an IMDb tt id, retain it rather than throwing away a potentially valid
-         film result. IMDb detail labels can be sparse for new releases. */
-      format="Film";
-    }
-    return {
-      source:"imdb",
-      externalId:id,
-      imdbId:id,
-      title:String(x?.l||x?.title||""),
-      format,
-      year:Number.isFinite(Number(x?.y))?String(x.y):"",
-      releaseDate:"",
-      platform:"",
-      detail:String(x?.q||x?.qid||format).replace(/_/g," ")||format
-    };
-  }
-
-  function imdbJsonp(query,timeout=6500){
-    return new Promise((resolve,reject)=>{
-      /* IMDb's browser suggestion endpoint is JSONP and names the callback
-         imdb$<searchphrase>. Spaces are represented as underscores. */
-      const slug=normalizeTitle(query).replace(/\s+/g,"_");
-      if(!slug)return resolve({d:[]});
-      const bucket=(slug.match(/[a-z0-9]/)||["x"])[0];
-      const callback=`imdb$${slug}`;
-      const script=document.createElement("script");
-      let settled=false;
-      const old=window[callback];
-      const cleanup=()=>{
-        clearTimeout(timer);
-        script.remove();
-        if(old===undefined){try{delete window[callback];}catch(_){window[callback]=undefined;}}
-        else window[callback]=old;
-      };
-      const finish=(ok,value)=>{if(settled)return;settled=true;cleanup();ok?resolve(value):reject(value);};
-      const timer=setTimeout(()=>finish(false,new Error("IMDb suggestion timed out")),timeout);
-      window[callback]=data=>finish(true,data);
-      script.onerror=()=>finish(false,new Error("IMDb suggestion failed"));
-      script.src=`https://sg.media-imdb.com/suggests/${encodeURIComponent(bucket)}/${encodeURIComponent(slug)}.json`;
-      document.head.appendChild(script);
-    });
-  }
-
-  function searchIMDbOne(query){
+  function searchIMDbOne(query,signal=null){
+    checkTitleSearchSignal(signal);
     const normalized=normalizeTitle(query);
     const key=`imdb:${normalized}`;
     const cached=cacheGetSearch(key);if(cached)return cached;
     if(normalized.length<2)return[];
-    return runSourceTitleSearch(key,async()=>{
-      /* First use IMDb's JSONP endpoint, which works from a static GitHub Pages
-         app. The newer clean JSON endpoint is not CORS-enabled in browsers. */
-      try{
-        const data=await imdbJsonp(query);
-        const rows=(Array.isArray(data?.d)?data.d:[]).map(imdbResultToSuggestion).filter(x=>x?.title);
-        if(rows.length)return cacheSetSearch(key,rows);
-      }catch(e){console.warn("IMDb JSONP search failed",e);}
-
-      /* Best-effort fallback for browsers where IMDb happens to permit CORS. */
-      try{
-        const cleaned=String(query||"").trim().toLowerCase();
-        const url=`https://v3.sg.media-imdb.com/suggestion/titles/x/${encodeURIComponent(cleaned)}.json`;
-        const r=await fetch(url,{mode:"cors",credentials:"omit",cache:"no-store"});
-        if(!r.ok)return[];
-        const data=await r.json();
-        const rows=(Array.isArray(data?.d)?data.d:[]).map(imdbResultToSuggestion).filter(x=>x?.title);
-        return cacheSetSearch(key,rows);
-      }catch(e){console.warn("IMDb JSON fallback failed",e);return[];}
-    });
+    return runSourceTitleSearch(key,async requestSignal=>{
+      const rows=await searchCatalogBatch(query,"gb",requestSignal);
+      checkTitleSearchSignal(requestSignal);
+      const matches=(Array.isArray(rows)?rows:[]).filter(item=>item?.source==="imdb"&&item.title);
+      return cacheSetSearch(key,matches,matches.length?TITLE_SEARCH_CACHE_TTL_MS:TITLE_SEARCH_EMPTY_TTL_MS);
+    },signal);
   }
 
   async function searchIMDbTitles(query){
     const variants=movieQueryVariants(query);
     const first=await searchIMDbOne(variants[0]||query);
     if(hasStrongMovieMatch(first,query))return first;
-    const searches=await Promise.allSettled(variants.slice(1,5).map(searchIMDbOne));
+    const searches=await Promise.allSettled(variants.slice(1,2).map(variant=>searchIMDbOne(variant)));
     return first.concat(searches.flatMap(r=>r.status==="fulfilled"?r.value:[]));
   }
   function bestIMDbSeriesMatch(rows,title,{imdbId="",year=""}={}){
@@ -2931,31 +3162,9 @@ function duplicateCleanupMessage(cleanup){
   }
 
   function balancedSuggestions(items,limit=60){
-    const films=items.filter(x=>x.format==="Film");
-    const series=items.filter(x=>x.format==="Series");
-    const other=items.filter(x=>x.format!=="Film"&&x.format!=="Series");
-    const out=[];
-    let fi=0,si=0,oi=0;
-    let seriesFirst=items[0]?.format==="Series";
-
-    /* Keep both formats visible, but start with the highest-scoring exact
-       result. This prevents a weak movie match being forced above the real
-       series simply because the old interleaver always started with films. */
-    while(out.length<limit&&(fi<films.length||si<series.length||oi<other.length)){
-      if(seriesFirst){
-        if(si<series.length)out.push(series[si++]);
-        if(out.length>=limit)break;
-        if(fi<films.length)out.push(films[fi++]);
-      }else{
-        if(fi<films.length)out.push(films[fi++]);
-        if(out.length>=limit)break;
-        if(si<series.length)out.push(series[si++]);
-      }
-      if(out.length>=limit)break;
-      seriesFirst=!seriesFirst;
-      if(oi<other.length&&out.length<limit)out.push(other[oi++]);
-    }
-    return out.slice(0,limit);
+    /* Relevance is the primary contract. Source diversity is already supplied
+       by the gateway, so never promote a weaker format above a stronger match. */
+    return (Array.isArray(items)?items:[]).slice(0,limit);
   }
 
   function dedupeAndRankSuggestions(results,query){
@@ -3022,69 +3231,43 @@ function duplicateCleanupMessage(cleanup){
     return (exact&&first.score>=1400)||(crossChecked&&first.score>=1250)||(items.length>=10&&first.score>=1100);
   }
 
-  async function searchAllTitles(query,{onProgress=null}={}){
+  async function searchAllTitles(query,{onProgress=null,signal=null}={}){
+    checkTitleSearchSignal(signal);
     const searchKey=`all:${normalizeTitle(query)}`;
     const cached=cacheGetSearch(searchKey);if(cached)return cached;
-    const running=titleSearchInFlight.get(searchKey);
-    if(running){
-      if(typeof onProgress==="function"){
-        running.listeners.add(onProgress);
-        if(running.latest)try{onProgress(running.latest);}catch(_){}
-      }
-      return running.promise;
-    }
-    const entry={promise:null,listeners:new Set(),latest:null};
-    if(typeof onProgress==="function")entry.listeners.add(onProgress);
-    const publishProgress=items=>{
-      if(!items.length)return;
-      entry.latest=items;
-      for(const listener of entry.listeners)try{listener(items);}catch(_){}
-    };
-
-    const task=(async()=>{
+    if(normalizeTitle(query).length<2)return[];
+    return runSharedTitleSearch(titleSearchInFlight,searchKey,async(requestSignal,publishProgress)=>{
       const corrected=correctedCatalogueQuery(query);
       const q=corrected||query;
 
-      /* Fast pass: query the exact phrase across all catalogues in parallel.
-         This cuts the common path from many expanded requests to four while
-         preserving independent film and series sources. */
-      const primaryRows=[];
-      const primaryCalls=[
-        searchIMDbOne(q),
-        searchAppleMoviesOne(q,"gb"),
-        searchAppleMoviesOne(q,"us"),
-        searchTVMaze(q)
-      ].map(call=>Promise.resolve(call).then(rows=>{
-        if(Array.isArray(rows)&&rows.length){
-          primaryRows.push(rows);
-          publishProgress(dedupeAndRankSuggestions(primaryRows,q));
-        }
-        return rows;
-      }));
-      const primary=await Promise.allSettled(primaryCalls);
-      let merged=primary.flatMap(r=>r.status==="fulfilled"?r.value:[]);
+      /* One owned Edge Function request fans out to the three catalogues,
+         deduplicates identical browser calls, and never executes third-party
+         JavaScript inside this page. */
+      let merged=await searchCatalogBatch(q,"gb",requestSignal);
+      checkTitleSearchSignal(requestSignal);
       let ranked=dedupeAndRankSuggestions(merged,q);
+      publishProgress(ranked);
       /* A newer keystroke makes expensive spelling/franchise expansion stale.
          Source results remain cached for reuse, but no more requests are sent. */
       if(searchKey!==activeTitleSearchKey)return ranked;
       if(isStrongCataloguePass(ranked,q))return cacheSetSearch(searchKey,ranked);
 
-      /* Only weak or sparse results pay for spelling/franchise expansion. */
-      const variants=movieQueryVariants(q).filter(value=>normalizeTitle(value)!==normalizeTitle(q)).slice(0,3);
-      const expandedCalls=variants.flatMap(value=>[
-        searchIMDbOne(value),searchAppleMoviesOne(value,"gb"),searchAppleMoviesOne(value,"us")
-      ]);
-      if(corrected&&normalizeTitle(query)!==corrected)expandedCalls.push(
-        searchIMDbOne(query),searchAppleMoviesOne(query,"gb"),searchAppleMoviesOne(query,"us"),searchTVMaze(query)
-      );
+      /* Only weak results make at most two more gateway calls: one alternate
+         spelling/franchise phrase and the secondary film region. */
+      const variants=movieQueryVariants(q).filter(value=>normalizeTitle(value)!==normalizeTitle(q));
+      const alternate=(corrected&&normalizeTitle(query)!==corrected)?query:variants[0];
+      const expandedCalls=[searchCatalogBatch(q,"us",requestSignal)];
+      if(alternate)expandedCalls.push(searchCatalogBatch(alternate,"gb",requestSignal));
       const expanded=await Promise.allSettled(expandedCalls);
+      checkTitleSearchSignal(requestSignal);
       merged=merged.concat(expanded.flatMap(r=>r.status==="fulfilled"?r.value:[]));
 
       ranked=dedupeAndRankSuggestions(merged,q);
+      /* A failed region may contain the missing match. Keep available results
+         visible, but let the next attempt retry that region. */
+      if(expanded.some(result=>result.status==="rejected"))return ranked;
       return cacheSetSearch(searchKey,ranked,ranked.length?TITLE_SEARCH_CACHE_TTL_MS:TITLE_SEARCH_EMPTY_TTL_MS);
-    })().finally(()=>{if(titleSearchInFlight.get(searchKey)===entry)titleSearchInFlight.delete(searchKey);});
-    entry.promise=task;titleSearchInFlight.set(searchKey,entry);
-    return task;
+    },signal,onProgress);
   }
 
   function renderSuggestions(items){
@@ -3123,7 +3306,7 @@ function duplicateCleanupMessage(cleanup){
 
   async function selectSuggestion(item){
     if(!item)return;
-    clearTimeout(searchTimer);const selectionRequestId=++searchRequestId,selectionApplyRevision=++editorApplyRevision;activeTitleSearchKey="";
+    clearTimeout(searchTimer);activeCatalogueController?.abort();activeCatalogueController=null;const selectionRequestId=++searchRequestId,selectionApplyRevision=++editorApplyRevision;activeTitleSearchKey="";
     editorVerification=null;editorVerificationInFlight=null;titleSuggestionsWanted=false;cancelSuggestionProgress();
     titleInput.value=item.title;suggestList.classList.add("hidden");$("platform").value=item.platform||"";$("tvmaze-id").value="";
     const shouldApply=()=>selectionRequestId===searchRequestId&&selectionApplyRevision===editorApplyRevision&&titleInput.value===item.title&&!modal.classList.contains("hidden");
@@ -3148,7 +3331,7 @@ function duplicateCleanupMessage(cleanup){
   });
 
   titleInput.addEventListener("input",()=>{
-    clearTimeout(searchTimer);cancelSuggestionProgress();
+    clearTimeout(searchTimer);cancelSuggestionProgress();activeCatalogueController?.abort();activeCatalogueController=null;
     editorVerification=null;editorVerificationInFlight=null;hideDuplicateWarning();
     $("tvmaze-id").value="";$("imdb-id").value="";$("release-year").value="";
     const requestId=++searchRequestId;
@@ -3165,22 +3348,25 @@ function duplicateCleanupMessage(cleanup){
       suggestList.classList.remove("hidden");
     }
     searchTimer=setTimeout(async()=>{
+      if(!suggestionRequestActive(requestId,q))return;
+      const controller=new AbortController();activeCatalogueController=controller;
       try{
         const items=await searchAllTitles(q,{onProgress:partial=>{
           if(suggestionRequestActive(requestId,q))scheduleSuggestionProgress(partial,requestId,q);
-        }});
+        },signal:controller.signal});
         cancelSuggestionProgress();
         if(!suggestionRequestActive(requestId,q))return;
         renderSuggestions(items);
       }catch(e){
+        if(controller.signal.aborted||e?.code==="cancelled")return;
         console.warn(e);cancelSuggestionProgress();
         if(suggestionRequestActive(requestId,q))suggestList.classList.add("hidden");
-      }
-    },180);
+      }finally{if(activeCatalogueController===controller)activeCatalogueController=null;}
+    },280);
   });
-  document.addEventListener("click",e=>{if(!titleInput.contains(e.target)&&!suggestList.contains(e.target)){titleSuggestionsWanted=false;cancelSuggestionProgress();suggestList.classList.add("hidden");}});
+  document.addEventListener("click",e=>{if(!titleInput.contains(e.target)&&!suggestList.contains(e.target)){clearTimeout(searchTimer);titleSuggestionsWanted=false;activeTitleSearchKey="";activeCatalogueController?.abort();activeCatalogueController=null;cancelSuggestionProgress();suggestList.classList.add("hidden");}});
   typeSelect.onchange=()=>{
-    searchRequestId++;activeTitleSearchKey="";titleSuggestionsWanted=false;cancelSuggestionProgress();editorVerification=null;editorVerificationInFlight=null;hideDuplicateWarning();
+    clearTimeout(searchTimer);searchRequestId++;activeTitleSearchKey="";titleSuggestionsWanted=false;activeCatalogueController?.abort();activeCatalogueController=null;cancelSuggestionProgress();editorVerification=null;editorVerificationInFlight=null;hideDuplicateWarning();
     const film=typeSelect.value==="Film";
     seriesSection.style.display=film?"none":"flex";
     upcomingSection.style.display=film?"none":"flex";
@@ -3206,7 +3392,7 @@ function duplicateCleanupMessage(cleanup){
   }
 
   function openAdd(){
-    clearTimeout(searchTimer);cancelSuggestionProgress();searchRequestId++;editorApplyRevision++;activeTitleSearchKey="";titleSuggestionsWanted=false;editorVerification=null;editorVerificationInFlight=null;hideDuplicateWarning();
+    clearTimeout(searchTimer);cancelSuggestionProgress();activeCatalogueController?.abort();activeCatalogueController=null;searchRequestId++;editorApplyRevision++;activeTitleSearchKey="";titleSuggestionsWanted=false;editorVerification=null;editorVerificationInFlight=null;hideDuplicateWarning();
     mediaForm.reset();
     $("item-id").value="";$("tvmaze-id").value="";$("imdb-id").value="";$("release-year").value="";filmReleaseSource.value="";
     clearAiringFields();configureProgressOptions({highest:null,episodeCounts:{},latestAired:null});
@@ -3218,7 +3404,7 @@ function duplicateCleanupMessage(cleanup){
 
   async function openEdit(id){
     const item=mediaItems.find(x=>String(x.id)===String(id));if(!item)return;
-    clearTimeout(searchTimer);cancelSuggestionProgress();const editRequestId=++searchRequestId,editApplyRevision=++editorApplyRevision;activeTitleSearchKey="";titleSuggestionsWanted=false;editorVerification=null;editorVerificationInFlight=null;hideDuplicateWarning();
+    clearTimeout(searchTimer);activeCatalogueController?.abort();activeCatalogueController=null;cancelSuggestionProgress();const editRequestId=++searchRequestId,editApplyRevision=++editorApplyRevision;activeTitleSearchKey="";titleSuggestionsWanted=false;editorVerification=null;editorVerificationInFlight=null;hideDuplicateWarning();
     const shouldApply=()=>editRequestId===searchRequestId&&editApplyRevision===editorApplyRevision&&String($("item-id").value)===String(item.id)&&!modal.classList.contains("hidden");
     $("item-id").value=item.id;$("tvmaze-id").value=item.tvmazeShowId||"";$("imdb-id").value=item.imdbId||"";$("release-year").value=item.releaseYear||"";
     $("title").value=item.title||"";$("type").value=item.type||"Series";$("status").value=item.status==="Saved"?"Planned":(item.status||"Planned");
@@ -3229,6 +3415,9 @@ function duplicateCleanupMessage(cleanup){
     loadStoredAiringFields(item);
     const film=item.type==="Film";seriesSection.style.display=film?"none":"flex";upcomingSection.style.display=film?"none":"flex";filmSection.style.display=film?"flex":"none";if(film)clearAiringFields();
     $("modal-title").textContent="Edit Title";deleteBtn.classList.remove("hidden");modal.classList.remove("hidden");
+    const metadataAge=Date.now()-toMillis(item.metadataUpdatedAt);
+    const metadataFresh=toMillis(item.metadataUpdatedAt)>0&&metadataAge<SERIES_METADATA_STALE_MS;
+    if((film&&(item.filmReleaseSource==="Manual"||metadataFresh))||(!film&&(item.tvmazeShowId||item.imdbId)&&!seriesMetadataRefreshCandidate(item,Date.now(),{ignoreRetry:true})))return;
     if(film){
       try{await fillFilmReleaseData(item.title,{imdbId:item.imdbId||"",seedDate:item.filmReleaseDate||"",seedSource:item.filmReleaseSource||"",preserveManual:item.filmReleaseSource==="Manual",year:item.releaseYear||"",platform:item.platform||"",shouldApply});}
       catch(e){console.warn("Film release re-check failed",e);}
@@ -3240,7 +3429,7 @@ function duplicateCleanupMessage(cleanup){
     }
   }
   function closeEditor(){
-    hideDuplicateWarning();clearTimeout(searchTimer);cancelSuggestionProgress();searchRequestId++;
+    hideDuplicateWarning();clearTimeout(searchTimer);activeCatalogueController?.abort();activeCatalogueController=null;cancelSuggestionProgress();searchRequestId++;
     editorApplyRevision++;editorVerificationInFlight=null;titleSuggestionsWanted=false;
     activeTitleSearchKey="";suggestList.classList.add("hidden");modal.classList.add("hidden");
   }
@@ -3265,8 +3454,11 @@ function duplicateCleanupMessage(cleanup){
       const episodeCounts=type==="Film"?{}:(verified?.episodeCounts||previous?.episodeCounts||{});
       const airedEpisodeCounts=type==="Film"?{}:(verified?.airedEpisodeCounts||previous?.airedEpisodeCounts||episodeCountsForForm||{});
       const curSeason=type==="Film"?null:numOrNull("cur-season");
+      const status=$("status").value;
+      const watchedDate=status==="Watched"&&previous?.status!=="Watched"?localISODate():(previous?.date||localISODate());
       let item={
-        id,title,type,status:$("status").value,tvmazeShowId:type==="Film"?"":(sid||""),imdbId:$("imdb-id").value||requestedImdbId,releaseYear,
+        ...previous,
+        id,title,type,status,tvmazeShowId:type==="Film"?"":(sid||""),imdbId:$("imdb-id").value||requestedImdbId,releaseYear,
         totalSeasons:total,watchedSeasons:type==="Film"?null:numOrNull("watched-seasons"),curSeason,curEp:type==="Film"?null:numOrNull("cur-ep"),
         currentSeasonEpisodeCount:type==="Film"?null:Number(airedEpisodeCounts?.[curSeason]||0)||null,currentSeasonTotalEpisodes:type==="Film"?null:Number(episodeCounts?.[curSeason]||0)||null,episodeCounts:type==="Film"?{}:episodeCounts,airedEpisodeCounts:type==="Film"?{}:airedEpisodeCounts,
         episodeScheduleVerified:type==="Film"?false:(verified?.episodeScheduleAvailable===true||previous?.episodeScheduleVerified===true),
@@ -3278,12 +3470,8 @@ function duplicateCleanupMessage(cleanup){
         verifiedCompletedSeasons:type==="Film"?null:(Number.isFinite(Number(verified?.completedSeasons))?Number(verified.completedSeasons):Number(previous?.verifiedCompletedSeasons||0)),
         episodeHistory:type==="Film"?[]:episodeHistory,...(type==="Film"?{watchedEpisodes:{}}:(Object.prototype.hasOwnProperty.call(previous||{},"watchedEpisodes")?{watchedEpisodes:normalizeWatchedEpisodeMap(previous.watchedEpisodes,airedEpisodeCounts)}:{})),lastEpisodeWatchedAt:type==="Film"?"":(previous?.lastEpisodeWatchedAt||""),
         lastWatchedSeason:type==="Film"?null:(previous?.lastWatchedSeason??null),lastWatchedEpisode:type==="Film"?null:(previous?.lastWatchedEpisode??null),
-        platform,date:localISODate(),createdAt:previous?.createdAt||nowISO(),updatedAt:nowISO()
+        platform,date:watchedDate,createdAt:previous?.createdAt||nowISO(),updatedAt:previous?.updatedAt||nowISO()
       };
-      if(previous?.autoPlanned&&item.status==="Planned"){
-        item.autoPlanned=true;item.statusBeforeUpcoming=previous.statusBeforeUpcoming||"Planned";
-      }
-      if(upcomingSortInfo(item).rank>0&&item.status!=="Planned")item.upcomingStatusOverride=true;
       item=migratePlannedStatuses([item]).rows[0];
       const duplicate=findTrackedDuplicate(item,mediaItems,id);
       if(duplicate){
@@ -3292,10 +3480,13 @@ function duplicateCleanupMessage(cleanup){
       }
       const sameTitleSeries=mediaItems.find(x=>String(x.id)!==String(id)&&x.type!=="Film"&&normalizeTitle(x.title)===normalizeTitle(title));
       if(isWeakFilmRecord(item)&&sameTitleSeries)throw new Error(`“${title}” is already saved as a verified series. Choose a verified film result with a year or release date if you mean a separate film.`);
+      if(previous&&sameRecordWithoutUpdateTime(item,previous)){
+        closeEditor();showAppToast("No changes to save.","success");return;
+      }
+      item={...item,updatedAt:nowISO()};
       const idx=mediaItems.findIndex(x=>String(x.id)===String(id));if(idx>=0)mediaItems[idx]=item;else mediaItems.unshift(item);
-      /* The user's edit is committed to the interface immediately. IndexedDB
-         and Supabase save in parallel; any metadata re-check happens after the
-         editor closes and never blocks the Save button. */
+      /* Display the edit immediately, save it on this device, then sync it.
+         Metadata checks run after the editor closes. */
       render();closeEditor();
       void persistLibrary(mediaItems,{background:true,precleaned:true});
       if(!recentVerification)void scheduleMetadataRefresh(item,{verificationPromise:pendingVerification});

@@ -8,11 +8,12 @@ Watched Logger is an installable web app for tracking films and television episo
 | --- | --- |
 | `index.html` | The complete website interface and browser-side app logic. GitHub Pages requires this conventional entry-point name. |
 | `manifest.webmanifest` | Installation details used when the site is added to a phone or computer as an app. |
-| `sw.js` | The service worker that receives and displays episode-release notifications. Its short conventional name is referenced by the app. |
-| `.github/workflows/pages.yml` | Publishes the website to GitHub Pages using Node.js 24-compatible GitHub Actions. |
-| `supabase/functions/watchlog-pin/` | Handles secure PIN access, library syncing, and maintenance-mode checks. The directory name is also the function's public endpoint name. |
+| `sw.js` | The service worker that receives episode-release notifications and opens notification links only inside Watched Logger. Its short conventional name is referenced by the app. |
+| `.github/workflows/pages.yml` | Stages the three runtime website files and publishes only those files to GitHub Pages with the Node.js 24-compatible checkout, Pages, artifact, and deploy actions. |
+| `supabase/functions/watchlog-pin/` | Handles secure PIN access, revision-checked syncing, maintenance enforcement, and the safe title-search gateway. The directory name is also the function's public endpoint name. |
 | `supabase/functions/watchlog-reminders/` | Stores notification subscriptions and sends scheduled episode reminders. The directory name is also the function's public endpoint name. |
-| `supabase/migrations/` | Records database changes needed to reproduce the backend safely, including maintenance-mode support. |
+| `supabase/migrations/` | Reproduces the private PIN backend and records maintenance, atomic lockout, and conflict-safe sync changes. |
+| `tests/` | Checks sorting, search, saving, and the files published to the site. |
 
 ## Repository layout
 
@@ -28,14 +29,21 @@ Watched-Tracker/
 │   │   └── watchlog-reminders/
 │   │       └── index.ts
 │   └── migrations/
-│       └── 20260903_add_watchlog_maintenance_mode.sql
+│       ├── 20260903_add_watchlog_maintenance_mode.sql
+│       ├── 20260904000100_create_pin_backend.sql
+│       └── 20260904000200_harden_watchlog_sync.sql
 ├── index.html
 ├── manifest.webmanifest
-└── sw.js
+├── sw.js
+└── tests/
 ```
 
 Every tracked file is part of the running app, its deployment, or the reproducible backend. There are no generated build folders, dependency folders, or obsolete duplicate files committed to the repository.
 
 ## Deployment
 
-Changes pushed to `main` are automatically deployed to GitHub Pages. The Supabase functions and migrations are backend components and are deployed through Supabase separately.
+Changes pushed to `main` are automatically deployed to GitHub Pages. During deployment, the workflow creates a temporary `_site` directory containing only `index.html`, `manifest.webmanifest`, and `sw.js`; repository documentation, workflow configuration, and Supabase source files are not included in the website artifact.
+
+The Supabase functions and migrations are backend components and are deployed through Supabase separately. They are never part of the GitHub Pages upload.
+
+Run the application checks with `node --test tests/*.test.mjs`. The deployment workflow runs these checks before publishing.
