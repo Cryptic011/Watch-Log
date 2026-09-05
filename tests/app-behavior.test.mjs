@@ -75,6 +75,19 @@ test("Current ordering is chronological and keeps TBA below genuinely current ti
   assert.deepEqual(timeline.map(item => item.title), ["Today", "Yesterday", "Upcoming", "Older", "Renewed"]);
 });
 
+test("Current airing shows use next release, independent of status and watched date", () => {
+  const api=loadFunctions(["isEpisodeTrackable","currentSortInfo","compareCurrentOrder"], "const titleCollator=new Intl.Collator('en-GB');");
+  const now=new Date("2026-09-05T17:22:00+01:00").getTime();
+  const reacher={title:"Reacher",type:"Series",latestEpisodeDate:"2026-09-02T13:00",nextEpisodeDate:"2026-09-09T13:00",nextEpisodeNum:7,date:"2026-09-04"};
+  const lioness={title:"Lioness",type:"Series",latestEpisodeDate:"2026-08-30T13:00",nextEpisodeDate:"2026-09-06T13:00",nextEpisodeNum:6,date:"2026-08-30"};
+  const premiere={title:"Premiere",type:"Series",nextSeasonDate:"2026-09-26T02:00"};
+  for(const status of ["Planned","Watching","Watched"]){
+    const rows=[{...reacher,status},{...lioness,status},premiere].sort((a,b)=>api.compareCurrentOrder(a,b,now));
+    assert.deepEqual(rows.map(row=>row.title),["Lioness","Reacher","Premiere"]);
+  }
+  assert.equal(api.currentSortInfo({...lioness,nextEpisodeDate:"2026-09-04T13:00"},now).kind,"aired");
+});
+
 test("Date-only releases remain upcoming all day and never become midnight", () => {
   const api = loadFunctions(["upcomingSortInfo", "dateOnlyInput"]);
   const item = { type: "Series", nextSeasonNum: 3, nextSeasonDate: api.dateOnlyInput("2026-09-02") };

@@ -1337,6 +1337,13 @@
       const nextSeason=eventInfo(item.nextSeasonDate);
       const latestEpisodeAired=latestEpisode.time>0&&(latestEpisode.dateOnly?latestEpisode.dayStart<=now:latestEpisode.time<=now);
 
+      // An active episode run is ordered by the NEXT release, not the last
+      // episode watched or aired. Keep season premieres in the upcoming group.
+      const nextEpisodePending=nextEpisode.time>0&&(nextEpisode.dateOnly?nextEpisode.validThrough>=now:nextEpisode.time>now);
+      if(latestEpisodeAired&&now-latestEpisode.dayStart<=14*day&&nextEpisodePending&&Number(item.nextEpisodeNum)>1){
+        return{current:true,phase:4,time:nextEpisode.time,kind:"airing"};
+      }
+
       // Current is an airing timeline, never a status/added-date sort.
       // Episodes that have just aired are first, newest release first.
       if(latestEpisodeAired&&now-latestEpisode.dayStart<=14*day){
@@ -1371,6 +1378,7 @@
   function compareCurrentOrder(a,b,now=Date.now()){
     const ai=currentSortInfo(a,now),bi=currentSortInfo(b,now);
     if(ai.phase!==bi.phase)return bi.phase-ai.phase;
+    if(ai.phase===4&&ai.time!==bi.time)return ai.time-bi.time;
     if(ai.phase===3&&ai.time!==bi.time)return bi.time-ai.time;
     if(ai.phase===2&&ai.time!==bi.time)return ai.time-bi.time;
     if(ai.phase===1&&ai.time!==bi.time)return bi.time-ai.time;
